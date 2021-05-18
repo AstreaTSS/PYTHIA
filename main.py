@@ -19,7 +19,7 @@ load_dotenv()
 
 def investigator_prefixes(bot: commands.Bot, msg: discord.Message):
     mention_prefixes = [f"{bot.user.mention} ", f"<@!{bot.user.id}> "]
-    custom_prefixes = ["u!"]
+    custom_prefixes = ["v!"]
 
     return mention_prefixes + custom_prefixes
 

@@ -44,13 +44,15 @@ class NormCMDs(commands.Cog, name="Normal"):
         msg_list = [
             "Hi! I'm the Ultimate Investigator, a bot meant to help out with investigations with Danganronpa RPs.",
             "Niche, I know, but it was a demand, as otherwise, you would have to do it all manually.",
+            "",
             "This bot was originally a series of custom commands in YAGPDB, but soon the commands grew too complex for it.",
             "Still would recommend YAG, though. Just don't squeeze it to its limits.",
+            "",
             (
                 "Also, in case you were wondering, the reason why I don't just use the Ultimate Assistant is because most people, "
                 + "quite frankly, don't need everything the Ultimate Assistant has. It's also rather bloated and cumbersome, in my opinion."
             ),
-            "Made by Sonic49#7171.",
+            "" "Made by Sonic49#7171.",
             "",
             "If you wish to invite me, contact Sonic49 and he'll talk to you about it.",
             "If you need support for me, maybe take a look at the support server here:\nhttps://discord.gg/NSdetwGjpK",
