@@ -58,7 +58,7 @@ class NormCMDs(commands.Cog, name="Normal"):
 
         about_embed = discord.Embed(
             title="About",
-            colour=discord.Colour(0x4378FC),
+            colour=discord.Colour(14232643),
             description="\n".join(msg_list),
         )
         about_embed.set_author(
