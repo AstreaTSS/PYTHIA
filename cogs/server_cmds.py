@@ -94,7 +94,7 @@ class ServerCMDs(commands.Cog, name="Server"):
         if isinstance(role, discord.Role):
             await ctx.reply(
                 f"Best Detective role set to {role.mention}!",
-                allowed_mentions=discord.AllowedMentions.none(),
+                allowed_mentions=utils.deny_mentions(ctx.author),
             )
         else:
             await ctx.reply("Best Detective role unset!")
@@ -113,7 +113,7 @@ class ServerCMDs(commands.Cog, name="Server"):
 
         await ctx.reply(
             f"Player role set to {role.mention}!",
-            allowed_mentions=discord.AllowedMentions.none(),
+            allowed_mentions=utils.deny_mentions(ctx.author),
         )
 
     def enable_check(self, config: models.Config):
