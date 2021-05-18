@@ -48,7 +48,7 @@ class Pages:
         if left_over:
             pages += 1
         self.maximum_pages = pages
-        self.embed = discord.Embed(colour=discord.Colour(0x4378FC))
+        self.embed = discord.Embed(colour=discord.Colour(14232643))
         self.paginating = len(entries) > per_page
         self.show_entry_count = show_entry_count
         self.reaction_emojis = [
