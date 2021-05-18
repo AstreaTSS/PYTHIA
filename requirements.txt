@@ -1,8 +1,8 @@
-aiosqlite
+aiosqlite==0.16.1
 tortoise-orm
 discord.py
 jishaku
 discord-py-slash-command
 humanize
 websockets
-flask
+python-dotenv

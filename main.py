@@ -5,12 +5,16 @@ import os
 import discord
 import discord_slash
 from discord.ext import commands
+from dotenv import load_dotenv
 from tortoise import Tortoise
 from websockets import ConnectionClosedOK
 
 import common.utils as utils
 from common.help_cmd import PaginatedHelpCommand
-from keep_alive import keep_alive
+
+# from keep_alive import keep_alive
+
+load_dotenv()
 
 
 def investigator_prefixes(bot: commands.Bot, msg: discord.Message):
@@ -131,7 +135,7 @@ bot = UltimateInvestigator(
 )
 slash = discord_slash.SlashCommand(bot, override_type=True)
 
-keep_alive()
+# keep_alive()
 bot.init_load = True
 bot.loop.create_task(on_init_load())
 bot.run(os.environ.get("MAIN_TOKEN"))
