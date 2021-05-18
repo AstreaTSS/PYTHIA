@@ -5,19 +5,17 @@ import os
 import discord
 import discord_slash
 from discord.ext import commands
-from dotenv import load_dotenv
 from tortoise import Tortoise
 from websockets import ConnectionClosedOK
 
 import common.utils as utils
 from common.help_cmd import PaginatedHelpCommand
-
-load_dotenv()
+from keep_alive import keep_alive
 
 
 def investigator_prefixes(bot: commands.Bot, msg: discord.Message):
     mention_prefixes = [f"{bot.user.mention} ", f"<@!{bot.user.id}> "]
-    custom_prefixes = ["iv!"]
+    custom_prefixes = ["u!"]
 
     return mention_prefixes + custom_prefixes
 
@@ -34,6 +32,7 @@ async def on_init_load():
 
     # you'll have to generate this yourself if you want to
     # run your own instance, but it's super easy to do so
+    # just run gen_dbs.py
     await Tortoise.init(
         db_url="sqlite://db.sqlite3", modules={"models": ["common.models"]}
     )
@@ -132,7 +131,7 @@ bot = UltimateInvestigator(
 )
 slash = discord_slash.SlashCommand(bot, override_type=True)
 
+keep_alive()
 bot.init_load = True
-
 bot.loop.create_task(on_init_load())
 bot.run(os.environ.get("MAIN_TOKEN"))

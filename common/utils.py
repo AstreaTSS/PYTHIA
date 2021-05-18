@@ -62,6 +62,22 @@ async def msg_to_owner(bot, content, split=True):
         await owner.send(f"{chunk}")
 
 
+async def create_and_or_get(
+    guild_id, config_model
+):  # type-hinting would induce a circular import
+    possible_guild = await config_model.filter(guild_id=guild_id).first()
+    if possible_guild is None:
+        return await config_model.create(
+            guild_id=guild_id,
+            bullet_chan_id=0,
+            ult_detective_role=0,
+            player_role=0,
+            bullets_enabled=False,
+        )
+    else:
+        return possible_guild
+
+
 def line_split(content: str, split_by=20):
     content_split = content.splitlines()
     return [

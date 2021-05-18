@@ -79,7 +79,7 @@ class BulletCheck(commands.Cog, name="Bullet Check"):
         ):
             return
 
-        guild_config = await models.Config.filter(guild_id=message.guild.id).first()
+        guild_config = await utils.create_and_or_get(message.guild.id, models.Config)
         if (
             not guild_config.bullets_enabled
             # internal list that has list of ids, faster than using roles property
