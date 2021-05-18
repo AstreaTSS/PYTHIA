@@ -52,10 +52,11 @@ class NormCMDs(commands.Cog, name="Normal"):
                 "Also, in case you were wondering, the reason why I don't just use the Ultimate Assistant is because most people, "
                 + "quite frankly, don't need everything the Ultimate Assistant has. It's also rather bloated and cumbersome, in my opinion."
             ),
-            "" "Made by Sonic49#7171.",
             "",
             "If you wish to invite me, contact Sonic49 and he'll talk to you about it.",
             "If you need support for me, maybe take a look at the support server here:\nhttps://discord.gg/NSdetwGjpK",
+            "",
+            "Bot made by Sonic49#7171.",
         ]
 
         about_embed = discord.Embed(
@@ -83,7 +84,7 @@ class NormCMDs(commands.Cog, name="Normal"):
     @commands.command()
     async def prefix(self, ctx):
         """Gives the prefix of the bot."""
-        await ctx.reply(f"My prefix is `u!`, but you can also mention me.")
+        await ctx.reply(f"My prefix is `v!`, but you can also mention me.")
 
 
 def setup(bot):
