@@ -1,0 +1,8 @@
+aiosqlite
+tortoise-orm
+discord.py
+jishaku
+python-dotenv
+discord-py-slash-command
+humanize
+websockets
