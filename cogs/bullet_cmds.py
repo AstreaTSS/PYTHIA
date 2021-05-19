@@ -27,7 +27,20 @@ class BulletCMDs(commands.Cog, name="Bullet"):
         """Adds a Truth Bullet to the list of Truth Bullets.
         Requires a channel (mentions or IDS work), name, and description of the Bullet itself.
         If you wish for the name/trigger to be more than one word, put quotes around it.
+        The name must be under or at 100 characters, and the description must be at or under 1900 characters.
         Requires Manage Guild permissions."""
+        if len(name) > 100:
+            raise commands.BadArgument(
+                "The name is too large for me to use! "
+                + "Please use something at or under 100 characters."
+            )
+        if len(description) > 1900:
+            raise commands.BadArgument(
+                "The description is too large for me to use! "
+                + "Please use something at or under 1900 characters, or consider using a Google "
+                + "Doc to store the text."
+            )
+
         async with ctx.typing():
             possible_duplicate = await models.TruthBullet.exists(
                 channel_id=channel.id, name=name

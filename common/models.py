@@ -1,10 +1,41 @@
 import datetime
 
 import discord
+import orjson
 from tortoise import fields
 from tortoise.models import Model
 
 from common.utils import yesno_friendly_str
+
+
+class SetField(fields.BinaryField, set):
+    """A very exploity way of using a binary field to store a set."""
+
+    def default(self, obj):
+        # orjson wont store a set normally - making it a list works
+        if isinstance(obj, set):
+            return list(obj)
+        raise TypeError
+
+    def json_dumps(self, value):
+        return orjson.dumps(value, default=self.default)
+
+    def json_loads(self, value: str):
+        return orjson.loads(value)
+
+    def to_python_value(self, value):
+        if value is not None and isinstance(value, self.field_type):  # if its bytes
+            value = set(self.json_loads(value))  # loading it would return a list, so...
+        return value or set()  # empty bytes value go brr
+
+    def to_db_value(self, value, instance):
+        if value is not None and not isinstance(
+            value, self.field_type
+        ):  # if its not bytes
+            value = self.json_dumps(value)  # returns a bytes value
+            # the reason why i chose using BinaryField over JSONField
+            # was because orjson returns bytes, and orjson's fast
+        return value
 
 
 class TruthBullet(Model):
@@ -52,3 +83,4 @@ class Config(Model):
     ult_detective_role = fields.BigIntField()
     player_role = fields.BigIntField()
     bullets_enabled = fields.BooleanField()
+    prefixes = SetField()

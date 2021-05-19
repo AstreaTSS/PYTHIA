@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import logging
 import os
 
 import discord
@@ -11,17 +12,35 @@ from websockets import ConnectionClosedOK
 
 import common.utils as utils
 from common.help_cmd import PaginatedHelpCommand
-
-# from keep_alive import keep_alive
+from common.models import Config
 
 load_dotenv()
 
 
-def investigator_prefixes(bot: commands.Bot, msg: discord.Message):
-    mention_prefixes = [f"{bot.user.mention} ", f"<@!{bot.user.id}> "]
-    custom_prefixes = ["v!"]
+logger = logging.getLogger("discord")
+logger.setLevel(logging.INFO)
+handler = logging.FileHandler(
+    filename=os.environ.get("LOG_FILE_PATH"), encoding="utf-8", mode="a"
+)
+handler.setFormatter(
+    logging.Formatter("%(asctime)s:%(levelname)s:%(name)s: %(message)s")
+)
+logger.addHandler(handler)
 
-    return mention_prefixes + custom_prefixes
+
+async def investigator_prefixes(bot: commands.Bot, msg: discord.Message):
+    mention_prefixes = {f"{bot.user.mention} ", f"<@!{bot.user.id}> "}
+
+    try:
+        guild_config = await Config.filter(guild_id=msg.guild.id).first()
+        custom_prefixes = guild_config.prefixes
+    except AttributeError:
+        # prefix handling runs before command checks, so there's a chance there's no guild
+        custom_prefixes = {"v!"}
+    except KeyError:  # rare possibility, but you know
+        custom_prefixes = set()
+
+    return mention_prefixes.union(custom_prefixes)
 
 
 def global_checks(ctx: commands.Context):
@@ -135,7 +154,6 @@ bot = UltimateInvestigator(
 )
 slash = discord_slash.SlashCommand(bot, override_type=True)
 
-# keep_alive()
 bot.init_load = True
 bot.loop.create_task(on_init_load())
 bot.run(os.environ.get("MAIN_TOKEN"))

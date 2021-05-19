@@ -6,3 +6,4 @@ discord-py-slash-command
 humanize
 websockets
 python-dotenv
+orjson

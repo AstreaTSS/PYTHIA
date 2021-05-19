@@ -73,6 +73,7 @@ async def create_and_or_get(
             ult_detective_role=0,
             player_role=0,
             bullets_enabled=False,
+            prefixes={"v!"},
         )
     else:
         return possible_guild
