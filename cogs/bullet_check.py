@@ -45,13 +45,11 @@ class BulletCheck(commands.Cog, name="Bullet Check"):
 
             if ult_detect_role_obj:
                 for person_id in most_found_people:
-                    try:
-                        person_object = await guild.fetch_member(person_id)
-                    except discord.HTTPException:
-                        continue
-
-                    try:
-                        await person_object.add_roles(ult_detect_role_obj)
+                    try:  # use an internal method to save on an http request
+                        # dont do this unless you're me
+                        await self.bot._connection.http.add_role(
+                            guild.id, person_id, ult_detect_role_obj.id
+                        )
                         await asyncio.sleep(1)  # we don't want to trigger ratelimits
                     except discord.HTTPException:
                         continue
@@ -90,7 +88,7 @@ class BulletCheck(commands.Cog, name="Bullet Check"):
         bullet_found: typing.Optional[models.TruthBullet] = None
 
         async for bullet in models.TruthBullet.filter(channel_id=message.channel.id):
-            if bullet.name in message.content:
+            if bullet.name.lower() in message.content.lower():
                 bullet_found = bullet
                 break
 
