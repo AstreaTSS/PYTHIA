@@ -50,6 +50,7 @@ class BulletCMDs(commands.Cog, name="Bullet"):
 
             await models.TruthBullet.create(
                 name=name,
+                aliases=set(),
                 description=description,
                 channel_id=channel.id,
                 guild_id=ctx.guild.id,
@@ -164,7 +165,16 @@ class BulletCMDs(commands.Cog, name="Bullet"):
         """Edits a Truth Bullet.
         Requires a channel (mentions or IDS work), the name, and a new description of the Bullet itself.
         If the name/trigger has more than one word, put quotes around it.
+        The new description must be at or under 1900 characters.
         Requires Manage Guild permissions."""
+
+        if len(description) > 1900:
+            raise commands.BadArgument(
+                "The description is too large for me to use! "
+                + "Please use something at or under 1900 characters, or consider using a Google "
+                + "Doc to store the text."
+            )
+
         async with ctx.typing():
             possible_bullet = await models.TruthBullet.filter(
                 channel_id=channel.id, name=name
@@ -229,6 +239,83 @@ class BulletCMDs(commands.Cog, name="Bullet"):
             await possible_bullet.save()
 
         await ctx.reply("Truth Bullet overrided and found!")
+
+    @commands.command()
+    @utils.proper_permissions()
+    async def add_alias(
+        self,
+        ctx: commands.Context,
+        channel: discord.TextChannel,
+        name: str,
+        alias: str,
+    ):
+        """Adds an alias to the Truth Bullet specified.
+        If users trigger an alias, it'll be treated as if they found the actual Truth Bullet.
+        Thus, this is useful for when something has multiple words that could be used.
+        Requires a channel (mentions or IDS work), the original name of the Bullet, and the alias.
+        If the name or alias is more than one word, put quotes around it.
+        Aliases need to be less than or at 100 characters, and there can only be 5 aliases.
+        Requires Manage Guild permissions."""
+
+        if len(alias) > 100:
+            raise commands.BadArgument(
+                "The name is too large for me to use! "
+                + "Please use something at or under 100 characters."
+            )
+
+        async with ctx.typing():
+            possible_bullet = await models.TruthBullet.filter(
+                channel_id=channel.id, name=name
+            ).first()
+            if possible_bullet is None:
+                raise commands.BadArgument(f"Truth Bullet `{name}` does not exist!")
+
+            if len(possible_bullet.aliases) >= 5:
+                raise utils.CustomCheckFailure(
+                    "I cannot add more aliases to this Truth Bullet!"
+                )
+
+            if alias in possible_bullet.aliases:
+                raise commands.BadArgument(
+                    f"Alias `{alias}` already exists for this Truth Bullet!"
+                )
+
+            possible_bullet.aliases.add(alias)
+            await possible_bullet.save()
+
+        await ctx.reply(f"Alias `{alias}` added to Truth Bullet!")
+
+    @commands.command()
+    @utils.proper_permissions()
+    async def remove_alias(
+        self,
+        ctx: commands.Context,
+        channel: discord.TextChannel,
+        name: str,
+        alias: str,
+    ):
+        """Remove an alias to the Truth Bullet specified.
+        Requires a channel (mentions or IDS work), the original name of the Bullet, and the alias.
+        If the name or alias is more than one word, put quotes around it.
+        Requires Manage Guild permissions."""
+
+        async with ctx.typing():
+            possible_bullet = await models.TruthBullet.filter(
+                channel_id=channel.id, name=name
+            ).first()
+            if possible_bullet is None:
+                raise commands.BadArgument(f"Truth Bullet `{name}` does not exist!")
+
+            try:
+                possible_bullet.aliases.remove(alias)
+            except KeyError:
+                raise commands.BadArgument(
+                    f"Alias `{alias}` does not exists for this Truth Bullet!"
+                )
+
+            await possible_bullet.save()
+
+        await ctx.reply(f"Alias `{alias}` removed from Truth Bullet!")
 
 
 def setup(bot):

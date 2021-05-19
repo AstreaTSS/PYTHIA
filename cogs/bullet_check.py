@@ -88,7 +88,9 @@ class BulletCheck(commands.Cog, name="Bullet Check"):
         bullet_found: typing.Optional[models.TruthBullet] = None
 
         async for bullet in models.TruthBullet.filter(channel_id=message.channel.id):
-            if bullet.name.lower() in message.content.lower():
+            if bullet.name.lower() in message.content.lower() or any(
+                a.lower() in message.content.lower() for a in bullet.aliases
+            ):
                 bullet_found = bullet
                 break
 

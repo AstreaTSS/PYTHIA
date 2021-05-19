@@ -44,6 +44,7 @@ class SetField(fields.BinaryField, set):
 class TruthBullet(Model):
     id = fields.IntField(pk=True)
     name = fields.CharField(max_length=100)
+    aliases = SetField()
     description = fields.TextField()
     channel_id = fields.BigIntField()
     guild_id = fields.BigIntField()
@@ -56,6 +57,7 @@ class TruthBullet(Model):
     def __str__(self):  # sourcery skip: merge-list-append
         str_list = []
         str_list.append(f"`{self.name}` - in {self.chan_mention()}")
+        str_list.append(f"Aliases: {', '.join(f'`{a}`' for a in self.aliases)}")
         str_list.append(f"Found: {yesno_friendly_str(self.found)}")
         str_list.append(f"Finder: {f'<@{self.finder}>' if self.finder > 0 else 'N/A'}")
         str_list.append("")
