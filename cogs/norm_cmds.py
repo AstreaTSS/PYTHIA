@@ -85,10 +85,8 @@ class NormCMDs(commands.Cog, name="Normal"):
 
         await ctx.reply(embed=about_embed)
 
-    @commands.group(
-        invoke_without_command=True, aliases=["prefixes"], ignore_extra=False
-    )
-    async def prefix(self, ctx):
+    @commands.group(invoke_without_command=True, aliases=["prefix"], ignore_extra=False)
+    async def prefixes(self, ctx):
         """A way of getting all of the prefixes for this server. You can also add and remove prefixes via this command."""
         guild_config = await utils.create_and_or_get(ctx.guild.id, Config)
         prefixes = tuple(f"`{p}`" for p in guild_config.prefixes)
@@ -99,10 +97,10 @@ class NormCMDs(commands.Cog, name="Normal"):
             )
         else:
             await ctx.reply(
-                "I have no prefixes, but you can mention me to run a command."
+                "I have no prefixes on this server, but you can mention me to run a command."
             )
 
-    @prefix.command(ignore_extra=False)
+    @prefixes.command(ignore_extra=False)
     @utils.proper_permissions()
     async def add(self, ctx, prefix: str):
         """Addes the prefix to the bot for the server this command is used in, allowing it to be used for commands of the bot.
@@ -124,7 +122,7 @@ class NormCMDs(commands.Cog, name="Normal"):
         else:
             raise commands.BadArgument("The server already has this prefix!")
 
-    @prefix.command(ignore_extra=False, aliases=["delete"])
+    @prefixes.command(ignore_extra=False, aliases=["delete"])
     @utils.proper_permissions()
     async def remove(self, ctx, prefix):
         """Deletes a prefix from the bot from the server this command is used in. The prefix must have existed in the first place.
