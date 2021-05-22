@@ -7,6 +7,7 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 from tortoise import Tortoise
+from tortoise.exceptions import ConfigurationError
 from websockets import ConnectionClosedOK
 
 import common.utils as utils
@@ -36,6 +37,8 @@ async def investigator_prefixes(bot: commands.Bot, msg: discord.Message):
     except AttributeError:
         # prefix handling runs before command checks, so there's a chance there's no guild
         custom_prefixes = {"v!"}
+    except ConfigurationError:  # prefix handling also runs before on_ready sometimes
+        custom_prefixes = set()
     except KeyError:  # rare possibility, but you know
         custom_prefixes = set()
 
@@ -71,8 +74,6 @@ async def on_init_load():
             bot.load_extension(cog)
         except commands.NoEntryPointError:
             pass
-
-    await bot.slash.sync_all_commands()  # need to do this as otherwise slash cmds wont work
 
 
 class UltimateInvestigator(commands.Bot):
