@@ -5,10 +5,9 @@ import discord
 from discord.ext import commands
 
 import common.utils as utils
-from common.models import Config
 
 
-class NormCMDs(commands.Cog, name="Normal"):
+class OtherCMDs(commands.Cog, name="Other"):
     def __init__(self, bot):
         self.bot = bot
 
@@ -88,8 +87,10 @@ class NormCMDs(commands.Cog, name="Normal"):
     @commands.group(invoke_without_command=True, aliases=["prefix"], ignore_extra=False)
     async def prefixes(self, ctx):
         """A way of getting all of the prefixes for this server. You can also add and remove prefixes via this command."""
-        guild_config = await utils.create_and_or_get(ctx.guild.id, Config)
-        prefixes = tuple(f"`{p}`" for p in guild_config.prefixes)
+
+        async with ctx.typing():
+            guild_config = await utils.create_and_or_get(ctx.guild.id)
+            prefixes = tuple(f"`{p}`" for p in guild_config.prefixes)
 
         if prefixes:
             await ctx.reply(
@@ -104,41 +105,48 @@ class NormCMDs(commands.Cog, name="Normal"):
     @utils.proper_permissions()
     async def add(self, ctx, prefix: str):
         """Addes the prefix to the bot for the server this command is used in, allowing it to be used for commands of the bot.
-        If it's more than one word or has a space at the end, surround the prefix with quotes so it doesn't get lost."""
+        If it's more than one word or has a space at the end, surround the prefix with quotes so it doesn't get lost.
+        Requires Manage Guild permissions."""
 
         if not prefix:
             raise commands.BadArgument("This is an empty string! I cannot use this.")
 
-        guild_config = await utils.create_and_or_get(ctx.guild.id, Config)
-        if len(guild_config.prefixes) >= 10:
-            raise utils.CustomCheckFailure(
-                "You have too many prefixes! You can only have up to 10 prefixes."
-            )
+        async with ctx.typing():
+            guild_config = await utils.create_and_or_get(ctx.guild.id)
+            if len(guild_config.prefixes) >= 10:
+                raise utils.CustomCheckFailure(
+                    "You have too many prefixes! You can only have up to 10 prefixes."
+                )
 
-        if prefix not in guild_config.prefixes:
+            if prefix in guild_config.prefixes:
+                raise commands.BadArgument("The server already has this prefix!")
+
             guild_config.prefixes.add(prefix)
             await guild_config.save()
-            await ctx.reply(f"Added `{prefix}`!")
-        else:
-            raise commands.BadArgument("The server already has this prefix!")
+
+        await ctx.reply(f"Added `{prefix}`!")
 
     @prefixes.command(ignore_extra=False, aliases=["delete"])
     @utils.proper_permissions()
     async def remove(self, ctx, prefix):
         """Deletes a prefix from the bot from the server this command is used in. The prefix must have existed in the first place.
-        If it's more than one word or has a space at the end, surround the prefix with quotes so it doesn't get lost."""
+        If it's more than one word or has a space at the end, surround the prefix with quotes so it doesn't get lost.
+        Requires Manage Guild permissions."""
 
-        try:
-            guild_config = await utils.create_and_or_get(ctx.guild.id, Config)
-            guild_config.prefixes.remove(prefix)
-            await guild_config.save()
-            await ctx.reply(f"Removed `{prefix}`!")
-        except KeyError:
-            raise commands.BadArgument(
-                "The server doesn't have that prefix, so I can't delete it!"
-            )
+        async with ctx.typing():
+            try:
+                guild_config = await utils.create_and_or_get(ctx.guild.id)
+                guild_config.prefixes.remove(prefix)
+                await guild_config.save()
+
+            except KeyError:
+                raise commands.BadArgument(
+                    "The server doesn't have that prefix, so I can't delete it!"
+                )
+
+        await ctx.reply(f"Removed `{prefix}`!")
 
 
 def setup(bot):
     importlib.reload(utils)
-    bot.add_cog(NormCMDs(bot))
+    bot.add_cog(OtherCMDs(bot))

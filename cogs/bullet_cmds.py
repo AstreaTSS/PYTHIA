@@ -15,7 +15,7 @@ class BulletCMDs(commands.Cog, name="Bullet"):
         self.bot = bot
 
     @commands.command()
-    @utils.proper_permissions()
+    @utils.bullet_proper_perms()
     async def add_bullet(
         self,
         ctx: commands.Context,
@@ -28,7 +28,7 @@ class BulletCMDs(commands.Cog, name="Bullet"):
         Requires a channel (mentions or IDS work), name, and description of the Bullet itself.
         If you wish for the name/trigger to be more than one word, put quotes around it.
         The name must be under or at 100 characters, and the description must be at or under 1900 characters.
-        Requires Manage Guild permissions."""
+        Requires being able to Manage Truth Bullets."""
         if len(name) > 100:
             raise commands.BadArgument(
                 "The name is too large for me to use! "
@@ -61,14 +61,14 @@ class BulletCMDs(commands.Cog, name="Bullet"):
         await ctx.reply("Added Truth Bullet!")
 
     @commands.command()
-    @utils.proper_permissions()
+    @utils.bullet_proper_perms()
     async def remove_bullet(
         self, ctx: commands.Context, channel: discord.TextChannel, name: str,
     ):
         """Removes a Truth Bullet from the list of Truth Bullets.
         Requires a channel (mentions or IDS work) and the name of the Bullet.
         If the name/trigger is more than one word, put quotes around it.
-        Requires Manage Guild permissions."""
+        Requires being able to Manage Truth Bullets."""
         async with ctx.typing():
             num_deleted = await models.TruthBullet.filter(
                 channel_id=channel.id, name=name
@@ -80,11 +80,11 @@ class BulletCMDs(commands.Cog, name="Bullet"):
             raise commands.BadArgument(f"Truth Bullet `{name}` does not exists!")
 
     @commands.command()
-    @utils.proper_permissions()
+    @utils.bullet_proper_perms()
     async def clear_bullets(self, ctx: commands.Context):
         """Removes all Truth Bullets from the list of Truth Bullets.
         This action is irreversible.
-        Requires Manage Guild permissions."""
+        Requires being able to Manage Truth Bullets."""
         async with ctx.typing():
             num_deleted = await models.TruthBullet.filter(
                 guild_id=ctx.guild.id
@@ -100,11 +100,11 @@ class BulletCMDs(commands.Cog, name="Bullet"):
             )
 
     @commands.command()
-    @utils.proper_permissions()
+    @utils.bullet_proper_perms()
     async def list_bullets(self, ctx: commands.Context):
         """Lists all Truth Bullets in the server.
         Will also show if the Truth Bullet has been found or not.
-        Requires Manage Guild permissions."""
+        Requires being able to Manage Truth Bullets."""
         async with ctx.typing():
             guild_bullets = await models.TruthBullet.filter(guild_id=ctx.guild.id)
             if not guild_bullets:
@@ -132,14 +132,14 @@ class BulletCMDs(commands.Cog, name="Bullet"):
             await ctx.reply("\n".join(chunk))
 
     @commands.command(aliases=["bullet_information"])
-    @utils.proper_permissions()
+    @utils.bullet_proper_perms()
     async def bullet_info(
         self, ctx: commands.Context, channel: discord.TextChannel, name: str,
     ):
         """Lists all information about a bullet.
         Requires a channel (mentions or IDS work) and the name of the Bullet.
         If the name/trigger is more than one word, put quotes around it.
-        Requires Manage Guild permissions."""
+        Requires being able to Manage Truth Bullets."""
         async with ctx.typing():
             possible_bullet = await models.TruthBullet.filter(
                 channel_id=channel.id, name=name
@@ -153,7 +153,7 @@ class BulletCMDs(commands.Cog, name="Bullet"):
         )
 
     @commands.command()
-    @utils.proper_permissions()
+    @utils.bullet_proper_perms()
     async def edit_bullet(
         self,
         ctx: commands.Context,
@@ -166,7 +166,7 @@ class BulletCMDs(commands.Cog, name="Bullet"):
         Requires a channel (mentions or IDS work), the name, and a new description of the Bullet itself.
         If the name/trigger has more than one word, put quotes around it.
         The new description must be at or under 1900 characters.
-        Requires Manage Guild permissions."""
+        Requires being able to Manage Truth Bullets."""
 
         if len(description) > 1900:
             raise commands.BadArgument(
@@ -188,7 +188,7 @@ class BulletCMDs(commands.Cog, name="Bullet"):
         await ctx.reply("Edited Truth Bullet!")
 
     @commands.command()
-    @utils.proper_permissions()
+    @utils.bullet_proper_perms()
     async def unfind_bullet(
         self, ctx: commands.Context, channel: discord.TextChannel, name: str
     ):
@@ -196,7 +196,7 @@ class BulletCMDs(commands.Cog, name="Bullet"):
         If someone had found a Bullet you did not want them to find, this will be useful.
         Requires a channel (mentions or IDS work) and the name of the Bullet.
         If the name/trigger is more than one word, put quotes around it.
-        Requires Manage Guild permissions."""
+        Requires being able to Manage Truth Bullets."""
         async with ctx.typing():
             possible_bullet = await models.TruthBullet.filter(
                 channel_id=channel.id, name=name
@@ -214,7 +214,7 @@ class BulletCMDs(commands.Cog, name="Bullet"):
         await ctx.reply("Truth Bullet un-found!")
 
     @commands.command()
-    @utils.proper_permissions()
+    @utils.bullet_proper_perms()
     async def override_bullet(
         self,
         ctx: commands.Context,
@@ -226,7 +226,7 @@ class BulletCMDs(commands.Cog, name="Bullet"):
         Useful if the bot glitched out for some reason.
         Requires a channel (mentions or IDS work), the name of the Bullet, and the user (mentions or IDS work).
         If the name/trigger is more than one word, put quotes around it.
-        Requires Manage Guild permissions."""
+        Requires being able to Manage Truth Bullets."""
         async with ctx.typing():
             possible_bullet = await models.TruthBullet.filter(
                 channel_id=channel.id, name=name
@@ -241,7 +241,7 @@ class BulletCMDs(commands.Cog, name="Bullet"):
         await ctx.reply("Truth Bullet overrided and found!")
 
     @commands.command()
-    @utils.proper_permissions()
+    @utils.bullet_proper_perms()
     async def add_alias(
         self,
         ctx: commands.Context,
@@ -255,7 +255,7 @@ class BulletCMDs(commands.Cog, name="Bullet"):
         Requires a channel (mentions or IDS work), the original name of the Bullet, and the alias.
         If the name or alias is more than one word, put quotes around it.
         Aliases need to be less than or at 100 characters, and there can only be 5 aliases.
-        Requires Manage Guild permissions."""
+        Requires being able to Manage Truth Bullets."""
 
         if len(alias) > 100:
             raise commands.BadArgument(
@@ -286,7 +286,7 @@ class BulletCMDs(commands.Cog, name="Bullet"):
         await ctx.reply(f"Alias `{alias}` added to Truth Bullet!")
 
     @commands.command()
-    @utils.proper_permissions()
+    @utils.bullet_proper_perms()
     async def remove_alias(
         self,
         ctx: commands.Context,
@@ -297,7 +297,7 @@ class BulletCMDs(commands.Cog, name="Bullet"):
         """Remove an alias to the Truth Bullet specified.
         Requires a channel (mentions or IDS work), the original name of the Bullet, and the alias.
         If the name or alias is more than one word, put quotes around it.
-        Requires Manage Guild permissions."""
+        Requires being able to Manage Truth Bullets."""
 
         async with ctx.typing():
             possible_bullet = await models.TruthBullet.filter(

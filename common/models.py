@@ -5,7 +5,13 @@ import orjson
 from tortoise import fields
 from tortoise.models import Model
 
-from common.utils import yesno_friendly_str
+# yes, this is a copy from common.utils
+# but circular imports are a thing
+def yesno_friendly_str(bool_to_convert):
+    if bool_to_convert == True:
+        return "yes"
+    else:
+        return "no"
 
 
 class SetField(fields.BinaryField, set):
@@ -87,5 +93,7 @@ class Config(Model):
     bullet_chan_id = fields.BigIntField()
     ult_detective_role = fields.BigIntField()
     player_role = fields.BigIntField()
-    bullets_enabled = fields.BooleanField()
+    bullets_enabled = fields.BooleanField(default=False)
     prefixes = SetField()
+    bullet_default_perms_check = fields.BooleanField(default=True)
+    bullet_custom_perm_roles = SetField()

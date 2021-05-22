@@ -43,10 +43,14 @@ class BulletCheck(commands.Cog, name="Bullet Check"):
         if guild_config.ult_detective_role > 0:  # if the role had been specified
             ult_detect_role_obj = guild.get_role(guild_config.ult_detective_role)
 
-            if ult_detect_role_obj:
+            if (
+                ult_detect_role_obj
+            ):  # if it doesnt exist, lets not waste api calls on it
                 for person_id in most_found_people:
                     try:  # use an internal method to save on an http request
-                        # dont do this unless you're me
+                        # we get to skip out on asking for the member, which was... well
+                        # who cares, anyways?
+                        # but dont do this unless you're me
                         await self.bot._connection.http.add_role(
                             guild.id, person_id, ult_detect_role_obj.id
                         )
@@ -77,11 +81,11 @@ class BulletCheck(commands.Cog, name="Bullet Check"):
         ):
             return
 
-        guild_config = await utils.create_and_or_get(message.guild.id, models.Config)
+        guild_config = await utils.create_and_or_get(message.guild.id)
         if (
             not guild_config.bullets_enabled
             # internal list that has list of ids, faster than using roles property
-            or guild_config.player_role not in message.author._roles
+            or message.author._roles.has(guild_config.player_role)
         ):
             return
 

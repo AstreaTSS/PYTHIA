@@ -8,8 +8,6 @@ from discord.ext import commands
 
 import common.utils as utils
 
-# from discord.ext import flags
-
 
 class OnCMDError(commands.Cog):
     def __init__(self, bot):
@@ -28,8 +26,6 @@ class OnCMDError(commands.Cog):
             original = error.original
             if not isinstance(original, discord.HTTPException):
                 await utils.error_handle(self.bot, error, ctx)
-        # elif isinstance(error, flags.ArgumentParsingError):
-        #     await ctx.reply(embed=self.error_embed_generate(str(error)))
         elif isinstance(error, commands.TooManyArguments):
             await ctx.reply(
                 embed=self.error_embed_generate(

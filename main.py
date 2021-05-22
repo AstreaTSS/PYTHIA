@@ -4,7 +4,6 @@ import logging
 import os
 
 import discord
-import discord_slash
 from discord.ext import commands
 from dotenv import load_dotenv
 from tortoise import Tortoise
@@ -152,7 +151,6 @@ mentions = discord.AllowedMentions.all()
 bot = UltimateInvestigator(
     command_prefix=investigator_prefixes, allowed_mentions=mentions, intents=intents,
 )
-slash = discord_slash.SlashCommand(bot, override_type=True)
 
 bot.init_load = True
 bot.loop.create_task(on_init_load())
