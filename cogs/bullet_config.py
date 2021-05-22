@@ -24,7 +24,7 @@ class BulletConfigCMDs(commands.Cog, name="Bullet Config"):
 
         return f"Can Manage Truth Bullets: {', '.join(role_str_builder)}"
 
-    @commands.command(aliases=["bull_config"])
+    @commands.command(aliases=["bull_config", "bullconfig"])
     @utils.bullet_proper_perms()
     async def bullet_config(self, ctx: commands.Context):
         """Lists out the Truth Bullet configuration settings for the server.
