@@ -10,8 +10,9 @@ The bot relies on a user to find out a 'key word' in order to actually get the T
 
 Setup instructions may come sooner or later.
 
-If you wish to invite the bot, join the below server and DM me. Can't let the thing grow exponentially.
-
-[Join Support Server](https://discord.gg/NSdetwGjpK)
+If you wish to invite the bot, join the Support Server linked below and DM me. Can't let the thing grow exponentially.
 
 Environment vars: `MAIN_TOKEN`, `DIRECTORY_OF_FILE`, `LOG_FILE_PATH`, `JISHAKU_NO_UNDERSCORE=true` (last one is optional).
+
+Links:
+* [Join Support Server](https://discord.gg/NSdetwGjpK)
