@@ -1,6 +1,6 @@
-# Ultimate Investigator
-
-<img src="https://cdn.discordapp.com/attachments/844051139300163654/846956313896288286/UltInvestIconv2.png" alt="Ultimate Investigator Icon" width="256"/>
+<p align="center">
+  <img src="https://cdn.discordapp.com/attachments/844051056936615976/846960909192396820/UltInvestBanner.png" alt="Ultimate Investigator's Banner" width="700"/>
+</p>
 
 A bot made to help automate investigations during Danganronpa RPs.
 
@@ -14,4 +14,4 @@ If you wish to invite the bot, join the below server and DM me. Can't let the th
 
 [Join Support Server](https://discord.gg/NSdetwGjpK)
 
-Environment vars: MAIN_TOKEN, DIRECTORY_OF_FILE, LOG_FILE_PATH, JISHAKU_NO_UNDERSCORE=true.
+Environment vars: `MAIN_TOKEN`, `DIRECTORY_OF_FILE`, `LOG_FILE_PATH`, `JISHAKU_NO_UNDERSCORE=true` (last one is optional).
