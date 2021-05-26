@@ -1,6 +1,6 @@
 # Ultimate Investigator
 
-<img src="https://i.imgur.com/bicKHfN.png" alt="Ultimate Investigator Icon" width="256"/>
+<img src="https://cdn.discordapp.com/attachments/844051139300163654/846956313896288286/UltInvestIconv2.png" alt="Ultimate Investigator Icon" width="256"/>
 
 A bot made to help automate investigations during Danganronpa RPs.
 
