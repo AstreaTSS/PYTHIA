@@ -136,11 +136,11 @@ class BulletConfigCMDs(commands.Cog, name="Bullet Config"):
         )
 
     def enable_check(self, config: models.Config):
-        if not config.player_role > 0:
+        if config.player_role <= 0:
             raise utils.CustomCheckFailure(
                 "You still need to set the Player role for this server!"
             )
-        elif not config.bullet_chan_id > 0:
+        elif config.bullet_chan_id <= 0:
             raise utils.CustomCheckFailure(
                 "You still need to set a Truth Bullets channel!"
             )
@@ -226,7 +226,7 @@ class BulletConfigCMDs(commands.Cog, name="Bullet Config"):
         async with ctx.typing():
             guild_config = await utils.create_and_or_get(ctx.guild.id)
             guild_config.bullet_default_perms_check = toggle
-            guild_config.save()
+            await guild_config.save()
 
         toggle_str = "can" if toggle else "cannot"
         await ctx.reply(
@@ -248,7 +248,7 @@ class BulletConfigCMDs(commands.Cog, name="Bullet Config"):
                 )
 
             guild_config.bullet_custom_perm_roles.add(role.id)
-            guild_config.save()
+            await guild_config.save()
 
         await ctx.reply(
             f"{role.mention} can now Manage Truth Bullets.",
@@ -266,7 +266,7 @@ class BulletConfigCMDs(commands.Cog, name="Bullet Config"):
 
             try:
                 guild_config.bullet_custom_perm_roles.remove(role.id)
-                guild_config.save()
+                await guild_config.save()
             except KeyError:
                 raise commands.BadArgument(
                     "This role is already not allowed to Manage Truth Bullets!"
