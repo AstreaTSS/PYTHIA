@@ -83,9 +83,9 @@ class BulletCheck(commands.Cog, name="Bullet Check"):
 
         guild_config = await utils.create_and_or_get(message.guild.id)
         if not (
-            not guild_config.bullets_enabled
+            guild_config.bullets_enabled
             # internal list that has list of ids, faster than using roles property
-            or message.author._roles.has(guild_config.player_role)
+            and message.author._roles.has(guild_config.player_role)
         ):
             return
 
