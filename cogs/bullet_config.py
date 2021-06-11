@@ -72,12 +72,13 @@ class BulletConfigCMDs(commands.Cog, name="Bullet Config"):
 
         await ctx.reply(f"Truth Bullet channel set to {channel.mention}!")
 
-    def check_for_none(self, argument: str):
-        if argument.lower() == "none":
-            return discord.Object(
-                0
-            )  # little hack so we don't have to do as much instance checking
-        raise commands.BadArgument("Not 'none'!")
+    class CheckForNone(commands.Converter):
+        async def convert(self, ctx: commands.Context, argument: str):
+            if argument.lower() == "none":
+                return discord.Object(
+                    0
+                )  # little hack so we don't have to do as much instance checking
+            raise commands.BadArgument("Not 'none'!")
 
     @commands.command(
         aliases=[
@@ -92,7 +93,7 @@ class BulletConfigCMDs(commands.Cog, name="Bullet Config"):
     )
     @utils.bullet_proper_perms()
     async def set_best_detective_role(
-        self, ctx: commands.Context, role: typing.Union[discord.Role, check_for_none]
+        self, ctx: commands.Context, role: typing.Union[discord.Role, CheckForNone]
     ):
         """Sets (or unsets) the Best Detective role.
         The 'Best Detective' is the person who found the most Truth Bullets during an investigation.
