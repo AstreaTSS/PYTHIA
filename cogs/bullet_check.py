@@ -82,7 +82,7 @@ class BulletCheck(commands.Cog, name="Bullet Check"):
             return
 
         guild_config = await utils.create_and_or_get(message.guild.id)
-        if (
+        if not (
             not guild_config.bullets_enabled
             # internal list that has list of ids, faster than using roles property
             or message.author._roles.has(guild_config.player_role)
@@ -98,7 +98,7 @@ class BulletCheck(commands.Cog, name="Bullet Check"):
                 bullet_found = bullet
                 break
 
-        if not bullet_found:
+        if not bullet_found or bullet_found.found:
             return
 
         embed = bullet_found.found_embed(str(message.author))
