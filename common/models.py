@@ -1,7 +1,7 @@
 import datetime
 
 import discord
-import orjson
+import ujson
 from tortoise import fields
 from tortoise.models import Model
 
@@ -17,17 +17,11 @@ def yesno_friendly_str(bool_to_convert):
 class SetField(fields.BinaryField, set):
     """A very exploity way of using a binary field to store a set."""
 
-    def default(self, obj):
-        # orjson wont store a set normally - making it a list works
-        if isinstance(obj, set):
-            return list(obj)
-        raise TypeError
-
     def json_dumps(self, value):
-        return orjson.dumps(value, default=self.default)
+        return bytes(ujson.dumps(value), "utf-8")
 
     def json_loads(self, value: str):
-        return orjson.loads(value)
+        return ujson.loads(value)
 
     def to_python_value(self, value):
         if value is not None and isinstance(value, self.field_type):  # if its bytes

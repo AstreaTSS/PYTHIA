@@ -5,4 +5,4 @@ jishaku
 humanize
 websockets
 python-dotenv
-orjson
+ujson
