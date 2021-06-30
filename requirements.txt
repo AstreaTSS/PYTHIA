@@ -4,5 +4,5 @@ discord.py
 jishaku
 humanize
 websockets
-python-dotenv
+python-dotenv==0.18.0
 ujson
