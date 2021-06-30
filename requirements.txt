@@ -1,4 +1,4 @@
-aiosqlite==0.16.1
+aiosqlite==0.17.0
 tortoise-orm
 discord.py
 jishaku
