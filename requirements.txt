@@ -1,7 +1,7 @@
 aiosqlite==0.16.1
 tortoise-orm
 discord.py
-jishaku
+jishaku==2.0.0
 humanize
 websockets
 python-dotenv
