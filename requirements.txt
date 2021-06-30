@@ -1,6 +1,6 @@
 aiosqlite==0.16.1
 tortoise-orm
-discord.py
+discord.py==1.7.3
 jishaku
 humanize
 websockets
