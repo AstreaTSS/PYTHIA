@@ -5,4 +5,4 @@ jishaku
 humanize
 websockets
 python-dotenv
-ujson
+ujson==4.0.2
