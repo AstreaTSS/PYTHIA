@@ -3,6 +3,6 @@ tortoise-orm
 discord.py
 jishaku
 humanize
-websockets
+websockets==9.1
 python-dotenv
 ujson
