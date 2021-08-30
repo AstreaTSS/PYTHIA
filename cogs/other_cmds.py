@@ -38,7 +38,7 @@ class OtherCMDs(commands.Cog, name="Other"):
     async def invite(self, ctx):
         """Gives an invite link to invite the bot... or not.
         It's a private bot. I can't let this thing grow exponentially."""
-        await ctx.reply("Contact Sonic49 in order to invite me.")
+        await ctx.reply("Contact Astrea in order to invite me.")
 
     @commands.command()
     async def about(self, ctx):
@@ -56,10 +56,10 @@ class OtherCMDs(commands.Cog, name="Other"):
                 + "quite frankly, don't need everything the Ultimate Assistant has. It's also rather bloated and cumbersome, in my opinion."
             ),
             "",
-            "If you wish to invite me, contact Sonic49 and he'll talk to you about it.",
+            "If you wish to invite me, contact Astrea and she'll talk to you about it.",
             "If you need support for me, maybe take a look at the support server here:\nhttps://discord.gg/NSdetwGjpK",
             "",
-            "Bot made by Sonic49#7171.",
+            "Bot made by Astrea#7171.",
         ]
 
         about_embed = discord.Embed(
@@ -73,7 +73,7 @@ class OtherCMDs(commands.Cog, name="Other"):
         )
 
         source_list = [
-            "My source code is [here!](https://github.com/Sonic4999/UltimateInvestigator)",
+            "My source code is [here!](https://github.com/Astrea49/UltimateInvestigator)",
             "This code might not be the best code out there, but you may have some use for it.",
             "Note that much of it was based off my other bot, Seraphim.",
         ]
