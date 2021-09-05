@@ -10,11 +10,12 @@ from tortoise import Tortoise
 from tortoise.exceptions import ConfigurationError
 from websockets import ConnectionClosedOK
 
+import keep_alive
 import common.utils as utils
 from common.help_cmd import PaginatedHelpCommand
 from common.models import Config
 
-load_dotenv()
+# load_dotenv()
 
 
 logger = logging.getLogger("discord")
@@ -155,4 +156,5 @@ bot = UltimateInvestigator(
 
 bot.init_load = True
 bot.loop.create_task(on_init_load())
+keep_alive.keep_alive()
 bot.run(os.environ.get("MAIN_TOKEN"))
