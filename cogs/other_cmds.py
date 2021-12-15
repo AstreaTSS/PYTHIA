@@ -4,6 +4,7 @@ import time
 import discord
 from discord.ext import commands
 
+import common.models as models
 import common.utils as utils
 
 
@@ -89,7 +90,7 @@ class OtherCMDs(commands.Cog, name="Other"):
         """A way of getting all of the prefixes for this server. You can also add and remove prefixes via this command."""
 
         async with ctx.typing():
-            guild_config = await utils.create_and_or_get(ctx.guild.id)
+            guild_config = await models.Config.filter(guild_id=ctx.guild.id).first()
             prefixes = tuple(f"`{p}`" for p in guild_config.prefixes)
 
         if prefixes:
@@ -112,7 +113,7 @@ class OtherCMDs(commands.Cog, name="Other"):
             raise commands.BadArgument("This is an empty string! I cannot use this.")
 
         async with ctx.typing():
-            guild_config = await utils.create_and_or_get(ctx.guild.id)
+            guild_config = await models.Config.filter(guild_id=ctx.guild.id).first()
             if len(guild_config.prefixes) >= 10:
                 raise utils.CustomCheckFailure(
                     "You have too many prefixes! You can only have up to 10 prefixes."
@@ -135,7 +136,7 @@ class OtherCMDs(commands.Cog, name="Other"):
 
         async with ctx.typing():
             try:
-                guild_config = await utils.create_and_or_get(ctx.guild.id)
+                guild_config = await models.Config.filter(guild_id=ctx.guild.id).first()
                 guild_config.prefixes.remove(prefix)
                 await guild_config.save()
 
