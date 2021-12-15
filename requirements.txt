@@ -1,8 +1,8 @@
-aiosqlite==0.16.1
-tortoise-orm==0.17.4
+asyncpg==0.25.0
+tortoise-orm==0.17.8
 discord.py==1.7.3
-jishaku==2.0.0
-humanize==3.10.0
-websockets==9.1
-python-dotenv==0.18.0
-ujson==4.0.2
+jishaku==2.3.2
+humanize==3.13.1
+websockets==10.1
+python-dotenv==0.19.2
+ujson==4.3.0

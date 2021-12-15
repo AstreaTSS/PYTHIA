@@ -42,6 +42,9 @@ class SetField(fields.BinaryField, set):
 
 
 class TruthBullet(Model):
+    class Meta:
+        table = "uitruthbullets"
+
     id = fields.IntField(pk=True)
     name = fields.CharField(max_length=100)
     aliases = SetField()
@@ -82,6 +85,9 @@ class TruthBullet(Model):
 
 
 class Config(Model):
+    class Meta:
+        table = "uiconfig"
+
     id = fields.IntField(pk=True)
     guild_id = fields.BigIntField()
     bullet_chan_id = fields.BigIntField()

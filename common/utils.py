@@ -116,7 +116,7 @@ def embed_check(embed: discord.Embed) -> bool:
 
     if embed.title and len(embed.title) > 256:
         return False
-    if embed.description and len(embed.description) > 2048:
+    if embed.description and len(embed.description) > 4096:
         return False
     if embed.author and embed.author.name and len(embed.author.name) > 256:
         return False

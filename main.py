@@ -8,7 +8,7 @@ from discord.ext import commands
 from dotenv import load_dotenv
 from tortoise import Tortoise
 from tortoise.exceptions import ConfigurationError
-from websockets import ConnectionClosedOK
+from websockets.exceptions import ConnectionClosedOK
 
 import common.utils as utils
 from common.help_cmd import PaginatedHelpCommand
@@ -59,7 +59,7 @@ async def on_init_load():
     # run your own instance, but it's super easy to do so
     # just run gen_dbs.py
     await Tortoise.init(
-        db_url="sqlite://db.sqlite3", modules={"models": ["common.models"]}
+        db_url=os.environ.get("DB_URL"), modules={"models": ["common.models"]}
     )
 
     application = await bot.application_info()
@@ -146,7 +146,7 @@ class UltimateInvestigator(commands.Bot):
 
 
 # honestly don't think i need the members stuff
-intents = discord.Intents.default()
+intents = discord.Intents(guilds=True, emojis=True, messages=True, reactions=True)
 mentions = discord.AllowedMentions.all()
 
 bot = UltimateInvestigator(
