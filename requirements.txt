@@ -5,4 +5,4 @@ jishaku==2.3.2
 humanize==3.13.1
 websockets==10.1
 python-dotenv==0.19.2
-ujson==4.3.0
+ujson==5.0.0
