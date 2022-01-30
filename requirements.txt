@@ -2,7 +2,7 @@ asyncpg==0.25.0
 tortoise-orm==0.18.1
 discord.py==1.7.3
 jishaku==2.3.2
-humanize==3.13.1
+humanize==3.14.0
 websockets==10.1
 python-dotenv==0.19.2
 ujson==5.1.0
