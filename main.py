@@ -43,17 +43,6 @@ async def investigator_prefixes(bot: dis_snek.Snake, msg: dis_snek.Message):
     return mention_prefixes.union(custom_prefixes)
 
 
-async def on_init_load():
-    await bot.wait_until_ready()
-
-    # you'll have to generate this yourself if you want to
-    # run your own instance, but it's super easy to do so
-    # just run gen_dbs.py
-    await Tortoise.init(
-        db_url=os.environ.get("DB_URL"), modules={"models": ["common.models"]}
-    )
-
-
 class UltimateInvestigator(molter.MolterSnake):
     @dis_snek.listen("startup")
     async def on_startup(self):
