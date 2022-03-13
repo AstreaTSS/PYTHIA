@@ -1,3 +1,4 @@
+import asyncio
 import contextlib
 import io
 import logging
@@ -187,6 +188,34 @@ class DebugScale(molter.MolterScale):
             self.bot, result, prefix="```py", suffix="```", page_size=4000
         )
         return await paginator.send(ctx)
+
+    @debug.subcommand()
+    async def shell(self, ctx: dis_snek.MessageContext, *, cmd: str):
+        await ctx.channel.trigger_typing()
+
+        process = await asyncio.create_subprocess_shell(
+            cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT
+        )
+
+        output, _ = await process.communicate()
+        output_str = output.decode("utf-8")
+        output_str += f"\nReturn code {process.returncode}"
+
+        if len(output_str) <= 2000:
+            return await ctx.message.reply(f"```sh\n{output_str}```")
+
+        paginator = paginators.Paginator.create_from_string(
+            self.bot, output_str, prefix="```sh", suffix="```", page_size=4000
+        )
+        return await paginator.send(ctx)
+
+    @debug.subcommand()
+    async def git(self, ctx: dis_snek.MessageContext, *, cmd: str):
+        await self.shell.callback(ctx, cmd=f"git {cmd}")
+
+    @debug.subcommand()
+    async def pip(self, ctx: dis_snek.MessageContext, *, cmd: str):
+        await self.shell.callback(ctx, cmd=f"python3.10 -m pip {cmd}")
 
 
 def setup(bot) -> None:
