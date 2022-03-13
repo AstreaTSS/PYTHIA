@@ -110,12 +110,10 @@ class DebugScale(molter.MolterScale):
 
         if body.startswith("```") and body.endswith("```"):
             body = "\n".join(body.split("\n")[1:-1])
-        else:
-            body = body.strip("` \n")
 
         stdout = io.StringIO()
 
-        to_compile = "async def func():\n%s" % textwrap.indent(body, "  ")
+        to_compile = "async def func():\n%s" % textwrap.indent(body, "    ")
         try:
             exec(to_compile, env)  # noqa: S102
         except SyntaxError:
