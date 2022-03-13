@@ -12,8 +12,6 @@ from dis_snek.ext import paginators
 from dis_snek.ext.debug_scale.utils import debug_embed
 from dis_snek.ext.debug_scale.utils import get_cache_state
 
-__all__ = ["DebugScale"]
-
 log = logging.getLogger(dis_snek.const.logger_name)
 
 
