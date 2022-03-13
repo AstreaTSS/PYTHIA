@@ -1,6 +1,4 @@
-import datetime
-
-import discord
+import dis_snek
 import ujson
 from tortoise import fields
 from tortoise.models import Model
@@ -45,37 +43,46 @@ class TruthBullet(Model):
     class Meta:
         table = "uitruthbullets"
 
-    id = fields.IntField(pk=True)
-    name = fields.CharField(max_length=100)
-    aliases = SetField()
-    description = fields.TextField()
-    channel_id = fields.BigIntField()
-    guild_id = fields.BigIntField()
-    found = fields.BooleanField()
-    finder = fields.BigIntField()
+    id: int = fields.IntField(pk=True)
+    name: str = fields.CharField(max_length=100)
+    aliases: set[str] = SetField()
+    description: str = fields.TextField()
+    channel_id: int = fields.BigIntField()
+    guild_id: int = fields.BigIntField()
+    found: bool = fields.BooleanField()
+    finder: int = fields.BigIntField()
 
+    @property
     def chan_mention(self):
         return f"<#{self.channel_id}>"
 
     def __str__(self):  # sourcery skip: merge-list-append
-        str_list = []
-        str_list.append(f"`{self.name}` - in {self.chan_mention()}")
-        str_list.append(f"Aliases: {', '.join(f'`{a}`' for a in self.aliases)}")
+        str_list = list(
+            (
+                f"`{self.name}` - in {self.chan_mention}",
+                f"Aliases: {', '.join(f'`{a}`' for a in self.aliases)}",
+            )
+        )
+
         str_list.append(f"Found: {yesno_friendly_str(self.found)}")
-        str_list.append(f"Finder: {f'<@{self.finder}>' if self.finder > 0 else 'N/A'}")
-        str_list.append("")
-        str_list.append(f"Description: {self.description}")
+        str_list.extend(
+            (
+                f"Finder: {f'<@{self.finder}>' if self.finder > 0 else 'N/A'}",
+                "",
+                f"Description: {self.description}",
+            )
+        )
 
         return "\n".join(str_list)
 
     def found_embed(self, username):
-        embed = discord.Embed(
+        embed = dis_snek.Embed(
             title="Truth Bullet Discovered",
-            timestamp=datetime.datetime.utcnow(),
+            timestamp=dis_snek.Timestamp.utcnow(),
             color=14232643,
         )
         embed.description = (
-            f"`{self.name}` - from {self.chan_mention()}\n\n{self.description}"
+            f"`{self.name}` - from {self.chan_mention}\n\n{self.description}"
         )
 
         footer = "To be found as of" if self.finder is None else f"Found by {username}"
@@ -88,12 +95,12 @@ class Config(Model):
     class Meta:
         table = "uiconfig"
 
-    id = fields.IntField(pk=True)
-    guild_id = fields.BigIntField()
-    bullet_chan_id = fields.BigIntField()
-    ult_detective_role = fields.BigIntField()
-    player_role = fields.BigIntField()
-    bullets_enabled = fields.BooleanField(default=False)
-    prefixes = SetField()
-    bullet_default_perms_check = fields.BooleanField(default=True)
-    bullet_custom_perm_roles = SetField()
+    id: int = fields.IntField(pk=True)
+    guild_id: int = fields.BigIntField()
+    bullet_chan_id: int = fields.BigIntField()
+    ult_detective_role: int = fields.BigIntField()
+    player_role: int = fields.BigIntField()
+    bullets_enabled: bool = fields.BooleanField(default=False)
+    prefixes: set[str] = SetField()
+    bullet_default_perms_check: bool = fields.BooleanField(default=True)
+    bullet_custom_perm_roles: set[int] = SetField()

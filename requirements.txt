@@ -1,8 +1,13 @@
+git+https://github.com/Discord-Snake-Pit/Dis-Snek.git@ef8ba318c585a88529b46a20fad998adc8b90253
+git+https://github.com/Discord-Snake-Pit/molter.git@2fe8bd6b9d5db89233cd22e98a79999c6c5e73b3
+orjson==3.6.7
+charset-normalizer==2.0.12
+aiodns==3.0.0
+Brotli==1.0.9
 asyncpg==0.25.0
 tortoise-orm==0.18.1
-discord.py==1.7.3
-jishaku==2.3.2
-humanize==3.14.0
-websockets==10.1
+humanize==4.0.0
+websockets==10.2
 python-dotenv==0.19.2
 ujson==5.1.0
+flask==2.0.2

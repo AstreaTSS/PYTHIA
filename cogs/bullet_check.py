@@ -3,28 +3,27 @@ import collections
 import importlib
 import typing
 
-import discord
-from discord.ext import commands
+import dis_snek
 
 import common.models as models
 import common.utils as utils
 
 
-class BulletCheck(commands.Cog, name="Bullet Check"):
+class BulletCheck(utils.Scale):
     """The cog that checks for the Truth Bullets."""
 
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: dis_snek.Snake):
         self.bot = bot
 
     async def check_for_finish(
         self,
-        guild: discord.Guild,
-        bullet_chan: discord.TextChannel,
+        guild: dis_snek.Guild,
+        bullet_chan: dis_snek.GuildText,
         guild_config: models.Config,
     ):
-        do_not_find = await models.TruthBullet.filter(
+        do_not_find = await models.TruthBullet.get_or_none(
             guild_id=guild.id, found=False
-        ).first()  # kind of an exploit, but oh well
+        )
         if do_not_find:
             return
 
@@ -51,11 +50,12 @@ class BulletCheck(commands.Cog, name="Bullet Check"):
                         # we get to skip out on asking for the member, which was... well
                         # who cares, anyways?
                         # but dont do this unless you're me
-                        await self.bot._connection.http.add_role(
+
+                        await self.bot.http.add_guild_member_role(
                             guild.id, person_id, ult_detect_role_obj.id
                         )
                         await asyncio.sleep(1)  # we don't want to trigger ratelimits
-                    except discord.HTTPException:
+                    except dis_snek.errors.HTTPException:
                         continue
 
         str_builder = collections.deque()
@@ -69,14 +69,16 @@ class BulletCheck(commands.Cog, name="Bullet Check"):
         guild_config.bullets_enabled = False
         await guild_config.save()
 
-    @commands.Cog.listener()
-    async def on_message(self, message: discord.Message):
+    @dis_snek.listen("message_create")
+    async def on_message(self, event: dis_snek.events.MessageCreate):
+        message = event.message
+
         # if the message is from a bot, from discord, not from a guild, not a default message or a reply, or is empty
         if (
             message.author.bot
             or message.author.system
             or not message.guild
-            or message.type != discord.MessageType.default
+            or message.type != dis_snek.enums.MessageTypes.DEFAULT
             or message.content == ""
         ):
             return
@@ -85,7 +87,7 @@ class BulletCheck(commands.Cog, name="Bullet Check"):
         if not (
             guild_config.bullets_enabled
             # internal list that has list of ids, faster than using roles property
-            and message.author._roles.has(guild_config.player_role)
+            and message.author.has_role(guild_config.player_role)
         ):
             return
 
@@ -104,22 +106,25 @@ class BulletCheck(commands.Cog, name="Bullet Check"):
 
         embed = bullet_found.found_embed(str(message.author))
 
-        bullet_chan = self.bot.get_channel(guild_config.bullet_chan_id)
+        bullet_chan: dis_snek.GuildText = self.bot.get_channel(
+            guild_config.bullet_chan_id
+        )
         if not bullet_chan:
             raise utils.CustomCheckFailure(
-                "For some reason, I tried getting a channel I can't see. The owner of the bot should be able to fix this soon."
+                "For some reason, I tried getting a channel I can't see. The owner of"
+                " the bot should be able to fix this soon."
             )
-
-        await message.channel.send(embed=embed)
-        await bullet_chan.send(embed=embed)
 
         bullet_found.found = True
         bullet_found.finder = message.author.id
         await bullet_found.save()
+
+        await message.reply(embed=embed)
+        await bullet_chan.send(embed=embed)
 
         await self.check_for_finish(message.guild, bullet_chan, guild_config)
 
 
 def setup(bot):
     importlib.reload(utils)
-    bot.add_cog(BulletCheck(bot))
+    BulletCheck(bot)

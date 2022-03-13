@@ -2,65 +2,54 @@
 import datetime
 import importlib
 
-import discord
+import dis_snek
 import humanize
-from discord.ext import commands
+import molter
 
 import common.utils as utils
 
 
-class OnCMDError(commands.Cog):
+class OnCMDError(dis_snek.Scale):
     def __init__(self, bot):
-        self.bot = bot
+        self.bot: dis_snek.Snake = bot
+        self.bot.on_command_error = self.on_command_error
 
     def error_embed_generate(self, error_msg):
-        return discord.Embed(colour=discord.Colour.red(), description=error_msg)
+        return dis_snek.Embed(color=dis_snek.MaterialColors.RED, description=error_msg)
 
-    @commands.Cog.listener()
-    async def on_command_error(self, ctx: commands.Context, error):
-        # sourcery skip: remove-pass-elif
-        if not ctx.bot.is_ready():
+    async def on_command_error(
+        self, ctx: dis_snek.Context, error: Exception, *args, **kwargs
+    ):
+        if not ctx.bot.is_ready or not isinstance(ctx, dis_snek.MessageContext):
             return
 
-        if isinstance(error, commands.CommandInvokeError):
-            original = error.original
-            if not isinstance(original, discord.HTTPException):
-                await utils.error_handle(self.bot, error, ctx)
-        elif isinstance(error, commands.TooManyArguments):
-            await ctx.reply(
-                embed=self.error_embed_generate(
-                    "You passed too many arguments to that command! Please make sure you're "
-                    + "passing in a valid argument/subcommand."
-                )
-            )
-        elif isinstance(error, commands.CommandOnCooldown):
-            delta_wait = datetime.timedelta(seconds=error.retry_after)
+        if isinstance(error, dis_snek.errors.CommandOnCooldown):
+            delta_wait = datetime.timedelta(seconds=error.cooldown.get_cooldown_time())
             await ctx.reply(
                 embed=self.error_embed_generate(
                     "You're doing that command too fast! "
-                    + f"Try again in `{humanize.precisedelta(delta_wait, format='%0.0f')}`."
+                    + "Try again in"
+                    f" `{humanize.precisedelta(delta_wait, format='%0.0f')}`."
                 )
             )
         elif isinstance(
             error,
-            (commands.ConversionError, commands.UserInputError, commands.BadArgument),
+            molter.BadArgument,
         ):
             await ctx.reply(embed=self.error_embed_generate(str(error)))
         elif isinstance(error, utils.CustomCheckFailure):
             await ctx.reply(embed=self.error_embed_generate(str(error)))
-        elif isinstance(error, commands.CheckFailure):
+        elif isinstance(error, dis_snek.errors.CommandCheckFailure):
             if ctx.guild:
                 await ctx.reply(
                     embed=self.error_embed_generate(
                         "You do not have the proper permissions to use that command."
                     )
                 )
-        elif isinstance(error, commands.CommandNotFound):
-            pass
         else:
             await utils.error_handle(self.bot, error, ctx)
 
 
 def setup(bot):
     importlib.reload(utils)
-    bot.add_cog(OnCMDError(bot))
+    OnCMDError(bot)

@@ -2,52 +2,54 @@
 import collections
 import logging
 import traceback
+import typing
 from pathlib import Path
 
 import aiohttp
-import discord
-from discord.ext import commands
+import dis_snek
+import molter
 
 import common.models as models
 
 
-def bullet_proper_perms():
-    async def predicate(ctx: commands.Context):
+def bullet_proper_perms() -> typing.Any:
+    async def predicate(ctx: dis_snek.MessageContext):
         guild_config = await create_and_or_get(ctx.guild.id)
 
         default_perms = False
         if guild_config.bullet_default_perms_check:
             # checks if author has admin or manage guild perms or is the owner
-            permissions = ctx.channel.permissions_for(ctx.author)
-            default_perms = permissions.administrator or permissions.manage_guild
+            default_perms = ctx.author.has_permission(
+                dis_snek.Permissions.ADMINISTRATOR, dis_snek.Permissions.MANAGE_GUILD
+            )
 
         # checks to see if the internal role list for the user has any of the roles specified in the roles specified
-        role_perms = any(
-            ctx.author._roles.has(r) for r in guild_config.bullet_custom_perm_roles
-        )
+        role_perms = ctx.author.has_role(*guild_config.bullet_custom_perm_roles)
 
         return default_perms or role_perms
 
-    return commands.check(predicate)
+    return dis_snek.check(predicate)
 
 
-def proper_permissions():
-    async def predicate(ctx: commands.Context):
-        # checks if author has admin or manage guild perms or is the owner
-        permissions = ctx.channel.permissions_for(ctx.author)
-        return permissions.administrator or permissions.manage_guild
+def proper_permissions() -> typing.Any:
+    async def predicate(ctx: dis_snek.MessageContext):
+        return ctx.author.has_permission(
+            dis_snek.Permissions.ADMINISTRATOR, dis_snek.Permissions.MANAGE_GUILD
+        )
 
-    return commands.check(predicate)
+    return dis_snek.check(predicate)
 
 
-async def error_handle(bot, error, ctx=None):
+async def error_handle(
+    bot: dis_snek.Snake, error: Exception, ctx: dis_snek.Context = None
+):
     # handles errors and sends them to owner
     if isinstance(error, aiohttp.ServerDisconnectedError):
         to_send = "Disconnected from server!"
         split = True
     else:
         error_str = error_format(error)
-        logging.getLogger("discord").error(error_str)
+        logging.getLogger(dis_snek.const.logger_name).error(error_str)
 
         chunks = line_split(error_str)
         for i in range(len(chunks)):
@@ -64,41 +66,41 @@ async def error_handle(bot, error, ctx=None):
     await msg_to_owner(bot, to_send, split)
 
     if ctx:
-        if hasattr(ctx, "reply"):
+        if isinstance(ctx, dis_snek.MessageContext):
             await ctx.reply(
                 "An internal error has occured. The bot owner has been notified."
             )
-        else:
-            await ctx.channel.send(
-                content="An internal error has occured. The bot owner has been notified."
+        elif isinstance(ctx, dis_snek.InteractionContext):
+            await ctx.send(
+                content=(
+                    "An internal error has occured. The bot owner has been notified."
+                )
             )
 
 
-async def msg_to_owner(bot, content, split=True):
+async def msg_to_owner(bot: dis_snek.Snake, content, split=True):
     # sends a message to the owner
-    owner = bot.owner
     string = str(content)
 
     str_chunks = string_split(string) if split else content
     for chunk in str_chunks:
-        await owner.send(f"{chunk}")
+        await bot.owner.send(f"{chunk}")
 
 
 async def create_and_or_get(guild_id):
-    possible_guild = await models.Config.filter(guild_id=guild_id).first()
-    if possible_guild is None:
-        return await models.Config.create(
-            guild_id=guild_id,
-            bullet_chan_id=0,
-            ult_detective_role=0,
-            player_role=0,
-            bullets_enabled=False,
-            prefixes={"v!"},
-            bullet_default_perms_check=True,
-            bullet_custom_perm_roles=set(),
-        )
-    else:
-        return possible_guild
+
+    defaults = {
+        "guild_id": guild_id,
+        "bullet_chan_id": 0,
+        "ult_detective_role": 0,
+        "player_role": 0,
+        "bullets_enabled": False,
+        "prefixes": {"v!"},
+        "bullet_default_perms_check": True,
+        "bullet_custom_perm_roles": set(),
+    }
+    config, _ = await models.Config.get_or_create(guild_id=guild_id, defaults=defaults)
+    return config
 
 
 def line_split(content: str, split_by=20):
@@ -108,7 +110,7 @@ def line_split(content: str, split_by=20):
     ]
 
 
-def embed_check(embed: discord.Embed) -> bool:
+def embed_check(embed: dis_snek.Embed) -> bool:
     """Checks if an embed is valid, as per Discord's guidelines.
     See https://discord.com/developers/docs/resources/channel#embed-limits for details."""
     if len(embed) > 6000:
@@ -136,14 +138,14 @@ def embed_check(embed: discord.Embed) -> bool:
 
 def deny_mentions(user):
     # generates an AllowedMentions object that only pings the user specified
-    return discord.AllowedMentions(everyone=False, users=[user], roles=False)
+    return dis_snek.AllowedMentions(users=[user])
 
 
-def error_format(error):
+def error_format(error: Exception):
     # simple function that formats an exception
     return "".join(
-        traceback.format_exception(
-            etype=type(error), value=error, tb=error.__traceback__
+        traceback.format_exception(  # type: ignore
+            type(error), value=error, tb=error.__traceback__
         )
     )
 
@@ -185,23 +187,17 @@ def get_all_extensions(str_path, folder="cogs"):
 
 
 def toggle_friendly_str(bool_to_convert):
-    if bool_to_convert == True:
-        return "on"
-    else:
-        return "off"
+    return "on" if bool_to_convert == True else "off"
 
 
 def yesno_friendly_str(bool_to_convert):
-    if bool_to_convert == True:
-        return "yes"
-    else:
-        return "no"
+    return "yes" if bool_to_convert == True else "no"
 
 
-def role_check(ctx: commands.Context, role: discord.Role):
+def role_check(ctx: dis_snek.MessageContext, role: dis_snek.Role):
     top_role = ctx.guild.me.top_role
 
-    if role > top_role:
+    if role.position > top_role.position:
         raise CustomCheckFailure(
             "The role provided is a role that is higher than the roles I can edit. "
             + "Please move either that role or my role so that "
@@ -209,25 +205,38 @@ def role_check(ctx: commands.Context, role: discord.Role):
         )
 
 
-class CustomCheckFailure(commands.CheckFailure):
+class CustomCheckFailure(molter.BadArgument):
     # custom classs for custom prerequisite failures outside of normal command checks
     pass
 
 
-class ValidChannelConverter(commands.TextChannelConverter):
+class ValidChannelConverter(molter.GuildTextConverter):
     """The text channel converter, but we do a few checks to make sure we can do what we need to do in the channel."""
 
-    async def convert(self, ctx: commands.Context, argument: str):
+    async def convert(self, ctx: dis_snek.MessageContext, argument: str):
         chan = await super().convert(ctx, argument)
-        perms = chan.permissions_for(ctx.guild.me)
+        perms = ctx.guild.me.channel_permissions(chan)
 
-        if not perms.read_messages:  # technically pointless, but who knows
-            raise commands.BadArgument(f"Cannot read messages in {chan.name}.")
-        elif not perms.read_message_history:
-            raise commands.BadArgument(f"Cannot read message history in {chan.name}.")
-        elif not perms.send_messages:
-            raise commands.BadArgument(f"Cannot send messages in {chan.name}.")
-        elif not perms.embed_links:
-            raise commands.BadArgument(f"Cannot send embeds in {chan.name}.")
+        if (
+            dis_snek.Permissions.VIEW_CHANNEL not in perms
+        ):  # technically pointless, but who knows
+            raise molter.BadArgument(f"Cannot read messages in {chan.name}.")
+        elif dis_snek.Permissions.READ_MESSAGE_HISTORY not in perms:
+            raise molter.BadArgument(f"Cannot read message history in {chan.name}.")
+        elif dis_snek.Permissions.SEND_MESSAGES not in perms:
+            raise molter.BadArgument(f"Cannot send messages in {chan.name}.")
+        elif dis_snek.Permissions.EMBED_LINKS not in perms:
+            raise molter.BadArgument(f"Cannot send embeds in {chan.name}.")
 
         return chan
+
+
+async def _global_checks(ctx: dis_snek.Context):
+    return False if not ctx.bot.is_ready else bool(ctx.guild)
+
+
+class Scale(molter.MolterScale):
+    def __new__(cls, bot: dis_snek.Snake, *args, **kwargs):
+        new_cls = super().__new__(cls, bot, *args, **kwargs)
+        new_cls.add_scale_check(_global_checks)
+        return new_cls

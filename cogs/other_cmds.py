@@ -1,18 +1,19 @@
 import importlib
 import time
 
-import discord
-from discord.ext import commands
+import dis_snek
+import molter
 
 import common.models as models
 import common.utils as utils
 
 
-class OtherCMDs(commands.Cog, name="Other"):
+class OtherCMDs(utils.Scale):
     def __init__(self, bot):
+        self.display_name = "Other"
         self.bot = bot
 
-    @commands.command()
+    @molter.msg_command()
     async def ping(self, ctx):
         """Pings the bot. Great way of finding out if the bot’s working correctly, but otherwise has no real use."""
 
@@ -27,55 +28,66 @@ class OtherCMDs(commands.Cog, name="Other"):
         ping_personal = round(((end_time - start_time) * 1000), 2)
 
         await mes.edit(
-            content=f"Pong!\n`{ping_discord}` ms from Discord.\n`{ping_personal}` ms personally."
+            content=(
+                f"Pong!\n`{ping_discord}` ms from Discord.\n`{ping_personal}` ms"
+                " personally."
+            )
         )
 
-    @commands.command()
+    @molter.msg_command()
     async def support(self, ctx):
         """Gives an invite link to the support server."""
         await ctx.reply("Support server:\nhttps://discord.gg/NSdetwGjpK")
 
-    @commands.command()
+    @molter.msg_command()
     async def invite(self, ctx):
         """Gives an invite link to invite the bot... or not.
         It's a private bot. I can't let this thing grow exponentially."""
         await ctx.reply("Contact Astrea in order to invite me.")
 
-    @commands.command()
-    async def about(self, ctx):
+    @molter.msg_command()
+    async def about(self, ctx: dis_snek.MessageContext):
         """Gives information about the bot."""
 
         msg_list = [
-            "Hi! I'm the Ultimate Investigator, a bot meant to help out with investigations with Danganronpa RPs.",
-            "Niche, I know, but it was a demand, as otherwise, you would have to do it all manually.",
+            "Hi! I'm the Ultimate Investigator, a bot meant to help out with"
+            " investigations with Danganronpa RPs.",
+            "Niche, I know, but it was a demand, as otherwise, you would have to do it"
+            " all manually.",
             "",
-            "This bot was originally a series of custom commands in YAGPDB, but soon the commands grew too complex for it.",
+            "This bot was originally a series of custom commands in YAGPDB, but soon"
+            " the commands grew too complex for it.",
             "Still would recommend YAG, though. Just don't squeeze it to its limits.",
             "",
             (
-                "Also, in case you were wondering, the reason why I don't just use the Ultimate Assistant is because most people, "
-                + "quite frankly, don't need everything the Ultimate Assistant has. It's also rather bloated and cumbersome, in my opinion."
+                "Also, in case you were wondering, the reason why I don't just use the"
+                " Ultimate Assistant is because most people, "
+                + "quite frankly, don't need everything the Ultimate Assistant has."
+                " It's also rather bloated and cumbersome, in my opinion."
             ),
             "",
             "If you wish to invite me, contact Astrea and she'll talk to you about it.",
-            "If you need support for me, maybe take a look at the support server here:\nhttps://discord.gg/NSdetwGjpK",
+            "If you need support for me, maybe take a look at the support server"
+            " here:\nhttps://discord.gg/NSdetwGjpK",
             "",
             "Bot made by Astrea#7171.",
         ]
 
-        about_embed = discord.Embed(
+        about_embed = dis_snek.Embed(
             title="About",
-            colour=discord.Colour(14232643),
+            colour=self.bot.color,
             description="\n".join(msg_list),
         )
         about_embed.set_author(
-            name=f"{self.bot.user.name}",
-            icon_url=f"{str(ctx.guild.me.avatar_url_as(format=None,static_format='png', size=128))}",
+            name=f"{self.bot.user.username}",
+            icon_url=f"{ctx.guild.me.display_avatar.url}",
         )
 
         source_list = [
-            "My source code is [here!](https://github.com/Astrea49/UltimateInvestigator)",
-            "This code might not be the best code out there, but you may have some use for it.",
+            "My source code is"
+            " [here!](https://github.com/Astrea49/UltimateInvestigator)",
+            "This code might not be the best code out there, but you may have some use"
+            " for it.",
             "Note that much of it was based off my other bot, Seraphim.",
         ]
 
@@ -85,69 +97,72 @@ class OtherCMDs(commands.Cog, name="Other"):
 
         await ctx.reply(embed=about_embed)
 
-    @commands.group(invoke_without_command=True, aliases=["prefix"], ignore_extra=False)
-    async def prefixes(self, ctx):
+    @molter.msg_command(aliases=["prefix"], ignore_extra=False)
+    async def prefixes(self, ctx: dis_snek.MessageContext):
         """A way of getting all of the prefixes for this server. You can also add and remove prefixes via this command."""
 
-        async with ctx.typing():
-            guild_config = await models.Config.filter(guild_id=ctx.guild.id).first()
-            prefixes = tuple(f"`{p}`" for p in guild_config.prefixes)
+        await ctx.channel.trigger_typing()
 
-        if prefixes:
+        guild_config = await models.Config.get(guild_id=ctx.guild.id)
+        if prefixes := tuple(f"`{p}`" for p in guild_config.prefixes):
             await ctx.reply(
-                f"My prefixes for this server are: `{', '.join(prefixes)}`, but you can also mention me."
+                f"My prefixes for this server are: `{', '.join(prefixes)}`, but you can"
+                " also mention me."
             )
         else:
             await ctx.reply(
-                "I have no prefixes on this server, but you can mention me to run a command."
+                "I have no prefixes on this server, but you can mention me to run a"
+                " command."
             )
 
-    @prefixes.command(ignore_extra=False)
+    @prefixes.subcommand(ignore_extra=False)
     @utils.proper_permissions()
-    async def add(self, ctx, prefix: str):
+    async def add(self, ctx: dis_snek.MessageContext, prefix: str):
         """Addes the prefix to the bot for the server this command is used in, allowing it to be used for commands of the bot.
         If it's more than one word or has a space at the end, surround the prefix with quotes so it doesn't get lost.
         Requires Manage Guild permissions."""
 
         if not prefix:
-            raise commands.BadArgument("This is an empty string! I cannot use this.")
+            raise molter.BadArgument("This is an empty string! I cannot use this.")
 
-        async with ctx.typing():
-            guild_config = await models.Config.filter(guild_id=ctx.guild.id).first()
-            if len(guild_config.prefixes) >= 10:
-                raise utils.CustomCheckFailure(
-                    "You have too many prefixes! You can only have up to 10 prefixes."
-                )
+        await ctx.channel.trigger_typing()
 
-            if prefix in guild_config.prefixes:
-                raise commands.BadArgument("The server already has this prefix!")
+        guild_config = await models.Config.get(guild_id=ctx.guild.id)
+        if len(guild_config.prefixes) >= 10:
+            raise utils.CustomCheckFailure(
+                "You have too many prefixes! You can only have up to 10 prefixes."
+            )
 
-            guild_config.prefixes.add(prefix)
-            await guild_config.save()
+        if prefix in guild_config.prefixes:
+            raise molter.BadArgument("The server already has this prefix!")
+
+        guild_config.prefixes.add(prefix)
+        await guild_config.save()
 
         await ctx.reply(f"Added `{prefix}`!")
 
-    @prefixes.command(ignore_extra=False, aliases=["delete"])
+    @prefixes.subcommand(ignore_extra=False, aliases=["delete"])
     @utils.proper_permissions()
-    async def remove(self, ctx, prefix):
+    async def remove(self, ctx: dis_snek.MessageContext, prefix: str):
         """Deletes a prefix from the bot from the server this command is used in. The prefix must have existed in the first place.
         If it's more than one word or has a space at the end, surround the prefix with quotes so it doesn't get lost.
         Requires Manage Guild permissions."""
 
-        async with ctx.typing():
-            try:
-                guild_config = await models.Config.filter(guild_id=ctx.guild.id).first()
-                guild_config.prefixes.remove(prefix)
-                await guild_config.save()
+        await ctx.channel.trigger_typing()
 
-            except KeyError:
-                raise commands.BadArgument(
-                    "The server doesn't have that prefix, so I can't delete it!"
-                )
+        try:
+            guild_config = await models.Config.get(guild_id=ctx.guild.id)
+            guild_config.prefixes.remove(prefix)
+            await guild_config.save()
+
+        except KeyError:
+            raise molter.BadArgument(
+                "The server doesn't have that prefix, so I can't delete it!"
+            )
 
         await ctx.reply(f"Removed `{prefix}`!")
 
 
 def setup(bot):
     importlib.reload(utils)
-    bot.add_cog(OtherCMDs(bot))
+    OtherCMDs(bot)
