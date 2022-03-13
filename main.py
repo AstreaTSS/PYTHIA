@@ -55,6 +55,46 @@ async def on_init_load():
 
 
 class UltimateInvestigator(molter.MolterSnake):
+    @dis_snek.listen("startup")
+    async def on_startup(self):
+        # you'll have to generate this yourself if you want to
+        # run your own instance, but it's super easy to do so
+        # just run gen_dbs.py
+        await Tortoise.init(
+            db_url=os.environ.get("DB_URL"), modules={"models": ["common.models"]}
+        )
+
+    @dis_snek.listen("ready")
+    async def on_ready(self):
+        utcnow = dis_snek.Timestamp.utcnow()
+        time_format = f"<t:{int(utcnow.timestamp())}:f>"
+
+        connect_msg = (
+            f"Logged in at {time_format}!"
+            if self.init_load == True
+            else f"Reconnected at {time_format}!"
+        )
+
+        await self.owner.send(connect_msg)
+
+        self.init_load = False
+
+        activity = dis_snek.Activity.create(
+            name="for Truth Bullets", type=dis_snek.ActivityType.WATCHING
+        )
+
+        try:
+            await self.change_presence(activity=activity)
+        except ConnectionClosedOK:
+            await utils.msg_to_owner(bot, "Reconnecting...")
+
+    @dis_snek.listen("resume")
+    async def on_resume(self):
+        activity = dis_snek.Activity.create(
+            name="for Truth Bullets", type=dis_snek.ActivityType.WATCHING
+        )
+        await self.change_presence(activity=activity)
+
     @dis_snek.listen("message_create")
     async def _dispatch_msg_commands(self, event: dis_snek.events.MessageCreate):
         """Determine if a command is being triggered, and dispatch it.
@@ -144,50 +184,6 @@ class UltimateInvestigator(molter.MolterSnake):
     async def stop(self):
         await Tortoise.close_connections()
         await super().stop()
-
-
-# these next three have to be out of the class for some odd reason
-@dis_snek.listen("startup")
-async def on_startup():
-    # you'll have to generate this yourself if you want to
-    # run your own instance, but it's super easy to do so
-    # just run gen_dbs.py
-    await Tortoise.init(
-        db_url=os.environ.get("DB_URL"), modules={"models": ["common.models"]}
-    )
-
-
-@dis_snek.listen("ready")
-async def on_ready():
-    utcnow = dis_snek.Timestamp.utcnow()
-    time_format = f"<t:{int(utcnow.timestamp())}:f>"
-
-    connect_msg = (
-        f"Logged in at {time_format}!"
-        if bot.init_load == True
-        else f"Reconnected at {time_format}!"
-    )
-
-    await bot.owner.send(connect_msg)
-
-    bot.init_load = False
-
-    activity = dis_snek.Activity.create(
-        name="for Truth Bullets", type=dis_snek.ActivityType.WATCHING
-    )
-
-    try:
-        await bot.change_presence(activity=activity)
-    except ConnectionClosedOK:
-        await utils.msg_to_owner(bot, "Reconnecting...")
-
-
-@dis_snek.listen("resume")
-async def on_resume():
-    activity = dis_snek.Activity.create(
-        name="for Truth Bullets", type=dis_snek.ActivityType.WATCHING
-    )
-    await bot.change_presence(activity=activity)
 
 
 # honestly don't think i need the members stuff
