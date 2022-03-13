@@ -10,4 +10,4 @@ humanize==4.0.0
 websockets==10.2
 python-dotenv==0.19.2
 ujson==5.1.0
-flask==2.0.2
+flask==2.0.3
