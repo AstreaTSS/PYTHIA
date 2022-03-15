@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 
@@ -198,4 +199,4 @@ for cog in cogs_list:
         raise
 
 # keep_alive.keep_alive()
-bot.start(os.environ.get("MAIN_TOKEN"))
+asyncio.run(bot.astart(os.environ.get("MAIN_TOKEN")))
