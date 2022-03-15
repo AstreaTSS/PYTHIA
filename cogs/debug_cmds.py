@@ -222,7 +222,7 @@ class DebugScale(molter.MolterScale):
     @debug.subcommand()
     async def pip(self, ctx: dis_snek.MessageContext, *, cmd: str):
         """Shortcut for 'debug shell pip'. Invokes the system shell."""
-        await self.shell.callback(ctx, cmd=f"python3.10 -m pip {cmd}")
+        await self.shell.callback(ctx, cmd=f"pip {cmd}")
 
 
 def setup(bot) -> None:
