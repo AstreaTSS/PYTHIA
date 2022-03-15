@@ -197,5 +197,5 @@ for cog in cogs_list:
     except dis_snek.errors.ExtensionLoadException:
         raise
 
-keep_alive.keep_alive()
+# keep_alive.keep_alive()
 bot.start(os.environ.get("MAIN_TOKEN"))
