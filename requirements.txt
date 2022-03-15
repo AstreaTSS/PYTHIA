@@ -1,4 +1,4 @@
-git+https://github.com/Discord-Snake-Pit/Dis-Snek.git@ef8ba318c585a88529b46a20fad998adc8b90253
+git+https://github.com/Discord-Snake-Pit/Dis-Snek.git@b5ab95ded63da143e4b29f73ee63c798232e63c8
 git+https://github.com/Discord-Snake-Pit/molter.git@67cc6fe93a9843dbafc4f6705a92126a6662ba0a
 orjson==3.6.7
 charset-normalizer==2.0.12
