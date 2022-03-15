@@ -125,6 +125,7 @@ class HelpCMD(utils.Scale):
     @molter.msg_command()
     @dis_snek.cooldown(dis_snek.Buckets.MEMBER, 1, 3)  # type: ignore
     async def help(self, ctx: dis_snek.MessageContext, *, query: typing.Optional[str]):
+        """Shows help about the bot, a command, or a category."""
         await ctx.channel.trigger_typing()
 
         embeds: list[dis_snek.Embed] = []

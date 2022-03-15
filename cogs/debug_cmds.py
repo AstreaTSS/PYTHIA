@@ -25,7 +25,7 @@ class DebugScale(molter.MolterScale):
 
     @molter.msg_command(aliases=["jsk"])
     async def debug(self, ctx: dis_snek.MessageContext):
-        "Get basic information about the bot."
+        """Get basic information about the bot."""
         uptime = dis_snek.Timestamp.fromdatetime(self.bot.start_time)
         e = debug_embed("General")
         e.set_thumbnail(self.bot.user.avatar.url)
@@ -53,7 +53,7 @@ class DebugScale(molter.MolterScale):
 
     @debug.subcommand()
     async def cache_info(self, ctx: dis_snek.MessageContext):
-        "Get information about the current cache state."
+        """Get information about the current cache state."""
         e = debug_embed("Cache")
 
         e.description = f"```prolog\n{get_cache_state(self.bot)}\n```"
@@ -67,6 +67,7 @@ class DebugScale(molter.MolterScale):
 
     @debug.subcommand(aliases=["reload"])
     async def regrow(self, ctx: dis_snek.MessageContext, *, module: str):
+        """Regrows a scale."""
         try:
             await self.shed_scale.callback(ctx, module=module)
         except (
@@ -78,11 +79,13 @@ class DebugScale(molter.MolterScale):
 
     @debug.subcommand(aliases=["load"])
     async def grow_scale(self, ctx: dis_snek.MessageContext, *, module: str):
+        """Grows a scale."""
         self.bot.grow_scale(module)
         await ctx.message.add_reaction("🪴")
 
     @debug.subcommand(aliases=["unload"])
     async def shed_scale(self, ctx: dis_snek.MessageContext, *, module: str) -> None:
+        """Sheds a scale."""
         self.bot.shed_scale(module)
         await ctx.message.add_reaction("💥")
 
@@ -98,6 +101,7 @@ class DebugScale(molter.MolterScale):
 
     @debug.subcommand(aliases=["python", "exc"])
     async def exec(self, ctx: dis_snek.MessageContext, *, body: str):
+        """Direct evaluation of Python code."""
         await ctx.channel.trigger_typing()
         env = {
             "bot": self.bot,
@@ -191,6 +195,7 @@ class DebugScale(molter.MolterScale):
 
     @debug.subcommand()
     async def shell(self, ctx: dis_snek.MessageContext, *, cmd: str):
+        """Executes statements in the system shell."""
         await ctx.channel.trigger_typing()
 
         process = await asyncio.create_subprocess_shell(
@@ -211,10 +216,12 @@ class DebugScale(molter.MolterScale):
 
     @debug.subcommand()
     async def git(self, ctx: dis_snek.MessageContext, *, cmd: str):
+        """Shortcut for 'debug shell git'. Invokes the system shell."""
         await self.shell.callback(ctx, cmd=f"git {cmd}")
 
     @debug.subcommand()
     async def pip(self, ctx: dis_snek.MessageContext, *, cmd: str):
+        """Shortcut for 'debug shell pip'. Invokes the system shell."""
         await self.shell.callback(ctx, cmd=f"python3.10 -m pip {cmd}")
 
 
