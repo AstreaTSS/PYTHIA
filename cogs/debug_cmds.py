@@ -51,7 +51,7 @@ class DebugScale(molter.MolterScale):
 
         await ctx.reply(embeds=[e])
 
-    @debug.subcommand()
+    @debug.subcommand(aliases=["cache"])
     async def cache_info(self, ctx: dis_snek.MessageContext):
         """Get information about the current cache state."""
         e = debug_embed("Cache")
