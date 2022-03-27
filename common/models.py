@@ -1,41 +1,25 @@
 import dis_snek
-import ujson
 from tortoise import fields
+from tortoise.contrib.postgres.fields import ArrayField
 from tortoise.models import Model
 
 # yes, this is a copy from common.utils
 # but circular imports are a thing
 def yesno_friendly_str(bool_to_convert):
-    if bool_to_convert == True:
-        return "yes"
-    else:
-        return "no"
+    return "yes" if bool_to_convert == True else "no"
 
 
-class SetField(fields.BinaryField, set):
-    """A very exploity way of using a binary field to store a set."""
-
-    def json_dumps(self, value):
-        return bytes(ujson.dumps(value), "utf-8")
-
-    def json_loads(self, value: str):
-        return ujson.loads(value)
+class SetField(ArrayField, set):
+    """A somewhat exploity way of using an array field to store a set."""
 
     def to_python_value(self, value):
-        if value is not None and isinstance(value, self.field_type):  # if its bytes
-            value = set(self.json_loads(value))  # loading it would return a list, so...
-        return value or set()  # empty bytes value go brr
+        value = None if value is None else set(value)
+        self.validate(value)
+        return value
 
-    def to_db_value(self, value, instance):
-        if value is not None and not isinstance(
-            value, self.field_type
-        ):  # if its not bytes
-            if isinstance(value, set):  # this is a dumb fix
-                value = self.json_dumps(list(value))  # returns a bytes value
-            else:
-                value = self.json_dumps(value)
-            # the reason why i chose using BinaryField over JSONField
-            # was because orjson returns bytes, and orjson's fast
+    def to_db_value(self, value, _):
+        self.validate(value)
+        value = None if value is None else list(value)
         return value
 
 
@@ -57,12 +41,10 @@ class TruthBullet(Model):
         return f"<#{self.channel_id}>"
 
     def __str__(self):  # sourcery skip: merge-list-append
-        str_list = list(
-            (
-                f"`{self.name}` - in {self.chan_mention}",
-                f"Aliases: {', '.join(f'`{a}`' for a in self.aliases)}",
-            )
-        )
+        str_list = [
+            f"`{self.name}` - in {self.chan_mention}",
+            f"Aliases: {', '.join(f'`{a}`' for a in self.aliases)}",
+        ]
 
         str_list.append(f"Found: {yesno_friendly_str(self.found)}")
         str_list.extend(
@@ -101,6 +83,6 @@ class Config(Model):
     ult_detective_role: int = fields.BigIntField()
     player_role: int = fields.BigIntField()
     bullets_enabled: bool = fields.BooleanField(default=False)
-    prefixes: set[str] = SetField()
+    prefixes: set[str] = SetField("VARCHAR(40)")
     bullet_default_perms_check: bool = fields.BooleanField(default=True)
-    bullet_custom_perm_roles: set[int] = SetField()
+    bullet_custom_perm_roles: set[int] = SetField("BIGINT")
