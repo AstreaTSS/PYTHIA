@@ -8,6 +8,6 @@ asyncpg==0.25.0
 tortoise-orm==0.19.0
 humanize==4.0.0
 websockets==10.2
-python-dotenv==0.19.2
+python-dotenv==0.20.0
 ujson==5.1.0
 flask==2.0.3
