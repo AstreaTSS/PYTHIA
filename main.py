@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+from collections import defaultdict
 
 import dis_snek
 import molter
@@ -27,12 +28,23 @@ handler.setFormatter(
 logger.addHandler(handler)
 
 
+async def _get_prefixes(bot: dis_snek.Snake, msg: dis_snek.Message):
+    if not msg.guild:
+        return set()
+
+    if prefixes := bot.cached_prefixes[msg.guild.id]:
+        return prefixes
+
+    guild_config = await utils.create_and_or_get(msg.guild.id)
+    prefixes = bot.cached_prefixes[msg.guild.id] = guild_config.prefixes
+    return prefixes
+
+
 async def investigator_prefixes(bot: dis_snek.Snake, msg: dis_snek.Message):
     mention_prefixes = {f"<@{bot.user.id}> ", f"<@!{bot.user.id}> "}
 
     try:
-        guild_config = await Config.get(guild_id=msg.guild.id)
-        custom_prefixes = guild_config.prefixes
+        custom_prefixes = await _get_prefixes(bot, msg)
     except AttributeError:
         # prefix handling runs before command checks, so there's a chance there's no guild
         custom_prefixes = {"v!"}
@@ -189,6 +201,7 @@ bot = UltimateInvestigator(
     auto_defer=dis_snek.AutoDefer(enabled=False),  # we already handle deferring
 )
 bot.init_load = True
+bot.cached_prefixes = defaultdict(set)
 bot.color = dis_snek.Color(int(os.environ.get("BOT_COLOR")))
 
 cogs_list = utils.get_all_extensions(os.environ.get("DIRECTORY_OF_FILE"))

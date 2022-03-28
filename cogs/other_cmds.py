@@ -141,6 +141,7 @@ class OtherCMDs(utils.Scale):
             raise molter.BadArgument("The server already has this prefix!")
 
         guild_config.prefixes.add(prefix)
+        ctx.bot.cached_prefixes[ctx.guild.id].add(prefix)
         await guild_config.save()
 
         await ctx.reply(f"Added `{prefix}`!")
@@ -157,6 +158,7 @@ class OtherCMDs(utils.Scale):
         try:
             guild_config = await models.Config.get(guild_id=ctx.guild.id)
             guild_config.prefixes.remove(prefix)
+            ctx.bot.cached_prefixes[ctx.guild.id].remove(prefix)
             await guild_config.save()
 
         except KeyError:
