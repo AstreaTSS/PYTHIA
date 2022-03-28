@@ -124,6 +124,10 @@ class OtherCMDs(utils.Scale):
 
         if not prefix:
             raise molter.BadArgument("This is an empty string! I cannot use this.")
+        if len(prefix) > 40:
+            raise molter.BadArgument(
+                "This prefix is too long! It must be less than 40 characters"
+            )
 
         await ctx.channel.trigger_typing()
 
