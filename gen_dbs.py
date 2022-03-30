@@ -2,7 +2,7 @@
 import os
 
 import asyncpg
-import ujson
+import orjson
 from dotenv import load_dotenv
 from tortoise import run_async
 from tortoise import Tortoise
@@ -37,8 +37,8 @@ async def migrate():
         config_data = await conn.fetch("SELECT * from uiconfig")
 
         for config in config_data:
-            new_prefixes = ujson.loads(config["old_prefixes"])
-            new_bullet_custom_perm_roles = ujson.loads(
+            new_prefixes = orjson.loads(config["old_prefixes"])
+            new_bullet_custom_perm_roles = orjson.loads(
                 config["old_bullet_custom_perm_roles"]
             )
             await conn.execute(
