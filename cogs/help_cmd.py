@@ -17,13 +17,32 @@ class HelpCMD(utils.Scale):
         self.display_name = "Help"
         self.bot = bot
 
-    async def _can_run_wrapper(
+    async def _check_wrapper(
+        self, ctx: dis_snek.MessageContext, check: typing.Callable
+    ) -> bool:
+        """A wrapper to ignore errors by checks."""
+        try:
+            return await check(ctx)
+        except Exception:
+            return False
+
+    async def _custom_can_run(
         self, ctx: dis_snek.MessageContext, cmd: molter.MolterCommand
     ):
-        try:
-            return await cmd._can_run(ctx)
-        except dis_snek.errors.CommandException:
+        """Determines if this command can be run, but ignores cooldowns and concurrency."""
+        if not cmd.enabled:
             return False
+
+        for check in cmd.checks:
+            if not await self._check_wrapper(ctx, check):
+                return False
+
+        if cmd.scale and cmd.scale.scale_checks:
+            for check in cmd.scale.scale_checks:
+                if not await self._check_wrapper(ctx, check):
+                    return False
+
+        return True
 
     async def get_multi_command_embeds(
         self,
@@ -34,7 +53,7 @@ class HelpCMD(utils.Scale):
     ):
         embeds: list[dis_snek.Embed] = []
 
-        commands = [c for c in commands if await self._can_run_wrapper(ctx, c)]
+        commands = [c for c in commands if await self._custom_can_run(ctx, c)]
         if not commands:
             return []
 
@@ -95,7 +114,7 @@ class HelpCMD(utils.Scale):
     async def get_command_embeds(
         self, ctx: dis_snek.MessageContext, command: molter.MolterCommand
     ):
-        if not command.parent and not await self._can_run_wrapper(ctx, command):
+        if not command.parent and not await self._custom_can_run(ctx, command):
             return []
 
         command_name_fmt = ""
