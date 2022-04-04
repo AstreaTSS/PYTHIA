@@ -122,7 +122,7 @@ class HelpCMD(utils.Scale):
             command_name_fmt = f"{command.parent.qualified_name.replace('_', '-')} "
 
         if command.aliases:
-            aliases = "|".join(command.aliases)
+            aliases = "|".join(a.replace("_", "-") for a in command.aliases)
             fmt = f"[{command.name.replace('_', '-')}|{aliases}]"
         else:
             fmt = f"{command.name.replace('_', '-')}"
