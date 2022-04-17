@@ -29,7 +29,7 @@ class TruthBullet(Model):
 
     id: int = fields.IntField(pk=True)
     name: str = fields.CharField(max_length=100)
-    aliases: set[str] = SetField()
+    aliases: set[str] = SetField("VARCHAR(40)")
     description: str = fields.TextField()
     channel_id: int = fields.BigIntField()
     guild_id: int = fields.BigIntField()
