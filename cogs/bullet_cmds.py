@@ -275,13 +275,13 @@ class BulletCMDs(utils.Scale):
         Thus, this is useful for when something has multiple words that could be used.
         Requires a channel (mentions or IDS work), the original name of the Bullet, and the alias.
         If the name or alias is more than one word, put quotes around it.
-        Aliases need to be less than or at 100 characters, and there can only be 5 aliases.
+        Aliases need to be less than or at 40 characters, and there can only be 5 aliases.
         Requires being able to Manage Truth Bullets."""
 
-        if len(alias) > 100:
+        if len(alias) > 40:
             raise molter.BadArgument(
                 "The name is too large for me to use! "
-                + "Please use something at or under 100 characters."
+                + "Please use something at or under 40 characters."
             )
 
         await ctx.channel.trigger_typing()
