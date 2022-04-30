@@ -1,6 +1,6 @@
 git+https://github.com/Discord-Snake-Pit/Dis-Snek.git@b5ab95ded63da143e4b29f73ee63c798232e63c8
 git+https://github.com/Discord-Snake-Pit/molter.git@67cc6fe93a9843dbafc4f6705a92126a6662ba0a
-psycopg[binary]==3.0.11
+psycopg[binary]==3.0.12
 psycopg-pool==3.1.1
 orjson==3.6.8
 charset-normalizer==2.0.12
