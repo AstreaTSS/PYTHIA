@@ -14,7 +14,7 @@ import common.models as models
 
 def bullet_proper_perms() -> typing.Any:
     async def predicate(ctx: dis_snek.MessageContext):
-        guild_config = await create_and_or_get(ctx.guild.id)
+        guild_config = await create_and_or_get(ctx.bot, ctx.guild.id, ctx.message.id)
 
         default_perms = False
         if guild_config.bullet_default_perms_check:
@@ -86,7 +86,11 @@ async def msg_to_owner(bot: dis_snek.Snake, content, split=True):
         await bot.owner.send(f"{chunk}")
 
 
-async def create_and_or_get(guild_id):
+async def create_and_or_get(bot, guild_id, msg_id) -> models.Config:
+    bot.cached_configs.expire()
+
+    if config := bot.cached_configs.get(msg_id):
+        return config
 
     defaults = {
         "bullet_chan_id": 0,
@@ -98,6 +102,7 @@ async def create_and_or_get(guild_id):
         "bullet_custom_perm_roles": set(),
     }
     config, _ = await models.Config.get_or_create(guild_id=guild_id, defaults=defaults)
+    bot.cached_configs[msg_id] = config
     return config
 
 

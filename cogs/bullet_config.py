@@ -35,7 +35,9 @@ class BulletConfigCMDs(utils.Scale):
 
         await ctx.channel.trigger_typing()
 
-        guild_config = await models.Config.get(guild_id=ctx.guild.id)
+        guild_config = await utils.create_and_or_get(
+            ctx.bot, ctx.guild.id, ctx.message.id
+        )
 
         str_builder = list(
             (
@@ -78,7 +80,9 @@ class BulletConfigCMDs(utils.Scale):
 
         await ctx.channel.trigger_typing()
 
-        guild_config = await models.Config.get(guild_id=ctx.guild.id)
+        guild_config = await utils.create_and_or_get(
+            ctx.bot, ctx.guild.id, ctx.message.id
+        )
         guild_config.bullet_chan_id = channel.id
         await guild_config.save()
 
@@ -121,7 +125,9 @@ class BulletConfigCMDs(utils.Scale):
 
         await ctx.channel.trigger_typing()
 
-        guild_config = await models.Config.get(guild_id=ctx.guild.id)
+        guild_config = await utils.create_and_or_get(
+            ctx.bot, ctx.guild.id, ctx.message.id
+        )
         guild_config.ult_detective_role = role.id
         await guild_config.save()
 
@@ -143,7 +149,9 @@ class BulletConfigCMDs(utils.Scale):
 
         await ctx.channel.trigger_typing()
 
-        guild_config = await models.Config.get(guild_id=ctx.guild.id)
+        guild_config = await utils.create_and_or_get(
+            ctx.bot, ctx.guild.id, ctx.message.id
+        )
         guild_config.player_role = role.id
         await guild_config.save()
 
@@ -172,7 +180,9 @@ class BulletConfigCMDs(utils.Scale):
 
         await ctx.channel.trigger_typing()
 
-        guild_config = await models.Config.get(guild_id=ctx.guild.id)
+        guild_config = await utils.create_and_or_get(
+            ctx.bot, ctx.guild.id, ctx.message.id
+        )
         if not guild_config.bullets_enabled:  # if truth bullets will be enabled by this
             self.enable_check(guild_config)
         guild_config.bullets_enabled = not guild_config.bullets_enabled
@@ -193,7 +203,9 @@ class BulletConfigCMDs(utils.Scale):
 
         await ctx.channel.trigger_typing()
 
-        guild_config = await models.Config.get(guild_id=ctx.guild.id)
+        guild_config = await utils.create_and_or_get(
+            ctx.bot, ctx.guild.id, ctx.message.id
+        )
         self.enable_check(guild_config)
         guild_config.bullets_enabled = True
         await guild_config.save()
@@ -210,7 +222,9 @@ class BulletConfigCMDs(utils.Scale):
 
         await ctx.channel.trigger_typing()
 
-        guild_config = await models.Config.get(guild_id=ctx.guild.id)
+        guild_config = await utils.create_and_or_get(
+            ctx.bot, ctx.guild.id, ctx.message.id
+        )
         guild_config.bullets_enabled = False
         await guild_config.save()
 
@@ -227,7 +241,9 @@ class BulletConfigCMDs(utils.Scale):
         All commands here require Manage Guild permissions."""
 
         await ctx.channel.trigger_typing()
-        guild_config = await models.Config.get(guild_id=ctx.guild.id)
+        guild_config = await utils.create_and_or_get(
+            ctx.bot, ctx.guild.id, ctx.message.id
+        )
 
         await ctx.reply(
             self.truth_bullet_managers(guild_config),
@@ -243,7 +259,9 @@ class BulletConfigCMDs(utils.Scale):
         Requires Manage Guild permissions."""
 
         await ctx.channel.trigger_typing()
-        guild_config = await models.Config.get(guild_id=ctx.guild.id)
+        guild_config = await utils.create_and_or_get(
+            ctx.bot, ctx.guild.id, ctx.message.id
+        )
         guild_config.bullet_default_perms_check = toggle
         await guild_config.save()
 
@@ -260,7 +278,9 @@ class BulletConfigCMDs(utils.Scale):
         Requires Manage Guild permissions."""
 
         await ctx.channel.trigger_typing()
-        guild_config = await models.Config.get(guild_id=ctx.guild.id)
+        guild_config = await utils.create_and_or_get(
+            ctx.bot, ctx.guild.id, ctx.message.id
+        )
 
         if role.id in guild_config.bullet_custom_perm_roles:
             raise molter.BadArgument(
@@ -282,7 +302,9 @@ class BulletConfigCMDs(utils.Scale):
         Requires Manage Guild permissions."""
 
         await ctx.channel.trigger_typing()
-        guild_config = await models.Config.get(guild_id=ctx.guild.id)
+        guild_config = await utils.create_and_or_get(
+            ctx.bot, ctx.guild.id, ctx.message.id
+        )
 
         try:
             guild_config.bullet_custom_perm_roles.remove(role.id)

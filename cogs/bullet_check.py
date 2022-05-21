@@ -83,9 +83,12 @@ class BulletCheck(utils.Scale):
         ):
             return
 
-        guild_config = await utils.create_and_or_get(message.guild.id)
+        guild_config = await utils.create_and_or_get(
+            self.bot, message.guild.id, message.id
+        )
         if not (
             guild_config.bullets_enabled
+            and guild_config.player_role
             # internal list that has list of ids, faster than using roles property
             and message.author.has_role(guild_config.player_role)
         ):

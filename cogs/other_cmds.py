@@ -103,7 +103,9 @@ class OtherCMDs(utils.Scale):
 
         await ctx.channel.trigger_typing()
 
-        guild_config = await models.Config.get(guild_id=ctx.guild.id)
+        guild_config = await utils.create_and_or_get(
+            ctx.bot, ctx.guild.id, ctx.message.id
+        )
         if prefixes := tuple(f"`{p}`" for p in guild_config.prefixes):
             await ctx.reply(
                 f"My prefixes for this server are: `{', '.join(prefixes)}`, but you can"
@@ -131,7 +133,9 @@ class OtherCMDs(utils.Scale):
 
         await ctx.channel.trigger_typing()
 
-        guild_config = await models.Config.get(guild_id=ctx.guild.id)
+        guild_config = await utils.create_and_or_get(
+            ctx.bot, ctx.guild.id, ctx.message.id
+        )
         if len(guild_config.prefixes) >= 10:
             raise utils.CustomCheckFailure(
                 "You have too many prefixes! You can only have up to 10 prefixes."
@@ -156,7 +160,9 @@ class OtherCMDs(utils.Scale):
         await ctx.channel.trigger_typing()
 
         try:
-            guild_config = await models.Config.get(guild_id=ctx.guild.id)
+            guild_config = await utils.create_and_or_get(
+                ctx.bot, ctx.guild.id, ctx.message.id
+            )
             guild_config.prefixes.remove(prefix)
             ctx.bot.cached_prefixes[ctx.guild.id].remove(prefix)
             await guild_config.save()

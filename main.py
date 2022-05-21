@@ -35,7 +35,7 @@ async def _get_prefixes(bot: dis_snek.Snake, msg: dis_snek.Message):
     if prefixes := bot.cached_prefixes[msg.guild.id]:
         return prefixes
 
-    guild_config = await utils.create_and_or_get(msg.guild.id)
+    guild_config = await utils.create_and_or_get(bot, msg.guild.id, msg.id)
     prefixes = bot.cached_prefixes[msg.guild.id] = guild_config.prefixes
     return prefixes
 
@@ -202,6 +202,7 @@ bot = UltimateInvestigator(
 )
 bot.init_load = True
 bot.cached_prefixes = defaultdict(set)
+bot.cached_configs = dis_snek.utils.TTLCache(ttl=30)
 bot.color = dis_snek.Color(int(os.environ.get("BOT_COLOR")))
 
 cogs_list = utils.get_all_extensions(os.environ.get("DIRECTORY_OF_FILE"))
