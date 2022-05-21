@@ -19,23 +19,19 @@ def bullet_proper_perms() -> typing.Any:
         default_perms = False
         if guild_config.bullet_default_perms_check:
             # checks if author has admin or manage guild perms or is the owner
-            default_perms = ctx.author.has_permission(
-                dis_snek.Permissions.ADMINISTRATOR, dis_snek.Permissions.MANAGE_GUILD
-            )
+            default_perms = ctx.author.has_permission(dis_snek.Permissions.MANAGE_GUILD)
 
         # checks to see if the internal role list for the user has any of the roles specified in the roles specified
         role_perms = ctx.author.has_role(*guild_config.bullet_custom_perm_roles)
 
-        return default_perms or role_perms
+        return bool(default_perms or role_perms)
 
     return dis_snek.check(predicate)
 
 
 def proper_permissions() -> typing.Any:
     async def predicate(ctx: dis_snek.MessageContext):
-        return ctx.author.has_permission(
-            dis_snek.Permissions.ADMINISTRATOR, dis_snek.Permissions.MANAGE_GUILD
-        )
+        return ctx.author.has_permission(dis_snek.Permissions.MANAGE_GUILD)
 
     return dis_snek.check(predicate)
 
@@ -90,7 +86,6 @@ async def msg_to_owner(bot: dis_snek.Snake, content, split=True):
 async def create_and_or_get(guild_id):
 
     defaults = {
-        "guild_id": guild_id,
         "bullet_chan_id": 0,
         "ult_detective_role": 0,
         "player_role": 0,
@@ -232,7 +227,7 @@ class ValidChannelConverter(molter.GuildTextConverter):
 
 
 async def _global_checks(ctx: dis_snek.Context):
-    return False if not ctx.bot.is_ready else bool(ctx.guild)
+    return bool(ctx.guild) if ctx.bot.is_ready else False
 
 
 class Scale(molter.MolterScale):
