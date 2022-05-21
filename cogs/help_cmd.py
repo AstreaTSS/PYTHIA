@@ -53,9 +53,8 @@ class HelpCMD(utils.Scale):
     ):
         embeds: list[dis_snek.Embed] = []
 
-        command_name_set = {
-            c.name for c in commands if await self._custom_can_run(ctx, c)
-        }
+        commands = [c for c in commands if await self._custom_can_run(ctx, c)]
+        command_name_set = {c.name for c in commands}
         commands = [
             c
             for c in commands

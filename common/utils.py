@@ -22,7 +22,10 @@ def bullet_proper_perms() -> typing.Any:
             default_perms = ctx.author.has_permission(dis_snek.Permissions.MANAGE_GUILD)
 
         # checks to see if the internal role list for the user has any of the roles specified in the roles specified
-        role_perms = ctx.author.has_role(*guild_config.bullet_custom_perm_roles)
+        if guild_config.bullet_custom_perm_roles:
+            role_perms = ctx.author.has_role(*guild_config.bullet_custom_perm_roles)
+        else:
+            role_perms = False
 
         return bool(default_perms or role_perms)
 
