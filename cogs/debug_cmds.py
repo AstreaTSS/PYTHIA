@@ -89,6 +89,12 @@ class DebugScale(molter.MolterScale):
         self.bot.shed_scale(module)
         await ctx.message.add_reaction("💥")
 
+    @molter.message_command(aliases=["reloadallextensions"])
+    async def reload_all_extensions(self, ctx: dis_snek.MessageContext):
+        for scales in self.bot.scales:
+            self.bot.reload_extension(scales)
+        await ctx.reply("All extensions reloaded!")
+
     @regrow.error
     @grow_scale.error
     @shed_scale.error
