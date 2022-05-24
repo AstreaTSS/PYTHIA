@@ -201,7 +201,11 @@ class UltimateInvestigator(naff.Client):
 
 # honestly don't think i need the members stuff
 intents = naff.Intents.new(
-    guilds=True, guild_emojis_and_stickers=True, messages=True, reactions=True
+    guilds=True,
+    guild_emojis_and_stickers=True,
+    messages=True,
+    reactions=True,
+    guild_message_content=True,
 )
 mentions = naff.AllowedMentions.all()
 
