@@ -1,4 +1,4 @@
-import dis_snek
+import naff
 from tortoise import fields
 from tortoise.contrib.postgres.fields import ArrayField
 from tortoise.models import Model
@@ -58,9 +58,9 @@ class TruthBullet(Model):
         return "\n".join(str_list)
 
     def found_embed(self, username):
-        embed = dis_snek.Embed(
+        embed = naff.Embed(
             title="Truth Bullet Discovered",
-            timestamp=dis_snek.Timestamp.utcnow(),
+            timestamp=naff.Timestamp.utcnow(),
             color=14232643,
         )
         embed.description = (

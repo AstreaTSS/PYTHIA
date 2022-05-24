@@ -1,29 +1,27 @@
-#!/usr/bin/env python3.8
 import datetime
 import importlib
 
-import dis_snek
 import humanize
-import molter
+import naff
 
 import common.utils as utils
 
 
-class OnCMDError(dis_snek.Scale):
+class OnCMDError(naff.Extension):
     def __init__(self, bot):
-        self.bot: dis_snek.Snake = bot
+        self.bot: naff.Client = bot
         self.bot.on_command_error = self.on_command_error
 
     def error_embed_generate(self, error_msg):
-        return dis_snek.Embed(color=dis_snek.MaterialColors.RED, description=error_msg)
+        return naff.Embed(color=naff.MaterialColors.RED, description=error_msg)
 
     async def on_command_error(
-        self, ctx: dis_snek.Context, error: Exception, *args, **kwargs
+        self, ctx: naff.Context, error: Exception, *args, **kwargs
     ):
-        if not ctx.bot.is_ready or not isinstance(ctx, dis_snek.MessageContext):
+        if not ctx.bot.is_ready or not isinstance(ctx, naff.PrefixedContext):
             return
 
-        if isinstance(error, dis_snek.errors.CommandOnCooldown):
+        if isinstance(error, naff.errors.CommandOnCooldown):
             delta_wait = datetime.timedelta(seconds=error.cooldown.get_cooldown_time())
             await ctx.reply(
                 embed=self.error_embed_generate(
@@ -34,12 +32,12 @@ class OnCMDError(dis_snek.Scale):
             )
         elif isinstance(
             error,
-            molter.BadArgument,
+            naff.errors.BadArgument,
         ):
             await ctx.reply(embed=self.error_embed_generate(str(error)))
         elif isinstance(error, utils.CustomCheckFailure):
             await ctx.reply(embed=self.error_embed_generate(str(error)))
-        elif isinstance(error, dis_snek.errors.CommandCheckFailure):
+        elif isinstance(error, naff.errors.CommandCheckFailure):
             if ctx.guild:
                 await ctx.reply(
                     embed=self.error_embed_generate(

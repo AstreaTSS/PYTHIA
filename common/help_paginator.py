@@ -2,17 +2,15 @@ import asyncio
 import typing
 
 import attrs
-import dis_snek
-from dis_snek.client.utils.attr_utils import define
-from dis_snek.client.utils.serializer import export_converter
-from dis_snek.ext import paginators
-from dis_snek.models.discord.emoji import process_emoji
+import naff
+from naff.ext import paginators
+from naff.models.discord.emoji import process_emoji
 
 
-async def callback(ctx: dis_snek.ComponentContext):
+async def callback(ctx: naff.ComponentContext):
     """Shows how to use the bot"""
 
-    embed = dis_snek.Embed(color=ctx.bot.color)
+    embed = naff.Embed(color=ctx.bot.color)
 
     embed.title = "Using this command"
     embed.description = "Hello! Welcome to the help page."
@@ -40,7 +38,7 @@ async def callback(ctx: dis_snek.ComponentContext):
     await ctx.send(embed=embed, ephemeral=True)
 
 
-@define(kw_only=False, auto_detect=True)
+@naff.utils.define(kw_only=False, auto_detect=True)
 class HelpPaginator(paginators.Paginator):
     callback: typing.Callable[..., typing.Coroutine] = attrs.field(default=callback)
     """A coroutine to call should the select button be pressed"""
@@ -50,8 +48,8 @@ class HelpPaginator(paginators.Paginator):
     """The message to be sent when the wrong user uses this paginator."""
 
     callback_button_emoji: typing.Optional[
-        typing.Union["dis_snek.PartialEmoji", dict, str]
-    ] = attrs.field(default="❔", metadata=export_converter(process_emoji))
+        typing.Union["naff.PartialEmoji", dict, str]
+    ] = attrs.field(default="❔", metadata=naff.utils.export_converter(process_emoji))
     """The emoji to use for the callback button."""
     show_callback_button: bool = attrs.field(default=True)
     """Show a button which will call the `callback`"""
@@ -63,9 +61,9 @@ class HelpPaginator(paginators.Paginator):
 
         if self.show_select_menu:
             current = self.pages[self.page_index]
-            rows[0].components[0] = dis_snek.Select(
+            rows[0].components[0] = naff.Select(
                 [
-                    dis_snek.SelectOption(
+                    naff.SelectOption(
                         f"{i+1}:"
                         f" {p.get_summary if isinstance(p, paginators.Page) else p.title}",
                         str(i),
@@ -101,16 +99,13 @@ class HelpPaginator(paginators.Paginator):
             "components": [c.to_dict() for c in self.create_components()],
         }
 
-    async def send(self, ctx: dis_snek.MessageContext) -> dis_snek.Message:
+    async def send(self, ctx: naff.PrefixedContext) -> naff.Message:
         """
         Send this paginator.
-
         Args:
             ctx: The context to send this paginator with
-
         Returns:
             The resulting message
-
         """
         self._message = await ctx.reply(**self.to_dict())
         self._author_id = ctx.author.id

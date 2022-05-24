@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import importlib
 import io
 import logging
 import platform
@@ -7,52 +8,49 @@ import textwrap
 import traceback
 import typing
 
-import dis_snek
-import molter
-from dis_snek.ext import paginators
-from dis_snek.ext.debug_scale.utils import debug_embed
-from dis_snek.ext.debug_scale.utils import get_cache_state
+import naff
+from naff.ext import paginators
+from naff.ext.debug_extension.utils import debug_embed
+from naff.ext.debug_extension.utils import get_cache_state
 
-log = logging.getLogger(dis_snek.const.logger_name)
+log = logging.getLogger(naff.const.logger_name)
 
 
-class DebugScale(molter.MolterScale):
-    """A reimplementation of dis_snek's native debug commands."""
+class DebugExtension(naff.Extension):
+    """A reimplementation of naff's native debug commands."""
 
     def __init__(self, bot):
-        self.display_name = "Debug"
-        self.add_scale_check(dis_snek.checks.is_owner())
+        self.name = "Debug"
+        self.add_ext_check(naff.checks.is_owner())
 
-    @molter.msg_command(aliases=["jsk"])
-    async def debug(self, ctx: dis_snek.MessageContext):
+    @naff.prefixed_command(aliases=["jsk"])
+    async def debug(self, ctx: naff.PrefixedContext):
         """Get basic information about the bot."""
-        uptime = dis_snek.Timestamp.fromdatetime(self.bot.start_time)
+        uptime = naff.Timestamp.fromdatetime(self.bot.start_time)
         e = debug_embed("General")
         e.set_thumbnail(self.bot.user.avatar.url)
         e.add_field("Operating System", platform.platform())
 
         e.add_field(
             "Version Info",
-            f"Dis-Snek@{dis_snek.__version__} | Py@{dis_snek.__py_version__}",
+            f"NAFF@{naff.__version__} | Py@{naff.__py_version__}",
         )
 
-        e.add_field(
-            "Start Time", f"{uptime.format(dis_snek.TimestampStyles.RelativeTime)}"
-        )
+        e.add_field("Start Time", f"{uptime.format(naff.TimestampStyles.RelativeTime)}")
 
         if privileged_intents := [
-            i.name for i in self.bot.intents if i in dis_snek.Intents.PRIVILEGED
+            i.name for i in self.bot.intents if i in naff.Intents.PRIVILEGED
         ]:
             e.add_field("Privileged Intents", " | ".join(privileged_intents))
 
-        e.add_field("Loaded Scales", ", ".join(self.bot.scales))
+        e.add_field("Loaded Extensions", ", ".join(self.bot.ext))
 
         e.add_field("Guilds", str(len(self.bot.guilds)))
 
         await ctx.reply(embeds=[e])
 
     @debug.subcommand(aliases=["cache"])
-    async def cache_info(self, ctx: dis_snek.MessageContext):
+    async def cache_info(self, ctx: naff.PrefixedContext):
         """Get information about the current cache state."""
         e = debug_embed("Cache")
 
@@ -60,53 +58,51 @@ class DebugScale(molter.MolterScale):
         await ctx.reply(embeds=[e])
 
     @debug.subcommand()
-    async def shutdown(self, ctx: dis_snek.MessageContext) -> None:
+    async def shutdown(self, ctx: naff.PrefixedContext) -> None:
         """Shuts down the bot."""
         await ctx.reply("Shutting down 😴")
         await self.bot.stop()
 
-    @debug.subcommand(aliases=["reload"])
-    async def regrow(self, ctx: dis_snek.MessageContext, *, module: str):
-        """Regrows a scale."""
-        try:
-            await self.shed_scale.callback(ctx, module=module)
-        except (
-            dis_snek.errors.ExtensionLoadException,
-            dis_snek.errors.ScaleLoadException,
-        ):
-            pass
-        await self.grow_scale.callback(ctx, module=module)
+    @debug.subcommand()
+    async def reload(self, ctx: naff.PrefixedContext, *, module: str):
+        """Regrows an extension."""
+        self.bot.reload_extension(module)
+        await ctx.reply(f"Reloaded `{module}`.")
 
-    @debug.subcommand(aliases=["load"])
-    async def grow_scale(self, ctx: dis_snek.MessageContext, *, module: str):
+    @debug.subcommand()
+    async def load(self, ctx: naff.PrefixedContext, *, module: str):
         """Grows a scale."""
-        self.bot.grow_scale(module)
-        await ctx.message.add_reaction("🪴")
+        self.bot.load_extension(module)
+        await ctx.reply(f"Loaded `{module}`.")
 
     @debug.subcommand(aliases=["unload"])
-    async def shed_scale(self, ctx: dis_snek.MessageContext, *, module: str) -> None:
+    async def unload(self, ctx: naff.PrefixedContext, *, module: str) -> None:
         """Sheds a scale."""
-        self.bot.shed_scale(module)
-        await ctx.message.add_reaction("💥")
+        self.bot.unload_extension(module)
+        await ctx.reply(f"Unloaded `{module}`.")
 
-    @molter.message_command(aliases=["reloadallextensions"])
-    async def reload_all_extensions(self, ctx: dis_snek.MessageContext):
-        for scales in self.bot.scales:
-            self.bot.reload_extension(scales)
+    @naff.prefixed_command(aliases=["reloadallextensions"])
+    async def reload_all_extensions(self, ctx: naff.PrefixedContext):
+        for ext in self.bot.ext:
+            self.bot.reload_extension(ext)
         await ctx.reply("All extensions reloaded!")
 
-    @regrow.error
-    @grow_scale.error
-    @shed_scale.error
-    async def regrow_error(self, error: Exception, ctx: dis_snek.MessageContext, *args):
-        if isinstance(error, dis_snek.errors.CommandCheckFailure):
-            return await ctx.reply("You do not have permission to execute this command")
-        elif isinstance(error, dis_snek.errors.ExtensionLoadException):
+    @reload.error
+    @load.error
+    @unload.error
+    async def extension_error(self, error: Exception, ctx: naff.PrefixedContext, *args):
+        if isinstance(error, naff.errors.CommandCheckFailure):
+            return await ctx.reply(
+                "You do not have permission to execute this command."
+            )
+        elif isinstance(
+            error, (naff.errors.ExtensionLoadException, naff.errors.ExtensionNotFound)
+        ):
             return await ctx.reply(str(error))
         raise
 
     @debug.subcommand(aliases=["python", "exc"])
-    async def exec(self, ctx: dis_snek.MessageContext, *, body: str):
+    async def exec(self, ctx: naff.PrefixedContext, *, body: str):
         """Direct evaluation of Python code."""
         await ctx.channel.trigger_typing()
         env = {
@@ -145,14 +141,14 @@ class DebugScale(molter.MolterScale):
             return await self.handle_exec_result(ctx, ret, stdout.getvalue())
 
     async def handle_exec_result(
-        self, ctx: dis_snek.MessageContext, result: typing.Any, value: typing.Any
+        self, ctx: naff.PrefixedContext, result: typing.Any, value: typing.Any
     ):
         if not result:
             result = value or "No Output!"
 
         await ctx.message.add_reaction("✅")
 
-        if isinstance(result, dis_snek.Message):
+        if isinstance(result, naff.Message):
             try:
                 e = debug_embed(
                     "Exec", timestamp=result.created_at, url=result.jump_url
@@ -170,10 +166,10 @@ class DebugScale(molter.MolterScale):
             except Exception:
                 return await ctx.message.reply(result.jump_url)
 
-        if isinstance(result, dis_snek.Embed):
+        if isinstance(result, naff.Embed):
             return await ctx.message.reply(embeds=result)
 
-        if isinstance(result, dis_snek.File):
+        if isinstance(result, naff.File):
             return await ctx.message.reply(file=result)
 
         if isinstance(result, paginators.Paginator):
@@ -181,7 +177,7 @@ class DebugScale(molter.MolterScale):
 
         if hasattr(result, "__iter__"):
             l_result = list(result)
-            if all(isinstance(r, dis_snek.Embed) for r in result):
+            if all(isinstance(r, naff.Embed) for r in result):
                 paginator = paginators.Paginator.create_from_embeds(self.bot, *l_result)
                 return await paginator.send(ctx)
 
@@ -200,17 +196,16 @@ class DebugScale(molter.MolterScale):
         return await paginator.send(ctx)
 
     @debug.subcommand()
-    async def shell(self, ctx: dis_snek.MessageContext, *, cmd: str):
+    async def shell(self, ctx: naff.PrefixedContext, *, cmd: str):
         """Executes statements in the system shell."""
-        await ctx.channel.trigger_typing()
+        async with ctx.channel.typing:
+            process = await asyncio.create_subprocess_shell(
+                cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT
+            )
 
-        process = await asyncio.create_subprocess_shell(
-            cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT
-        )
-
-        output, _ = await process.communicate()
-        output_str = output.decode("utf-8")
-        output_str += f"\nReturn code {process.returncode}"
+            output, _ = await process.communicate()
+            output_str = output.decode("utf-8")
+            output_str += f"\nReturn code {process.returncode}"
 
         if len(output_str) <= 2000:
             return await ctx.message.reply(f"```sh\n{output_str}```")
@@ -221,15 +216,15 @@ class DebugScale(molter.MolterScale):
         return await paginator.send(ctx)
 
     @debug.subcommand()
-    async def git(self, ctx: dis_snek.MessageContext, *, cmd: str):
+    async def git(self, ctx: naff.PrefixedContext, *, cmd: str):
         """Shortcut for 'debug shell git'. Invokes the system shell."""
         await self.shell.callback(ctx, cmd=f"git {cmd}")
 
     @debug.subcommand()
-    async def pip(self, ctx: dis_snek.MessageContext, *, cmd: str):
+    async def pip(self, ctx: naff.PrefixedContext, *, cmd: str):
         """Shortcut for 'debug shell pip'. Invokes the system shell."""
         await self.shell.callback(ctx, cmd=f"pip {cmd}")
 
 
 def setup(bot) -> None:
-    DebugScale(bot)
+    DebugExtension(bot)

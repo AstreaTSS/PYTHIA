@@ -1,19 +1,17 @@
 import importlib
 import time
 
-import dis_snek
-import molter
+import naff
 
-import common.models as models
 import common.utils as utils
 
 
-class OtherCMDs(utils.Scale):
+class OtherCMDs(utils.Extension):
     def __init__(self, bot):
-        self.display_name = "Other"
+        self.name = "Other"
         self.bot = bot
 
-    @molter.msg_command()
+    @naff.prefixed_command()
     async def ping(self, ctx):
         """Pings the bot. Great way of finding out if the bot’s working correctly, but otherwise has no real use."""
 
@@ -34,19 +32,19 @@ class OtherCMDs(utils.Scale):
             )
         )
 
-    @molter.msg_command()
+    @naff.prefixed_command()
     async def support(self, ctx):
         """Gives an invite link to the support server."""
         await ctx.reply("Support server:\nhttps://discord.gg/NSdetwGjpK")
 
-    @molter.msg_command()
+    @naff.prefixed_command()
     async def invite(self, ctx):
         """Gives an invite link to invite the bot... or not.
         It's a private bot. I can't let this thing grow exponentially."""
         await ctx.reply("Contact Astrea in order to invite me.")
 
-    @molter.msg_command()
-    async def about(self, ctx: dis_snek.MessageContext):
+    @naff.prefixed_command()
+    async def about(self, ctx: naff.PrefixedContext):
         """Gives information about the bot."""
 
         msg_list = [
@@ -73,9 +71,9 @@ class OtherCMDs(utils.Scale):
             "Bot made by Astrea#7171.",
         ]
 
-        about_embed = dis_snek.Embed(
+        about_embed = naff.Embed(
             title="About",
-            colour=self.bot.color,
+            color=self.bot.color,
             description="\n".join(msg_list),
         )
         about_embed.set_author(
@@ -97,15 +95,15 @@ class OtherCMDs(utils.Scale):
 
         await ctx.reply(embed=about_embed)
 
-    @molter.msg_command(aliases=["prefix"], ignore_extra=False)
-    async def prefixes(self, ctx: dis_snek.MessageContext):
+    @naff.prefixed_command(aliases=["prefix"], ignore_extra=False)
+    async def prefixes(self, ctx: naff.PrefixedContext):
         """A way of getting all of the prefixes for this server. You can also add and remove prefixes via this command."""
 
-        await ctx.channel.trigger_typing()
+        async with ctx.channel.typing:
+            guild_config = await utils.create_and_or_get(
+                ctx.bot, ctx.guild.id, ctx.message.id
+            )
 
-        guild_config = await utils.create_and_or_get(
-            ctx.bot, ctx.guild.id, ctx.message.id
-        )
         if prefixes := tuple(f"`{p}`" for p in guild_config.prefixes):
             await ctx.reply(
                 f"My prefixes for this server are: `{', '.join(prefixes)}`, but you can"
@@ -119,58 +117,56 @@ class OtherCMDs(utils.Scale):
 
     @prefixes.subcommand(ignore_extra=False)
     @utils.proper_permissions()
-    async def add(self, ctx: dis_snek.MessageContext, prefix: str):
+    async def add(self, ctx: naff.PrefixedContext, prefix: str):
         """Addes the prefix to the bot for the server this command is used in, allowing it to be used for commands of the bot.
         If it's more than one word or has a space at the end, surround the prefix with quotes so it doesn't get lost.
         Requires Manage Guild permissions."""
 
         if not prefix:
-            raise molter.BadArgument("This is an empty string! I cannot use this.")
+            raise naff.errors.BadArgument("This is an empty string! I cannot use this.")
         if len(prefix) > 40:
-            raise molter.BadArgument(
+            raise naff.errors.BadArgument(
                 "This prefix is too long! It must be less than 40 characters"
             )
 
-        await ctx.channel.trigger_typing()
-
-        guild_config = await utils.create_and_or_get(
-            ctx.bot, ctx.guild.id, ctx.message.id
-        )
-        if len(guild_config.prefixes) >= 10:
-            raise utils.CustomCheckFailure(
-                "You have too many prefixes! You can only have up to 10 prefixes."
+        async with ctx.channel.typing:
+            guild_config = await utils.create_and_or_get(
+                ctx.bot, ctx.guild.id, ctx.message.id
             )
+            if len(guild_config.prefixes) >= 10:
+                raise utils.CustomCheckFailure(
+                    "You have too many prefixes! You can only have up to 10 prefixes."
+                )
 
-        if prefix in guild_config.prefixes:
-            raise molter.BadArgument("The server already has this prefix!")
+            if prefix in guild_config.prefixes:
+                raise naff.errors.BadArgument("The server already has this prefix!")
 
-        guild_config.prefixes.add(prefix)
-        ctx.bot.cached_prefixes[ctx.guild.id].add(prefix)
-        await guild_config.save()
+            guild_config.prefixes.add(prefix)
+            ctx.bot.cached_prefixes[ctx.guild.id].add(prefix)
+            await guild_config.save()
 
         await ctx.reply(f"Added `{prefix}`!")
 
     @prefixes.subcommand(ignore_extra=False, aliases=["delete"])
     @utils.proper_permissions()
-    async def remove(self, ctx: dis_snek.MessageContext, prefix: str):
+    async def remove(self, ctx: naff.PrefixedContext, prefix: str):
         """Deletes a prefix from the bot from the server this command is used in. The prefix must have existed in the first place.
         If it's more than one word or has a space at the end, surround the prefix with quotes so it doesn't get lost.
         Requires Manage Guild permissions."""
 
-        await ctx.channel.trigger_typing()
+        async with ctx.channel.typing:
+            try:
+                guild_config = await utils.create_and_or_get(
+                    ctx.bot, ctx.guild.id, ctx.message.id
+                )
+                guild_config.prefixes.remove(prefix)
+                ctx.bot.cached_prefixes[ctx.guild.id].remove(prefix)
+                await guild_config.save()
 
-        try:
-            guild_config = await utils.create_and_or_get(
-                ctx.bot, ctx.guild.id, ctx.message.id
-            )
-            guild_config.prefixes.remove(prefix)
-            ctx.bot.cached_prefixes[ctx.guild.id].remove(prefix)
-            await guild_config.save()
-
-        except KeyError:
-            raise molter.BadArgument(
-                "The server doesn't have that prefix, so I can't delete it!"
-            )
+            except KeyError:
+                raise naff.errors.BadArgument(
+                    "The server doesn't have that prefix, so I can't delete it!"
+                )
 
         await ctx.reply(f"Removed `{prefix}`!")
 

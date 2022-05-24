@@ -3,22 +3,22 @@ import collections
 import importlib
 import typing
 
-import dis_snek
+import naff
 
 import common.models as models
 import common.utils as utils
 
 
-class BulletCheck(utils.Scale):
+class BulletCheck(utils.Extension):
     """The cog that checks for the Truth Bullets."""
 
-    def __init__(self, bot: dis_snek.Snake):
+    def __init__(self, bot: naff.Client):
         self.bot = bot
 
     async def check_for_finish(
         self,
-        guild: dis_snek.Guild,
-        bullet_chan: dis_snek.GuildText,
+        guild: naff.Guild,
+        bullet_chan: naff.GuildText,
         guild_config: models.Config,
     ):
         do_not_find = await models.TruthBullet.get_or_none(
@@ -40,11 +40,7 @@ class BulletCheck(utils.Scale):
         most_found_people = tuple(p[0] for p in most_found if p[1] == most_found_num)
 
         if guild_config.ult_detective_role > 0:  # if the role had been specified
-            ult_detect_role_obj = guild.get_role(guild_config.ult_detective_role)
-
-            if (
-                ult_detect_role_obj
-            ):  # if it doesnt exist, lets not waste api calls on it
+            if ult_detect_role_obj := guild.get_role(guild_config.ult_detective_role):
                 for person_id in most_found_people:
                     try:  # use an internal method to save on an http request
                         # we get to skip out on asking for the member, which was... well
@@ -55,7 +51,7 @@ class BulletCheck(utils.Scale):
                             guild.id, person_id, ult_detect_role_obj.id
                         )
                         await asyncio.sleep(1)  # we don't want to trigger ratelimits
-                    except dis_snek.errors.HTTPException:
+                    except naff.errors.HTTPException:
                         continue
 
         str_builder = collections.deque()
@@ -69,8 +65,8 @@ class BulletCheck(utils.Scale):
         guild_config.bullets_enabled = False
         await guild_config.save()
 
-    @dis_snek.listen("message_create")
-    async def on_message(self, event: dis_snek.events.MessageCreate):
+    @naff.listen("message_create")
+    async def on_message(self, event: naff.events.MessageCreate):
         message = event.message
 
         # if the message is from a bot, from discord, not from a guild, not a default message or a reply, or is empty
@@ -78,7 +74,7 @@ class BulletCheck(utils.Scale):
             message.author.bot
             or message.author.system
             or not message.guild
-            or message.type != dis_snek.enums.MessageTypes.DEFAULT
+            or message.type != naff.enums.MessageTypes.DEFAULT
             or message.content == ""
         ):
             return
@@ -109,9 +105,7 @@ class BulletCheck(utils.Scale):
 
         embed = bullet_found.found_embed(str(message.author))
 
-        bullet_chan: dis_snek.GuildText = self.bot.get_channel(
-            guild_config.bullet_chan_id
-        )
+        bullet_chan: naff.GuildText = self.bot.get_channel(guild_config.bullet_chan_id)
         if not bullet_chan:
             raise utils.CustomCheckFailure(
                 "For some reason, I tried getting a channel I can't see. The owner of"

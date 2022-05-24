@@ -1,23 +1,21 @@
 import asyncio
 import logging
 import os
+import typing
 from collections import defaultdict
 
-import dis_snek
-import molter
+import naff
 from dotenv import load_dotenv
 from tortoise import Tortoise
 from tortoise.exceptions import ConfigurationError
 from websockets.exceptions import ConnectionClosedOK
 
 import common.utils as utils
-import keep_alive
-from common.models import Config
 
 load_dotenv()
 
 
-logger = logging.getLogger("dis.snek")
+logger = logging.getLogger("dis.naff")
 logger.setLevel(logging.INFO)
 handler = logging.FileHandler(
     filename=os.environ.get("LOG_FILE_PATH"), encoding="utf-8", mode="a"
@@ -28,7 +26,7 @@ handler.setFormatter(
 logger.addHandler(handler)
 
 
-async def _get_prefixes(bot: dis_snek.Snake, msg: dis_snek.Message):
+async def _get_prefixes(bot: naff.Client, msg: naff.Message):
     if not msg.guild:
         return set()
 
@@ -40,7 +38,7 @@ async def _get_prefixes(bot: dis_snek.Snake, msg: dis_snek.Message):
     return prefixes
 
 
-async def investigator_prefixes(bot: dis_snek.Snake, msg: dis_snek.Message):
+async def investigator_prefixes(bot: naff.Client, msg: naff.Message):
     mention_prefixes = {f"<@{bot.user.id}> ", f"<@!{bot.user.id}> "}
 
     try:
@@ -56,8 +54,8 @@ async def investigator_prefixes(bot: dis_snek.Snake, msg: dis_snek.Message):
     return mention_prefixes.union(custom_prefixes)
 
 
-class UltimateInvestigator(molter.MolterSnake):
-    @dis_snek.listen("startup")
+class UltimateInvestigator(naff.Client):
+    @naff.listen("startup")
     async def on_startup(self):
         # you'll have to generate this yourself if you want to
         # run your own instance, but it's super easy to do so
@@ -66,9 +64,9 @@ class UltimateInvestigator(molter.MolterSnake):
             db_url=os.environ.get("DB_URL"), modules={"models": ["common.models"]}
         )
 
-    @dis_snek.listen("ready")
+    @naff.listen("ready")
     async def on_ready(self):
-        utcnow = dis_snek.Timestamp.utcnow()
+        utcnow = naff.Timestamp.utcnow()
         time_format = f"<t:{int(utcnow.timestamp())}:f>"
 
         connect_msg = (
@@ -81,8 +79,8 @@ class UltimateInvestigator(molter.MolterSnake):
 
         self.init_load = False
 
-        activity = dis_snek.Activity.create(
-            name="for Truth Bullets", type=dis_snek.ActivityType.WATCHING
+        activity = naff.Activity.create(
+            name="for Truth Bullets", type=naff.ActivityType.WATCHING
         )
 
         try:
@@ -90,39 +88,39 @@ class UltimateInvestigator(molter.MolterSnake):
         except ConnectionClosedOK:
             await utils.msg_to_owner(bot, "Reconnecting...")
 
-    @dis_snek.listen("resume")
+    @naff.listen("resume")
     async def on_resume(self):
-        activity = dis_snek.Activity.create(
-            name="for Truth Bullets", type=dis_snek.ActivityType.WATCHING
+        activity = naff.Activity.create(
+            name="for Truth Bullets", type=naff.ActivityType.WATCHING
         )
         await self.change_presence(activity=activity)
 
-    @dis_snek.listen("message_create")
-    async def _dispatch_msg_commands(self, event: dis_snek.events.MessageCreate):
+    @naff.listen("message_create")
+    async def _dispatch_prefixed_commands(
+        self, event: naff.events.MessageCreate
+    ) -> None:
         """Determine if a command is being triggered, and dispatch it.
-
         Annoyingly, unlike d.py, we have to overwrite this whole method
         in order to provide the 'replace _ with -' trick that was in the
         d.py version."""
-
         message = event.message
 
         if not message.content:
             return
 
         if not message.author.bot:
-            prefixes = await bot.generate_prefixes(bot, message)
+            prefixes: str | typing.Iterable[str] = await self.generate_prefixes(
+                self, message
+            )  # type: ingore
 
-            if isinstance(prefixes, str) or prefixes == dis_snek.const.MENTION_PREFIX:
-                # its easier to treat everything as if it may be an iterable
-                # rather than building a special case for this
-                prefixes = (prefixes,)
+            if isinstance(prefixes, str) or prefixes == naff.MENTION_PREFIX:
+                prefixes = (prefixes,)  # type: ignore
 
             prefix_used = None
 
             for prefix in prefixes:
-                if prefix == dis_snek.const.MENTION_PREFIX:
-                    if mention := bot._mention_reg.search(message.content):
+                if prefix == naff.MENTION_PREFIX:
+                    if mention := self._mention_reg.search(message.content):  # type: ignore
                         prefix = mention.group()
                     else:
                         continue
@@ -132,53 +130,66 @@ class UltimateInvestigator(molter.MolterSnake):
                     break
 
             if prefix_used:
-                context = await bot.get_context(message)
-                context.invoked_name = ""
+                context = await self.get_context(message)
                 context.prefix = prefix_used
 
-                content = message.content.removeprefix(prefix_used)
-                command = bot
+                content_parameters = message.content.removeprefix(prefix_used)  # type: ignore
+                command = self  # yes, this is a hack
 
                 while True:
-                    first_word: str = dis_snek.utils.get_first_word(content)
-                    proper_first_word: str = (
-                        first_word.replace("-", "_") if first_word else None
+                    first_word: str = naff.utils.get_first_word(content_parameters)  # type: ignore
+                    command_first_word: str = (
+                        first_word.replace("-", "_") if first_word else first_word
                     )
-                    if isinstance(command, molter.MolterCommand):
-                        new_command = command.command_dict.get(proper_first_word)
+                    if isinstance(command, naff.PrefixedCommand):
+                        new_command = command.subcommands.get(command_first_word)
                     else:
-                        new_command = command.commands.get(proper_first_word)
+                        new_command = command.prefixed_commands.get(command_first_word)
                     if not new_command or not new_command.enabled:
                         break
 
                     command = new_command
-                    context.invoked_name += f"{first_word} "
+                    content_parameters = content_parameters.removeprefix(
+                        first_word
+                    ).strip()
 
-                    if not isinstance(command, molter.MolterCommand):
-                        # normal message commands can't have subcommands
-                        break
+                    if command.subcommands and command.hierarchical_checking:
+                        try:
+                            await new_command._can_run(
+                                context
+                            )  # will error out if we can't run this command
+                        except Exception as e:
+                            if new_command.error_callback:
+                                await new_command.error_callback(e, context)
+                            elif (
+                                new_command.extension
+                                and new_command.extension.extension_error
+                            ):
+                                await new_command.extension.extension_error(context)
+                            else:
+                                await self.on_command_error(context, e)
+                            return
 
-                    if command.command_dict and command.hierarchical_checking:
-                        await new_command._can_run(context)
-
-                    content = content.removeprefix(first_word).strip()
-
-                if isinstance(command, dis_snek.Snake):
+                if not isinstance(command, naff.PrefixedCommand):
                     command = None
 
                 if command and command.enabled:
-                    context.invoked_name = context.invoked_name.strip()
-                    context.args = dis_snek.utils.get_args(context.content_parameters)
+                    # yeah, this looks ugly
+                    context.command = command
+                    context.invoke_target = (
+                        message.content.removeprefix(prefix_used).removesuffix(content_parameters).strip()  # type: ignore
+                    )
+                    context.args = naff.utils.get_args(context.content_parameters)
                     try:
-                        if bot.pre_run_callback:
-                            await bot.pre_run_callback(context)
-                        await command(context)
-                        if bot.post_run_callback:
-                            await bot.post_run_callback(context)
+                        if self.pre_run_callback:
+                            await self.pre_run_callback(context)
+                        await self._run_prefixed_command(command, context)
+                        if self.post_run_callback:
+                            await self.post_run_callback(context)
                     except Exception as e:
-                        await bot.on_command_error(context, e)
+                        await self.on_command_error(context, e)
                     finally:
-                        await bot.on_command(context)
+                        await self.on_command(context)
 
     async def on_error(self, source: str, error: Exception, *args, **kwargs) -> None:
         await utils.error_handle(self, error)
@@ -189,28 +200,28 @@ class UltimateInvestigator(molter.MolterSnake):
 
 
 # honestly don't think i need the members stuff
-intents = dis_snek.Intents.new(
+intents = naff.Intents.new(
     guilds=True, guild_emojis_and_stickers=True, messages=True, reactions=True
 )
-mentions = dis_snek.AllowedMentions.all()
+mentions = naff.AllowedMentions.all()
 
 bot = UltimateInvestigator(
     generate_prefixes=investigator_prefixes,
     allowed_mentions=mentions,
     intents=intents,
-    auto_defer=dis_snek.AutoDefer(enabled=False),  # we already handle deferring
+    delete_unused_application_cmds=True,
+    auto_defer=False,  # we already handle deferring
 )
 bot.init_load = True
 bot.cached_prefixes = defaultdict(set)
-bot.cached_configs = dis_snek.utils.TTLCache(ttl=30)
-bot.color = dis_snek.Color(int(os.environ.get("BOT_COLOR")))
+bot.cached_configs = naff.utils.TTLCache(ttl=30)
+bot.color = naff.Color(int(os.environ.get("BOT_COLOR")))
 
-cogs_list = utils.get_all_extensions(os.environ.get("DIRECTORY_OF_FILE"))
-for cog in cogs_list:
+ext_list = utils.get_all_extensions(os.environ.get("DIRECTORY_OF_FILE"))
+for ext in ext_list:
     try:
-        bot.load_extension(cog)
-    except dis_snek.errors.ExtensionLoadException:
+        bot.load_extension(ext)
+    except naff.errors.ExtensionLoadException:
         raise
 
-# keep_alive.keep_alive()
 asyncio.run(bot.astart(os.environ.get("MAIN_TOKEN")))
