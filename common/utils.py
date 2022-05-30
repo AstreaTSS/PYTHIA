@@ -1,6 +1,6 @@
 #!/usr/bin/env python3.8
 import collections
-import contextlib
+import functools
 import logging
 import traceback
 import typing
@@ -39,6 +39,24 @@ def proper_permissions() -> typing.Any:
     return naff.check(predicate)
 
 
+@functools.wraps(naff.slash_command)
+def manage_guild_slash_cmd(
+    name: str,
+    description: naff.Absent[str] = naff.MISSING,
+):
+    return naff.slash_command(
+        name=name,
+        description=description,
+        default_member_permissions=naff.Permissions.MANAGE_GUILD,
+        dm_permission=False,
+    )
+
+
+@functools.wraps(naff.slash_command)
+def no_dm_slash_cmd(name: str, description: naff.Absent[str] = naff.MISSING):
+    return naff.slash_command(name=name, description=description, dm_permission=False)
+
+
 async def error_handle(bot: naff.Client, error: Exception, ctx: naff.Context = None):
     # handles errors and sends them to owner
     if isinstance(error, aiohttp.ServerDisconnectedError):
@@ -67,14 +85,12 @@ async def error_handle(bot: naff.Client, error: Exception, ctx: naff.Context = N
             await ctx.reply(
                 "An internal error has occured. The bot owner has been notified."
             )
-        elif hasattr(ctx, "send"):
-            with contextlib.suppress(naff.errors.HTTPException):
-                await ctx.send(
-                    content=(
-                        "An internal error has occured. The bot owner has been"
-                        " notified."
-                    )
+        elif isinstance(ctx, naff.InteractionContext):
+            await ctx.send(
+                content=(
+                    "An internal error has occured. The bot owner has been notified."
                 )
+            )
 
 
 async def msg_to_owner(bot: naff.Client, content, split=True):
@@ -86,12 +102,7 @@ async def msg_to_owner(bot: naff.Client, content, split=True):
         await bot.owner.send(f"{chunk}")
 
 
-async def create_and_or_get(bot, guild_id, msg_id) -> models.Config:
-    bot.cached_configs.expire()
-
-    if config := bot.cached_configs.get(msg_id):
-        return config
-
+async def create_or_get(guild_id: int) -> models.Config:
     defaults = {
         "bullet_chan_id": 0,
         "ult_detective_role": 0,
@@ -102,7 +113,6 @@ async def create_and_or_get(bot, guild_id, msg_id) -> models.Config:
         "bullet_custom_perm_roles": set(),
     }
     config, _ = await models.Config.get_or_create(guild_id=guild_id, defaults=defaults)
-    bot.cached_configs[msg_id] = config
     return config
 
 
@@ -197,7 +207,7 @@ def yesno_friendly_str(bool_to_convert):
     return "yes" if bool_to_convert == True else "no"
 
 
-def role_check(ctx: naff.PrefixedContext, role: naff.Role):
+def role_check(ctx: naff.Context, role: naff.Role):
     top_role = ctx.guild.me.top_role
 
     if role.position > top_role.position:
@@ -207,10 +217,34 @@ def role_check(ctx: naff.PrefixedContext, role: naff.Role):
             + "my role is higher than the role you want to use."
         )
 
+    return role
+
+
+class ValidRoleSlashConverter(naff.Converter):
+    async def convert(self, context: naff.InteractionContext, argument: naff.Role):
+        return role_check(context, argument)
+
 
 class CustomCheckFailure(naff.errors.BadArgument):
     # custom classs for custom prerequisite failures outside of normal command checks
     pass
+
+
+def valid_channel_check(ctx: naff.Context, channel: naff.GuildText):
+    perms = ctx.guild.me.channel_permissions(channel)
+
+    if (
+        naff.Permissions.VIEW_CHANNEL not in perms
+    ):  # technically pointless, but who knows
+        raise naff.errors.BadArgument(f"Cannot read messages in {channel.name}.")
+    elif naff.Permissions.READ_MESSAGE_HISTORY not in perms:
+        raise naff.errors.BadArgument(f"Cannot read message history in {channel.name}.")
+    elif naff.Permissions.SEND_MESSAGES not in perms:
+        raise naff.errors.BadArgument(f"Cannot send messages in {channel.name}.")
+    elif naff.Permissions.EMBED_LINKS not in perms:
+        raise naff.errors.BadArgument(f"Cannot send embeds in {channel.name}.")
+
+    return channel
 
 
 class ValidChannelConverter(naff.GuildTextConverter):
@@ -218,22 +252,12 @@ class ValidChannelConverter(naff.GuildTextConverter):
 
     async def convert(self, ctx: naff.PrefixedContext, argument: str):
         chan = await super().convert(ctx, argument)
-        perms = ctx.guild.me.channel_permissions(chan)
+        return valid_channel_check(ctx, chan)
 
-        if (
-            naff.Permissions.VIEW_CHANNEL not in perms
-        ):  # technically pointless, but who knows
-            raise naff.errors.BadArgument(f"Cannot read messages in {chan.name}.")
-        elif naff.Permissions.READ_MESSAGE_HISTORY not in perms:
-            raise naff.errors.BadArgument(
-                f"Cannot read message history in {chan.name}."
-            )
-        elif naff.Permissions.SEND_MESSAGES not in perms:
-            raise naff.errors.BadArgument(f"Cannot send messages in {chan.name}.")
-        elif naff.Permissions.EMBED_LINKS not in perms:
-            raise naff.errors.BadArgument(f"Cannot send embeds in {chan.name}.")
 
-        return chan
+class ValidChannelSlashConverter(naff.Converter):
+    async def convert(self, ctx: naff.InteractionContext, argument: naff.GuildText):
+        return valid_channel_check(ctx, argument)
 
 
 async def _global_checks(ctx: naff.Context):
@@ -245,3 +269,24 @@ class Extension(naff.Extension):
         new_cls = super().__new__(cls, bot, *args, **kwargs)
         new_cls.add_ext_check(_global_checks)
         return new_cls
+
+
+class UIBase(naff.Client):
+    cached_prefixes: typing.DefaultDict[int, set[str]]
+    cached_configs: naff.utils.TTLCache[int, models.Config]
+    color: naff.Color
+
+
+@naff.utils.define
+class InvestigatorContext(naff.InteractionContext):
+    guild_config: typing.Optional[models.Config] = naff.utils.field(default=None)
+
+    async def fetch_config(self):
+        if self.guild_config:
+            return self.guild_config
+
+        self.guild_config = await create_or_get(int(self.guild_id))
+        return self.guild_config
+
+    async def reply(self, **kwargs):
+        return await self.send(**kwargs)

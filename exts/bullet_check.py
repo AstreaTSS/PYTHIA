@@ -12,7 +12,9 @@ import common.utils as utils
 class BulletCheck(utils.Extension):
     """The cog that checks for the Truth Bullets."""
 
-    def __init__(self, bot: naff.Client):
+    bot: utils.UIBase
+
+    def __init__(self, bot: utils.UIBase):
         self.bot = bot
 
     async def check_for_finish(
@@ -79,9 +81,11 @@ class BulletCheck(utils.Extension):
         ):
             return
 
-        guild_config = await utils.create_and_or_get(
-            self.bot, message.guild.id, message.id
-        )
+        guild_config = self.bot.cached_configs.get(
+            message.id
+        ) or await utils.create_or_get(message.guild.id)
+        self.bot.cached_configs[message.id] = guild_config
+
         if not (
             guild_config.bullets_enabled
             and guild_config.player_role

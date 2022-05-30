@@ -16,10 +16,17 @@ class OnCMDError(naff.Extension):
         return naff.Embed(color=naff.MaterialColors.RED, description=error_msg)
 
     async def on_command_error(
-        self, ctx: naff.Context, error: Exception, *args, **kwargs
+        self,
+        ctx: naff.PrefixedContext | utils.InvestigatorContext,
+        error: Exception,
+        *args,
+        **kwargs,
     ):
-        if not ctx.bot.is_ready or not isinstance(ctx, naff.PrefixedContext):
+        if not ctx.bot.is_ready:
             return
+
+        if not isinstance(ctx, (naff.PrefixedContext, utils.InvestigatorContext)):
+            return await utils.error_handle(self.bot, error)
 
         if isinstance(error, naff.errors.CommandOnCooldown):
             delta_wait = datetime.timedelta(seconds=error.cooldown.get_cooldown_time())

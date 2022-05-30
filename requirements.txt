@@ -1,6 +1,5 @@
 git+https://github.com/Astrea49/NAFF.git@8ae91c805cdc3a38dfe0171ac99fa25fa8001802
-psycopg[binary]==3.0.14
-psycopg-pool==3.1.1
+asyncpg==0.25.0
 orjson==3.6.8
 charset-normalizer==2.0.12
 aiodns==3.0.0
@@ -10,4 +9,4 @@ humanize==4.1.0
 websockets==10.3
 python-dotenv==0.20.0
 orjson==3.6.8
-flask==2.1.2
+rapidfuzz==2.0.11

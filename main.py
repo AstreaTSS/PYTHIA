@@ -26,14 +26,18 @@ handler.setFormatter(
 logger.addHandler(handler)
 
 
-async def _get_prefixes(bot: naff.Client, msg: naff.Message):
+async def _get_prefixes(bot: utils.UIBase, msg: naff.Message):
     if not msg.guild:
         return set()
 
     if prefixes := bot.cached_prefixes[msg.guild.id]:
         return prefixes
 
-    guild_config = await utils.create_and_or_get(bot, msg.guild.id, msg.id)
+    guild_config = bot.cached_configs.get(msg.id) or await utils.create_or_get(
+        msg.guild.id
+    )
+    bot.cached_configs[msg.id] = guild_config
+
     prefixes = bot.cached_prefixes[msg.guild.id] = guild_config.prefixes
     return prefixes
 
@@ -54,7 +58,7 @@ async def investigator_prefixes(bot: naff.Client, msg: naff.Message):
     return mention_prefixes.union(custom_prefixes)
 
 
-class UltimateInvestigator(naff.Client):
+class UltimateInvestigator(utils.UIBase):
     @naff.listen("startup")
     async def on_startup(self):
         # you'll have to generate this yourself if you want to
@@ -213,7 +217,7 @@ bot = UltimateInvestigator(
     generate_prefixes=investigator_prefixes,
     allowed_mentions=mentions,
     intents=intents,
-    delete_unused_application_cmds=True,
+    interaction_context=utils.InvestigatorContext,
     auto_defer=False,  # we already handle deferring
 )
 bot.init_load = True

@@ -7,19 +7,30 @@ import common.utils as utils
 
 
 class OtherCMDs(utils.Extension):
+    bot: utils.UIBase
+
     def __init__(self, bot):
         self.name = "Other"
         self.bot = bot
 
-    @naff.prefixed_command()
-    async def ping(self, ctx):
-        """Pings the bot. Great way of finding out if the bot’s working correctly, but otherwise has no real use."""
+    @naff.slash_command(
+        name="ping",
+        description=(
+            "Pings the bot. Great way of finding out if the bot’s working, but has no"
+            " real use."
+        ),
+    )
+    async def ping(self, ctx: naff.InteractionContext):
+        await ctx.defer()
 
         start_time = time.perf_counter()
         ping_discord = round((self.bot.latency * 1000), 2)
 
-        mes = await ctx.reply(
-            f"Pong!\n`{ping_discord}` ms from Discord.\nCalculating personal ping..."
+        mes = await ctx.send(
+            content=(
+                f"Pong!\n`{ping_discord}` ms from Discord.\nCalculating personal"
+                " ping..."
+            ),
         )
 
         end_time = time.perf_counter()
@@ -32,21 +43,14 @@ class OtherCMDs(utils.Extension):
             )
         )
 
-    @naff.prefixed_command()
-    async def support(self, ctx):
-        """Gives an invite link to the support server."""
-        await ctx.reply("Support server:\nhttps://discord.gg/NSdetwGjpK")
+    @naff.slash_command(
+        "support", description="Gives an invite link to the support server."
+    )
+    async def support(self, ctx: naff.InteractionContext):
+        await ctx.send("Support server:\nhttps://discord.gg/NSdetwGjpK")
 
-    @naff.prefixed_command()
-    async def invite(self, ctx):
-        """Gives an invite link to invite the bot... or not.
-        It's a private bot. I can't let this thing grow exponentially."""
-        await ctx.reply("Contact Astrea in order to invite me.")
-
-    @naff.prefixed_command()
-    async def about(self, ctx: naff.PrefixedContext):
-        """Gives information about the bot."""
-
+    @naff.slash_command("about", description="Gives information about the bot.")
+    async def about(self, ctx: naff.InteractionContext):
         msg_list = [
             "Hi! I'm the Ultimate Investigator, a bot meant to help out with"
             " investigations with Danganronpa RPs.",
@@ -93,16 +97,16 @@ class OtherCMDs(utils.Extension):
             name="Source Code", value="\n".join(source_list), inline=False
         )
 
-        await ctx.reply(embed=about_embed)
+        await ctx.send(embed=about_embed)
 
     @naff.prefixed_command(aliases=["prefix"], ignore_extra=False)
     async def prefixes(self, ctx: naff.PrefixedContext):
         """A way of getting all of the prefixes for this server. You can also add and remove prefixes via this command."""
 
         async with ctx.channel.typing:
-            guild_config = await utils.create_and_or_get(
-                ctx.bot, ctx.guild.id, ctx.message.id
-            )
+            guild_config = self.bot.cached_configs.get(
+                ctx.message.id
+            ) or await utils.create_or_get(ctx.guild.id)
 
         if prefixes := tuple(f"`{p}`" for p in guild_config.prefixes):
             await ctx.reply(
@@ -130,9 +134,9 @@ class OtherCMDs(utils.Extension):
             )
 
         async with ctx.channel.typing:
-            guild_config = await utils.create_and_or_get(
-                ctx.bot, ctx.guild.id, ctx.message.id
-            )
+            guild_config = self.bot.cached_configs.get(
+                ctx.message.id
+            ) or await utils.create_or_get(ctx.guild.id)
             if len(guild_config.prefixes) >= 10:
                 raise utils.CustomCheckFailure(
                     "You have too many prefixes! You can only have up to 10 prefixes."
@@ -156,11 +160,11 @@ class OtherCMDs(utils.Extension):
 
         async with ctx.channel.typing:
             try:
-                guild_config = await utils.create_and_or_get(
-                    ctx.bot, ctx.guild.id, ctx.message.id
-                )
+                guild_config = self.bot.cached_configs.get(
+                    ctx.message.id
+                ) or await utils.create_or_get(ctx.guild.id)
                 guild_config.prefixes.remove(prefix)
-                ctx.bot.cached_prefixes[ctx.guild.id].remove(prefix)
+                self.bot.cached_prefixes[ctx.guild.id].remove(prefix)
                 await guild_config.save()
 
             except KeyError:
