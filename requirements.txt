@@ -1,4 +1,4 @@
-git+https://github.com/Astrea49/NAFF.git@8ae91c805cdc3a38dfe0171ac99fa25fa8001802
+naff==1.1.0
 asyncpg==0.25.0
 orjson==3.6.8
 charset-normalizer==2.0.12
