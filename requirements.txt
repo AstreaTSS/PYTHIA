@@ -9,4 +9,4 @@ humanize==4.1.0
 websockets==10.3
 python-dotenv==0.20.0
 orjson==3.7.2
-rapidfuzz==2.0.11
+rapidfuzz==2.1.0
