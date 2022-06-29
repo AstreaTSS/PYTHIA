@@ -1,7 +1,7 @@
 naff==1.2.0
 asyncpg==0.25.0
 orjson==3.7.2
-charset-normalizer==2.0.12
+charset-normalizer==2.1.0
 aiodns==3.0.0
 Brotli==1.0.9
 tortoise-orm==0.19.1
