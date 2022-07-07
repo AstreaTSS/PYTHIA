@@ -23,9 +23,7 @@ class BulletCheck(utils.Extension):
         bullet_chan: naff.GuildText,
         guild_config: models.Config,
     ):
-        do_not_find = await models.TruthBullet.get_or_none(
-            guild_id=guild.id, found=False
-        )
+        do_not_find = await models.TruthBullet.filter(guild_id=guild.id, found=False)
         if do_not_find:
             return
 
