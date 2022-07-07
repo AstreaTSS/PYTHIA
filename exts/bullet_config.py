@@ -181,7 +181,7 @@ class BulletConfigCMDs(utils.Extension):
         guild_config.bullets_enabled = toggle
         await guild_config.save()
 
-        await ctx.message.reply(
+        await ctx.send(
             "Truth Bullets turned"
             f" {utils.toggle_friendly_str(guild_config.bullets_enabled)}!"
         )
