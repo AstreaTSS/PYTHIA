@@ -94,7 +94,13 @@ class BulletCheck(utils.Extension):
 
         bullet_found: typing.Optional[models.TruthBullet] = None
 
-        async for bullet in models.TruthBullet.filter(channel_id=message.channel.id):
+        channel_id = (
+            message.channel.parent_channel.id
+            if isinstance(message.channel, naff.ThreadChannel)
+            else message.channel.id
+        )
+
+        async for bullet in models.TruthBullet.filter(channel_id=channel_id):
             if (
                 bullet.name.lower() in message.content.lower()
                 or any(a.lower() in message.content.lower() for a in bullet.aliases)
