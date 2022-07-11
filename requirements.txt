@@ -4,7 +4,7 @@ orjson==3.7.5
 charset-normalizer==2.1.0
 aiodns==3.0.0
 Brotli==1.0.9
-tortoise-orm==0.19.1
+tortoise-orm==0.19.2
 humanize==4.2.2
 websockets==10.3
 python-dotenv==0.20.0
