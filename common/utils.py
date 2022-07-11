@@ -125,7 +125,8 @@ def line_split(content: str, split_by=20):
 
 def embed_check(embed: naff.Embed) -> bool:
     """Checks if an embed is valid, as per Discord's guidelines.
-    See https://discord.com/developers/docs/resources/channel#embed-limits for details."""
+    See https://discord.com/developers/docs/resources/channel#embed-limits for details.
+    """
     if len(embed) > 6000:
         return False
 
@@ -248,7 +249,8 @@ def valid_channel_check(ctx: naff.Context, channel: naff.GuildText):
 
 
 class ValidChannelConverter(naff.GuildTextConverter):
-    """The text channel converter, but we do a few checks to make sure we can do what we need to do in the channel."""
+    """The text channel converter, but we do a few checks to make sure we can do what we need to do in the channel.
+    """
 
     async def convert(self, ctx: naff.PrefixedContext, argument: str):
         chan = await super().convert(ctx, argument)
