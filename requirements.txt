@@ -1,5 +1,5 @@
 naff==1.6.0
-asyncpg==0.25.0
+asyncpg==0.26.0
 orjson==3.7.5
 charset-normalizer==2.1.0
 aiodns==3.0.0
