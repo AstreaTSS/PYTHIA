@@ -101,7 +101,8 @@ class OtherCMDs(utils.Extension):
 
     @naff.prefixed_command(aliases=["prefix"], ignore_extra=False)
     async def prefixes(self, ctx: naff.PrefixedContext):
-        """A way of getting all of the prefixes for this server. You can also add and remove prefixes via this command."""
+        """A way of getting all of the prefixes for this server. You can also add and remove prefixes via this command.
+        """
 
         async with ctx.channel.typing:
             guild_config = self.bot.cached_configs.get(
