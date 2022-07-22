@@ -15,7 +15,7 @@ import common.utils as utils
 load_dotenv()
 
 
-logger = logging.getLogger("dis.naff")
+logger = logging.getLogger("uibot")
 logger.setLevel(logging.INFO)
 handler = logging.FileHandler(
     filename=os.environ.get("LOG_FILE_PATH"), encoding="utf-8", mode="a"
@@ -219,6 +219,7 @@ bot = UltimateInvestigator(
     intents=intents,
     interaction_context=utils.InvestigatorContext,
     auto_defer=False,  # we already handle deferring
+    logger=logger,
 )
 bot.init_load = True
 bot.cached_prefixes = defaultdict(set)

@@ -64,7 +64,7 @@ async def error_handle(bot: naff.Client, error: Exception, ctx: naff.Context = N
         split = True
     else:
         error_str = error_format(error)
-        logging.getLogger(naff.const.logger_name).error(error_str)
+        logging.getLogger("uibot").error(error_str)
 
         chunks = line_split(error_str)
         for i in range(len(chunks)):

@@ -13,7 +13,7 @@ from naff.ext import paginators
 from naff.ext.debug_extension.utils import debug_embed
 from naff.ext.debug_extension.utils import get_cache_state
 
-log = logging.getLogger(naff.const.logger_name)
+log = logging.getLogger("uibot")
 
 
 class DebugExtension(naff.Extension):
