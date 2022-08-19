@@ -205,6 +205,7 @@ class UltimateInvestigator(utils.UIBase):
 
 # honestly don't think i need the members stuff
 intents = naff.Intents.new(
+    default=False,
     guilds=True,
     guild_emojis_and_stickers=True,
     messages=True,
