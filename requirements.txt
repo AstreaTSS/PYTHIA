@@ -7,6 +7,6 @@ Brotli==1.0.9
 tortoise-orm==0.19.2
 humanize==4.3.0
 websockets==10.3
-python-dotenv==0.20.0
+python-dotenv==0.21.0
 orjson==3.7.12
 rapidfuzz==2.6.0
