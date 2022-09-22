@@ -25,7 +25,7 @@ class OnCMDError(naff.Extension):
         if not ctx.bot.is_ready:
             return
 
-        if not isinstance(ctx, (naff.PrefixedContext, utils.InvestigatorContext)):
+        if not isinstance(ctx, (naff.PrefixedContext, naff.InteractionContext)):
             return await utils.error_handle(self.bot, error)
 
         if isinstance(error, naff.errors.CommandOnCooldown):
