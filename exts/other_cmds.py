@@ -52,13 +52,19 @@ class OtherCMDs(utils.Extension):
     @naff.slash_command("about", description="Gives information about the bot.")
     async def about(self, ctx: naff.InteractionContext):
         msg_list = [
-            "Hi! I'm the Ultimate Investigator, a bot meant to help out with"
-            " investigations with Danganronpa RPs.",
-            "Niche, I know, but it was a demand, as otherwise, you would have to do it"
-            " all manually.",
+            (
+                "Hi! I'm the Ultimate Investigator, a bot meant to help out with"
+                " investigations with Danganronpa RPs."
+            ),
+            (
+                "Niche, I know, but it was a demand, as otherwise, you would have to do"
+                " it all manually."
+            ),
             "",
-            "This bot was originally a series of custom commands in YAGPDB, but soon"
-            " the commands grew too complex for it.",
+            (
+                "This bot was originally a series of custom commands in YAGPDB, but"
+                " soon the commands grew too complex for it."
+            ),
             "Still would recommend YAG, though. Just don't squeeze it to its limits.",
             "",
             (
@@ -69,8 +75,10 @@ class OtherCMDs(utils.Extension):
             ),
             "",
             "If you wish to invite me, contact Astrea and she'll talk to you about it.",
-            "If you need support for me, maybe take a look at the support server"
-            " here:\nhttps://discord.gg/NSdetwGjpK",
+            (
+                "If you need support for me, maybe take a look at the support server"
+                " here:\nhttps://discord.gg/NSdetwGjpK"
+            ),
             "",
             "Bot made by Astrea#7171.",
         ]
@@ -86,10 +94,14 @@ class OtherCMDs(utils.Extension):
         )
 
         source_list = [
-            "My source code is"
-            " [here!](https://github.com/Astrea49/UltimateInvestigator)",
-            "This code might not be the best code out there, but you may have some use"
-            " for it.",
+            (
+                "My source code is"
+                " [here!](https://github.com/Astrea49/UltimateInvestigator)"
+            ),
+            (
+                "This code might not be the best code out there, but you may have some"
+                " use for it."
+            ),
             "Note that much of it was based off my other bot, Seraphim.",
         ]
 

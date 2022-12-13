@@ -21,9 +21,11 @@ async def callback(ctx: naff.ComponentContext):
         ("[A|B]", "This means that it can be __**either A or B**__."),
         (
             "[argument...]",
-            "This means you can have multiple arguments.\n"
-            "Now that you know the basics, it should be noted that...\n"
-            "__**You do not type in the brackets!**__",
+            (
+                "This means you can have multiple arguments.\n"
+                "Now that you know the basics, it should be noted that...\n"
+                "__**You do not type in the brackets!**__"
+            ),
         ),
     )
 
@@ -64,8 +66,10 @@ class HelpPaginator(paginators.Paginator):
             rows[0].components[0] = naff.Select(
                 [
                     naff.SelectOption(
-                        f"{i+1}:"
-                        f" {p.get_summary if isinstance(p, paginators.Page) else p.title}",
+                        (
+                            f"{i+1}:"
+                            f" {p.get_summary if isinstance(p, paginators.Page) else p.title}"
+                        ),
                         str(i),
                     )
                     for i, p in enumerate(self.pages)

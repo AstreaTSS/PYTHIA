@@ -34,8 +34,10 @@ class BulletConfigCMDs(utils.Extension):
 
         str_builder = [
             f"Truth Bullets: {utils.toggle_friendly_str(guild_config.bullets_enabled)}",
-            "Truth Bullet channel:"
-            f" {f'<#{guild_config.bullet_chan_id}>' if guild_config.bullet_chan_id > 0 else 'None'}",
+            (
+                "Truth Bullet channel:"
+                f" {f'<#{guild_config.bullet_chan_id}>' if guild_config.bullet_chan_id > 0 else 'None'}"
+            ),
             "",
         ]
 

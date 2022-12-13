@@ -3,6 +3,7 @@ from tortoise import fields
 from tortoise.contrib.postgres.fields import ArrayField
 from tortoise.models import Model
 
+
 # yes, this is a copy from common.utils
 # but circular imports are a thing
 def yesno_friendly_str(bool_to_convert):
