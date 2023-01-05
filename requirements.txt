@@ -1,6 +1,6 @@
 naff==1.8.1
 asyncpg==0.26.0
-orjson==3.7.12
+orjson==3.8.4
 charset-normalizer==2.1.1
 aiodns==3.0.0
 Brotli==1.0.9
@@ -8,5 +8,5 @@ tortoise-orm==0.19.2
 humanize==4.3.0
 websockets==10.3
 python-dotenv==0.20.0
-orjson==3.7.12
+orjson==3.8.4
 rapidfuzz==2.6.0
