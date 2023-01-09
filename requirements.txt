@@ -1,4 +1,4 @@
-naff==1.8.1
+naff==2.1.0
 asyncpg==0.26.0
 orjson==3.7.12
 charset-normalizer==2.1.1
