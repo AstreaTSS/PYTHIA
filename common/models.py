@@ -3,6 +3,7 @@ import typing
 
 import naff
 from tortoise import fields
+from tortoise.connection import connections
 from tortoise.contrib.postgres.fields import ArrayField
 from tortoise.models import Model
 
@@ -92,3 +93,31 @@ class Config(Model):
     ult_detective_role: typing.Optional[int] = fields.BigIntField(null=True)
     player_role: typing.Optional[int] = fields.BigIntField(null=True)
     bullets_enabled: bool = fields.BooleanField(default=False)  # type: ignore
+
+
+BULLET_QUERY_FROM_NAME = f"""
+SELECT *
+FROM {TruthBullet.Meta.table}
+WHERE channel_id = $1
+AND (lower(name) = $2
+OR (EXISTS (SELECT 1 FROM unnest(aliases) a WHERE lower(a) = $2)))
+""".strip()
+
+
+async def get_bullet_from_name(channel_id: int, name: str):
+    possible_bullet = await connections.get("default").execute_query(
+        BULLET_QUERY_FROM_NAME, [channel_id, name.lower()]
+    )
+
+    if possible_bullet[0] == 0:
+        return None
+
+    return TruthBullet(**possible_bullet[1][0])
+
+
+async def bullet_exists_by_name(channel_id: int, name: str):
+    result = await connections.get("default").execute_query(
+        BULLET_QUERY_FROM_NAME, [channel_id, name.lower()]
+    )
+
+    return bool(result[0])

@@ -77,14 +77,13 @@ class BulletCMDs(utils.Extension):
         if ctx.custom_id.startswith("ui-modal:add_bullets-"):
             channel_id = int(ctx.custom_id.removeprefix("ui-modal:add_bullets-"))
 
-            possible_duplicate = await models.TruthBullet.exists(
-                channel_id=channel_id,
-                name=ctx.responses["truth_bullet_name"],
-            )
-            if possible_duplicate:
+            if await models.bullet_exists_by_name(
+                channel_id, ctx.responses["truth_bullet_name"]
+            ):
                 await ctx.send(
-                    f"Truth Bullet `{ctx.responses['truth_bullet_name']}` already"
-                    " exists!"
+                    "A Truth Bullet in this channel is either already called"
+                    f" `{ctx.responses['truth_bullet_name']}` or has an alias named"
+                    " that!"
                 )
                 return
 
@@ -117,7 +116,7 @@ class BulletCMDs(utils.Extension):
         ),
     ):
         num_deleted = await models.TruthBullet.filter(
-            channel_id=channel.id, name=name
+            channel_id=channel.id, name__iexact=name
         ).delete()
 
         if num_deleted > 0:
@@ -183,7 +182,7 @@ class BulletCMDs(utils.Extension):
         name: str = tansy.Option("The name of the Truth Bullet.", autocomplete=True),
     ):
         possible_bullet = await models.TruthBullet.get_or_none(
-            channel_id=channel.id, name=name
+            channel_id=channel.id, name__iexact=name
         )
 
         if not possible_bullet:
@@ -205,7 +204,7 @@ class BulletCMDs(utils.Extension):
         ),
     ):
         possible_bullet = await models.TruthBullet.get_or_none(
-            channel_id=channel.id, name=name
+            channel_id=channel.id, name__iexact=name
         )
         if not possible_bullet:
             raise naff.errors.BadArgument(f"Truth Bullet `{name}` does not exist!")
@@ -238,7 +237,8 @@ class BulletCMDs(utils.Extension):
             channel_id = int(channel_id)
 
             possible_bullet = await models.TruthBullet.get_or_none(
-                channel_id=channel_id, name=name
+                channel_id=channel_id,
+                name__iexact=name,
             )
             if possible_bullet is None:
                 await ctx.send(f"Truth Bullet `{name}` no longer exists!")
@@ -259,7 +259,8 @@ class BulletCMDs(utils.Extension):
         ),
     ):
         possible_bullet = await models.TruthBullet.get_or_none(
-            channel_id=channel.id, name=name
+            channel_id=channel.id,
+            name__iexact=name,
         )
 
         if not possible_bullet:
@@ -287,7 +288,8 @@ class BulletCMDs(utils.Extension):
         user: naff.Member = tansy.Option("The user who will find the Truth Bullet."),
     ):
         possible_bullet = await models.TruthBullet.get_or_none(
-            channel_id=channel.id, name=name
+            channel_id=channel.id,
+            name__iexact=name,
         )
         if not possible_bullet:
             raise naff.errors.BadArgument(f"Truth Bullet `{name}` does not exist!")
@@ -318,8 +320,14 @@ class BulletCMDs(utils.Extension):
                 + "Please use something at or under 40 characters."
             )
 
+        if await models.TruthBullet.exists(channel_id=channel.id, name__iexact=alias):
+            raise naff.errors.BadArgument(
+                f"Alias `{alias}` is used as a name for another Truth Bullet for this"
+                " channel!"
+            )
+
         possible_bullet = await models.TruthBullet.get_or_none(
-            channel_id=channel.id, name=name
+            channel_id=channel.id, name__iexact=name
         )
         if not possible_bullet:
             raise naff.errors.BadArgument(f"Truth Bullet `{name}` does not exist!")
@@ -352,7 +360,8 @@ class BulletCMDs(utils.Extension):
         alias: str = tansy.Option("The alias to remove.", autocomplete=True),
     ):
         possible_bullet = await models.TruthBullet.get_or_none(
-            channel_id=channel.id, name=name
+            channel_id=channel.id,
+            name__iexact=name,
         )
         if not possible_bullet:
             raise naff.errors.BadArgument(f"Truth Bullet `{name}` does not exist!")
