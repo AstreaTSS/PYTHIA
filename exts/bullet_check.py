@@ -4,9 +4,22 @@ import importlib
 import typing
 
 import naff
+from tortoise.connection import connections
 
 import common.models as models
 import common.utils as utils
+
+# a very complicated way of saying
+# find a truth bullet that has a channel id of our first value, and either has:
+# - the name in the second value (a string) we provide
+# - an alias in the second value we provide
+BULLET_QUERY = f"""
+SELECT *
+FROM {models.TruthBullet.Meta.table}
+WHERE channel_id=$1 and found = false
+AND ($2 ILIKE '%' || name || '%'
+OR (EXISTS (SELECT 1 FROM unnest(aliases) a WHERE $2 ILIKE '%' || a || '%')))
+""".strip()
 
 
 class BulletCheck(utils.Extension):
@@ -80,7 +93,10 @@ class BulletCheck(utils.Extension):
         ):
             return
 
-        guild_config, _ = await models.Config.get_or_create(guild_id=message.guild.id)
+        guild_config = await models.Config.get_or_none(guild_id=message.guild.id)
+
+        if not guild_config:
+            return
 
         if not (
             guild_config.bullets_enabled
@@ -98,20 +114,14 @@ class BulletCheck(utils.Extension):
             else message.channel.id
         )
 
-        content = message.content.lower()
+        possible_bullet = await connections.get("default").execute_query(
+            BULLET_QUERY, [channel_id, message.content]
+        )
 
-        # TODO: make this way better
-        async for bullet in models.TruthBullet.filter(
-            channel_id=channel_id, found=False
-        ):
-            if bullet.name.lower() in content or any(
-                a.lower() in content for a in bullet.aliases
-            ):
-                bullet_found = bullet
-                break
-
-        if not bullet_found:
+        if possible_bullet[0] == 0:
             return
+
+        bullet_found = models.TruthBullet(**possible_bullet[1][0])
 
         bullet_chan: naff.GuildText = self.bot.get_channel(guild_config.bullet_chan_id)
         if not bullet_chan:
@@ -122,13 +132,13 @@ class BulletCheck(utils.Extension):
 
         bullet_found.found = True
         bullet_found.finder = message.author.id
-        await bullet_found.save()
 
         embed = bullet_found.found_embed(str(message.author))
 
         await message.reply(embed=embed)
         await bullet_chan.send(embed=embed)
 
+        await bullet_found.save(force_update=True)
         await self.check_for_finish(message.guild, bullet_chan, guild_config)
 
 
