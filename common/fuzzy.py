@@ -59,7 +59,7 @@ async def autocomplete_bullets(
         argument=name.lower(),
         list_of_items=channel_bullets,
         processors=[get_bullet_name],
-        score_cutoff=60,
+        score_cutoff=0.6,
     )
     return await ctx.send([{"name": b[0].name, "value": b[0].name} for b in query][:25])  # type: ignore
 
@@ -91,6 +91,6 @@ async def autocomplete_aliases(
         argument=name.lower(),
         list_of_items=truth_bullet.aliases,
         processors=[get_alias_name],
-        score_cutoff=60,
+        score_cutoff=0.6,
     )
     return await ctx.send([{"name": a[0], "value": a[0]} for a in query][:25])  # type: ignore
