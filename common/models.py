@@ -95,7 +95,7 @@ class Config(Model):
     bullets_enabled: bool = fields.BooleanField(default=False)  # type: ignore
 
 
-BULLET_QUERY_FROM_NAME = f"""
+BULLET_QUERY_BY_NAME = f"""
 SELECT *
 FROM {TruthBullet.Meta.table}
 WHERE channel_id = $1
@@ -103,10 +103,20 @@ AND (lower(name) = $2
 OR (EXISTS (SELECT 1 FROM unnest(aliases) a WHERE lower(a) = $2)))
 """.strip()
 
+BULLET_EXISTS_BY_NAME = f"""
+SELECT EXISTS(
+    SELECT 1
+    FROM {TruthBullet.Meta.table}
+    WHERE channel_id=$1
+    AND (lower(name)=$2
+    OR (EXISTS (SELECT 1 FROM unnest(aliases) a WHERE lower(a)=$2)))
+)
+"""
+
 
 async def get_bullet_from_name(channel_id: int, name: str):
     possible_bullet = await connections.get("default").execute_query(
-        BULLET_QUERY_FROM_NAME, [channel_id, name.lower()]
+        BULLET_QUERY_BY_NAME, [channel_id, name.lower()]
     )
 
     if possible_bullet[0] == 0:
@@ -117,7 +127,7 @@ async def get_bullet_from_name(channel_id: int, name: str):
 
 async def bullet_exists_by_name(channel_id: int, name: str):
     result = await connections.get("default").execute_query(
-        BULLET_QUERY_FROM_NAME, [channel_id, name.lower()]
+        BULLET_EXISTS_BY_NAME, [channel_id, name.lower()]
     )
 
     return bool(result[0])
