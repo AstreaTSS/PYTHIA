@@ -6,6 +6,7 @@ import naff
 import tansy
 
 import common.fuzzy as fuzzy
+import common.help_tools as help_tools
 import common.models as models
 import common.utils as utils
 
@@ -157,7 +158,7 @@ class BulletCMDs(utils.Extension):
         for bullet in guild_bullets:
             bullet_dict[bullet.channel_id].append(bullet)
 
-        str_builder = collections.deque()
+        str_builder: collections.deque[str] = collections.deque()
 
         for channel_id in bullet_dict.keys():
             str_builder.append(f"<#{channel_id}>:")
@@ -168,9 +169,18 @@ class BulletCMDs(utils.Extension):
 
             str_builder.append("")
 
-        chunks = utils.line_split("\n".join(str_builder), split_by=30)
-        for chunk in chunks:
-            await ctx.send("\n".join(chunk))
+        pag = help_tools.HelpPaginator.create_from_list(
+            ctx.bot, list(str_builder), timeout=300
+        )
+        if len(pag.pages) == 1:
+            embed = pag.pages[0].to_embed()  # type: ignore
+            embed.color = ctx.bot.color
+            return await ctx.send(embeds=embed)
+
+        pag.show_callback_button = False
+        pag.show_select_menu = False
+        pag.default_color = ctx.bot.color
+        await pag.send(ctx)
 
     @utils.manage_guild_slash_cmd(
         "bullet-info", "Lists all information about a Truth Bullet."
@@ -188,9 +198,15 @@ class BulletCMDs(utils.Extension):
         if not possible_bullet:
             raise naff.errors.BadArgument(f"Truth Bullet `{name}` does not exist!")
 
-        await ctx.send(
-            str(possible_bullet), allowed_mentions=utils.deny_mentions(ctx.author)
+        bullet_info = possible_bullet.bullet_info()
+        embed = naff.Embed(
+            title=f"Information about {name}",
+            description=bullet_info,
+            color=ctx.bot.color,
+            timestamp=naff.Timestamp.utcnow(),
         )
+
+        await ctx.send(embeds=embed, allowed_mentions=utils.deny_mentions(ctx.author))
 
     @utils.manage_guild_slash_cmd(
         "edit-bullet", "Sends a prompt to edit a Truth Bullet."

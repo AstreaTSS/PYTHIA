@@ -51,13 +51,13 @@ class TruthBullet(Model):
     def chan_mention(self):
         return f"<#{self.channel_id}>"
 
-    def __str__(self):  # sourcery skip: merge-list-append
+    def bullet_info(self) -> str:
         str_list = [
             f"`{self.name}` - in {self.chan_mention}",
             f"Aliases: {', '.join(f'`{a}`' for a in self.aliases)}",
+            f"Found: {yesno_friendly_str(self.found)}",
         ]
 
-        str_list.append(f"Found: {yesno_friendly_str(self.found)}")
         str_list.extend(
             (
                 f"Finder: {f'<@{self.finder}>' if self.finder else 'N/A'}",
