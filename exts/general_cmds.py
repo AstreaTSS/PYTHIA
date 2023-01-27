@@ -81,7 +81,7 @@ class OtherCMDs(utils.Extension):
                 " for them to host the KG."
             ),
             (
-                'I can handle anything related to "Truth Bullets" (or you KG'
+                'I can handle anything related to "Truth Bullets" (or your KG\'s'
                 " equivalent), managing and sending them out as needed."
             ),
         ]
