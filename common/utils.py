@@ -8,79 +8,53 @@ from pathlib import Path
 
 import aiohttp
 import naff
+import tansy
 
 import common.models as models
 
 
-def bullet_proper_perms() -> typing.Any:
-    async def predicate(ctx: naff.PrefixedContext):
-        guild_config = await create_and_or_get(ctx.bot, ctx.guild.id, ctx.message.id)
-
-        default_perms = False
-        if guild_config.bullet_default_perms_check:
-            # checks if author has admin or manage guild perms or is the owner
-            default_perms = ctx.author.has_permission(naff.Permissions.MANAGE_GUILD)
-
-        # checks to see if the internal role list for the user has any of the roles specified in the roles specified
-        if guild_config.bullet_custom_perm_roles:
-            role_perms = ctx.author.has_role(*guild_config.bullet_custom_perm_roles)
-        else:
-            role_perms = False
-
-        return bool(default_perms or role_perms)
-
-    return naff.check(predicate)
-
-
-def proper_permissions() -> typing.Any:
-    async def predicate(ctx: naff.PrefixedContext):
-        return ctx.author.has_permission(naff.Permissions.MANAGE_GUILD)
-
-    return naff.check(predicate)
-
-
-@functools.wraps(naff.slash_command)
+@functools.wraps(tansy.slash_command)
 def manage_guild_slash_cmd(
     name: str,
     description: naff.Absent[str] = naff.MISSING,
 ):
-    return naff.slash_command(
+    return tansy.slash_command(
         name=name,
         description=description,
         default_member_permissions=naff.Permissions.MANAGE_GUILD,
-        dm_permission=False,
     )
 
 
-@functools.wraps(naff.slash_command)
-def no_dm_slash_cmd(name: str, description: naff.Absent[str] = naff.MISSING):
-    return naff.slash_command(name=name, description=description, dm_permission=False)
+def error_embed_generate(error_msg: str):
+    return naff.Embed(color=naff.RoleColors.RED, description=error_msg)
 
 
-async def error_handle(bot: naff.Client, error: Exception, ctx: naff.Context = None):
+async def error_handle(
+    bot: naff.Client, error: Exception, ctx: naff.Context | None = None
+):
     # handles errors and sends them to owner
     if isinstance(error, aiohttp.ServerDisconnectedError):
         to_send = "Disconnected from server!"
-        split = True
     else:
         error_str = error_format(error)
         logging.getLogger("uibot").error(error_str)
 
-        chunks = line_split(error_str)
+        chunks = line_split(error_str, split_by=40)
         for i in range(len(chunks)):
             chunks[i][0] = f"```py\n{chunks[i][0]}"
-            chunks[i][len(chunks[i]) - 1] += "\n```"
+            chunks[i][-1] += "\n```"
 
-        final_chunks = ["\n".join(chunk) for chunk in chunks]
+        final_chunks: list[str | naff.Embed] = [
+            error_embed_generate("\n".join(chunk)) for chunk in chunks
+        ]
         if ctx and hasattr(ctx, "message") and hasattr(ctx.message, "jump_url"):
             final_chunks.insert(0, f"Error on: {ctx.message.jump_url}")
 
         to_send = final_chunks
-        split = False
 
-    await msg_to_owner(bot, to_send, split)
+    await msg_to_owner(bot, to_send)
 
-    if ctx:
+    if ctx and isinstance(ctx, naff.SendableContext):
         if isinstance(ctx, naff.PrefixedContext):
             await ctx.reply(
                 "An internal error has occured. The bot owner has been notified."
@@ -89,31 +63,28 @@ async def error_handle(bot: naff.Client, error: Exception, ctx: naff.Context = N
             await ctx.send(
                 content=(
                     "An internal error has occured. The bot owner has been notified."
-                )
+                ),
+                ephemeral=True,
+            )
+        else:
+            await ctx.send(
+                "An internal error has occured. The bot owner has been notified."
             )
 
 
-async def msg_to_owner(bot: naff.Client, content, split=True):
+async def msg_to_owner(
+    bot: "UIBase",
+    chunks: list[str] | list[naff.Embed] | list[str | naff.Embed] | str | naff.Embed,
+):
+    if not isinstance(chunks, list):
+        chunks = [chunks]
+
     # sends a message to the owner
-    string = str(content)
-
-    str_chunks = string_split(string) if split else content
-    for chunk in str_chunks:
-        await bot.owner.send(f"{chunk}")
-
-
-async def create_or_get(guild_id: int) -> models.Config:
-    defaults = {
-        "bullet_chan_id": 0,
-        "ult_detective_role": 0,
-        "player_role": 0,
-        "bullets_enabled": False,
-        "prefixes": {"v!"},
-        "bullet_default_perms_check": True,
-        "bullet_custom_perm_roles": set(),
-    }
-    config, _ = await models.Config.get_or_create(guild_id=guild_id, defaults=defaults)
-    return config
+    for chunk in chunks:
+        if isinstance(chunk, naff.Embed):
+            await bot.owner.send(embeds=chunk)
+        else:
+            await bot.owner.send(chunk)
 
 
 def line_split(content: str, split_by=20):
@@ -211,7 +182,7 @@ def yesno_friendly_str(bool_to_convert):
 def role_check(ctx: naff.Context, role: naff.Role):
     top_role = ctx.guild.me.top_role
 
-    if role.position > top_role.position:
+    if role > top_role:
         raise CustomCheckFailure(
             "The role provided is a role that is higher than the roles I can edit. "
             + "Please move either that role or my role so that "
@@ -221,7 +192,7 @@ def role_check(ctx: naff.Context, role: naff.Role):
     return role
 
 
-class ValidRoleSlashConverter(naff.Converter):
+class ValidRoleConverter(naff.Converter):
     async def convert(self, context: naff.InteractionContext, argument: naff.Role):
         return role_check(context, argument)
 
@@ -231,8 +202,15 @@ class CustomCheckFailure(naff.errors.BadArgument):
     pass
 
 
-def valid_channel_check(ctx: naff.Context, channel: naff.GuildText):
-    perms = ctx.guild.me.channel_permissions(channel)
+class GuildMessageable(naff.GuildChannel, naff.MessageableMixin):
+    pass
+
+
+def valid_channel_check(channel: naff.GuildChannel) -> GuildMessageable:
+    if not isinstance(channel, naff.MessageableMixin):
+        raise naff.errors.BadArgument(f"Cannot send messages in {channel.name}.")
+
+    perms = channel.permissions_for(channel.guild.me)
 
     if (
         naff.Permissions.VIEW_CHANNEL not in perms
@@ -245,21 +223,12 @@ def valid_channel_check(ctx: naff.Context, channel: naff.GuildText):
     elif naff.Permissions.EMBED_LINKS not in perms:
         raise naff.errors.BadArgument(f"Cannot send embeds in {channel.name}.")
 
-    return channel
+    return channel  # type: ignore
 
 
-class ValidChannelConverter(naff.GuildTextConverter):
-    """The text channel converter, but we do a few checks to make sure we can do what we need to do in the channel.
-    """
-
-    async def convert(self, ctx: naff.PrefixedContext, argument: str):
-        chan = await super().convert(ctx, argument)
-        return valid_channel_check(ctx, chan)
-
-
-class ValidChannelSlashConverter(naff.Converter):
+class ValidChannelConverter(naff.Converter):
     async def convert(self, ctx: naff.InteractionContext, argument: naff.GuildText):
-        return valid_channel_check(ctx, argument)
+        return valid_channel_check(argument)
 
 
 async def _global_checks(ctx: naff.Context):
@@ -273,21 +242,39 @@ class Extension(naff.Extension):
         return new_cls
 
 
-class UIBase(naff.Client):
-    cached_prefixes: typing.DefaultDict[int, set[str]]
-    cached_configs: naff.utils.TTLCache[int, models.Config]
-    color: naff.Color
+if typing.TYPE_CHECKING:
+    from .help_tools import MiniCommand, PermissionsResolver
+
+    class UIBase(naff.Client):
+        owner: naff.User
+        color: naff.Color
+        slash_perms_cache: collections.defaultdict[int, dict[int, PermissionsResolver]]
+        mini_commands_per_scope: dict[int, dict[str, MiniCommand]]
+
+else:
+
+    class UIBase(naff.Client):
+        pass
 
 
 @naff.utils.define
 class InvestigatorContext(naff.InteractionContext):
     guild_config: typing.Optional[models.Config] = naff.utils.field(default=None)
 
+    @property
+    def guild(self) -> naff.Guild:
+        return self._client.cache.get_guild(self.guild_id)  # type: ignore
+
+    @property
+    def bot(self) -> "UIBase":
+        """A reference to the bot instance."""
+        return self._client  # type: ignore
+
     async def fetch_config(self):
         if self.guild_config:
             return self.guild_config
 
-        self.guild_config = await create_or_get(int(self.guild_id))
+        self.guild_config, _ = await models.Config.get_or_create(guild_id=self.guild.id)
         return self.guild_config
 
     async def reply(self, **kwargs):

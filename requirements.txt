@@ -1,12 +1,13 @@
-naff==1.8.1
+naff[speedup]==2.1.0
+tansy==0.5.2
 asyncpg==0.26.0
-orjson==3.7.12
+tortoise-orm[accel]==0.19.2
 charset-normalizer==2.1.1
 aiodns==3.0.0
 Brotli==1.0.9
-tortoise-orm==0.19.2
-humanize==4.3.0
+humanize==4.4.0
 websockets==10.3
-python-dotenv==0.20.0
-orjson==3.7.12
-rapidfuzz==2.6.0
+python-dotenv==0.21.1
+orjson==3.8.5
+rapidfuzz==2.13.7
+uvloop==0.17.0; platform_system == "Linux"

@@ -1,7 +1,11 @@
+import os
+import typing
+
 import naff
 from tortoise import fields
 from tortoise.contrib.postgres.fields import ArrayField
 from tortoise.models import Model
+
 
 # yes, this is a copy from common.utils
 # but circular imports are a thing
@@ -25,7 +29,13 @@ class SetField(ArrayField, set):
 
 class TruthBullet(Model):
     class Meta:
-        table = "uitruthbullets"
+        table = "uinewtruthbullets"
+        indexes = (
+            "name",
+            "channel_id",
+            "guild_id",
+            "found",
+        )
 
     id: int = fields.IntField(pk=True)
     name: str = fields.CharField(max_length=100)
@@ -33,8 +43,8 @@ class TruthBullet(Model):
     description: str = fields.TextField()
     channel_id: int = fields.BigIntField()
     guild_id: int = fields.BigIntField()
-    found: bool = fields.BooleanField()
-    finder: int = fields.BigIntField()
+    found: bool = fields.BooleanField()  # type: ignore
+    finder: typing.Optional[int] = fields.BigIntField(null=True)
 
     @property
     def chan_mention(self):
@@ -49,7 +59,7 @@ class TruthBullet(Model):
         str_list.append(f"Found: {yesno_friendly_str(self.found)}")
         str_list.extend(
             (
-                f"Finder: {f'<@{self.finder}>' if self.finder > 0 else 'N/A'}",
+                f"Finder: {f'<@{self.finder}>' if self.finder else 'N/A'}",
                 "",
                 f"Description: {self.description}",
             )
@@ -57,17 +67,17 @@ class TruthBullet(Model):
 
         return "\n".join(str_list)
 
-    def found_embed(self, username):
+    def found_embed(self, username: str):
         embed = naff.Embed(
             title="Truth Bullet Discovered",
             timestamp=naff.Timestamp.utcnow(),
-            color=14232643,
+            color=int(os.environ["BOT_COLOR"]),
         )
         embed.description = (
             f"`{self.name}` - from {self.chan_mention}\n\n{self.description}"
         )
 
-        footer = "To be found as of" if self.finder is None else f"Found by {username}"
+        footer = f"Found by {username}" if self.finder else "To be found as of"
         embed.set_footer(text=footer)
 
         return embed
@@ -75,14 +85,10 @@ class TruthBullet(Model):
 
 class Config(Model):
     class Meta:
-        table = "uiconfig"
+        table = "uinewconfig"
 
-    id: int = fields.IntField(pk=True)
-    guild_id: int = fields.BigIntField()
-    bullet_chan_id: int = fields.BigIntField()
-    ult_detective_role: int = fields.BigIntField()
-    player_role: int = fields.BigIntField()
-    bullets_enabled: bool = fields.BooleanField(default=False)
-    prefixes: set[str] = SetField("VARCHAR(40)")
-    bullet_default_perms_check: bool = fields.BooleanField(default=True)
-    bullet_custom_perm_roles: set[int] = SetField("BIGINT")
+    guild_id: int = fields.BigIntField(pk=True)
+    bullet_chan_id: typing.Optional[int] = fields.BigIntField(null=True)
+    ult_detective_role: typing.Optional[int] = fields.BigIntField(null=True)
+    player_role: typing.Optional[int] = fields.BigIntField(null=True)
+    bullets_enabled: bool = fields.BooleanField(default=False)  # type: ignore

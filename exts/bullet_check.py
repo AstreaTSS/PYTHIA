@@ -23,14 +23,13 @@ class BulletCheck(utils.Extension):
         bullet_chan: naff.GuildText,
         guild_config: models.Config,
     ):
-        do_not_find = await models.TruthBullet.filter(guild_id=guild.id, found=False)
-        if do_not_find:
+        if await models.TruthBullet.filter(guild_id=guild.id, found=False).exists():
             return
 
-        counter = collections.Counter()
+        counter: collections.Counter[int] = collections.Counter()
 
         async for bullet in models.TruthBullet.filter(guild_id=guild.id):
-            counter[bullet.finder] += 1
+            counter[bullet.finder] += 1  # type: ignore
 
         most_found = counter.most_common(None)
         most_found_num = most_found[0][
@@ -39,12 +38,25 @@ class BulletCheck(utils.Extension):
         # the next is just fancy code to check for ties and make a list for the top people
         most_found_people = tuple(p[0] for p in most_found if p[1] == most_found_num)
 
-        if guild_config.ult_detective_role > 0:  # if the role had been specified
+        str_builder: list[str] = [
+            "**All Truth Bullets have been found.**",
+            "",
+            f"Best Truth Bullet Finder(s) (found {most_found_num} Truth Bullets):",
+        ]
+        str_builder.extend(f"<@{person_id}>" for person_id in most_found_people)
+
+        await bullet_chan.send("\n".join(str_builder))
+
+        guild_config.bullets_enabled = False
+        await guild_config.save()
+
+        if guild_config.ult_detective_role:  # if the role had been specified
             if ult_detect_role_obj := guild.get_role(guild_config.ult_detective_role):
                 for person_id in most_found_people:
-                    try:  # use an internal method to save on an http request
-                        # we get to skip out on asking for the member, which was... well
-                        # who cares, anyways?
+                    try:
+                        # use an internal method to save on an http request
+                        # we get to skip out on asking for the member, which was
+                        # pointless to do for our needs
                         # but dont do this unless you're me
 
                         await self.bot.http.add_guild_member_role(
@@ -53,17 +65,6 @@ class BulletCheck(utils.Extension):
                         await asyncio.sleep(1)  # we don't want to trigger ratelimits
                     except naff.errors.HTTPException:
                         continue
-
-        str_builder = collections.deque()
-        str_builder.append("**All Truth Bullets have been found.**")
-        str_builder.append("")
-        str_builder.append(f"Best Detective(s) (found {most_found_num} Truth Bullets):")
-        str_builder.extend(f"<@{person_id}>" for person_id in most_found_people)
-
-        await bullet_chan.send("\n".join(str_builder))
-
-        guild_config.bullets_enabled = False
-        await guild_config.save()
 
     @naff.listen("message_create")
     async def on_message(self, event: naff.events.MessageCreate):
@@ -74,15 +75,12 @@ class BulletCheck(utils.Extension):
             message.author.bot
             or message.author.system
             or not message.guild
-            or message.type != naff.enums.MessageTypes.DEFAULT
-            or message.content == ""
+            or message.type not in {naff.MessageTypes.DEFAULT, naff.MessageTypes.REPLY}
+            or not message.content
         ):
             return
 
-        guild_config = self.bot.cached_configs.get(
-            message.id
-        ) or await utils.create_or_get(message.guild.id)
-        self.bot.cached_configs[message.id] = guild_config
+        guild_config, _ = await models.Config.get_or_create(guild_id=message.guild.id)
 
         if not (
             guild_config.bullets_enabled
@@ -100,29 +98,33 @@ class BulletCheck(utils.Extension):
             else message.channel.id
         )
 
-        async for bullet in models.TruthBullet.filter(channel_id=channel_id):
-            if (
-                bullet.name.lower() in message.content.lower()
-                or any(a.lower() in message.content.lower() for a in bullet.aliases)
-            ) and not bullet.found:
+        content = message.content.lower()
+
+        # TODO: make this way better
+        async for bullet in models.TruthBullet.filter(
+            channel_id=channel_id, found=False
+        ):
+            if bullet.name.lower() in content or any(
+                a.lower() in content for a in bullet.aliases
+            ):
                 bullet_found = bullet
                 break
 
-        if not bullet_found or bullet_found.found:
+        if not bullet_found:
             return
-
-        embed = bullet_found.found_embed(str(message.author))
 
         bullet_chan: naff.GuildText = self.bot.get_channel(guild_config.bullet_chan_id)
         if not bullet_chan:
-            raise utils.CustomCheckFailure(
-                "For some reason, I tried getting a channel I can't see. The owner of"
-                " the bot should be able to fix this soon."
-            )
+            guild_config.bullets_enabled = False
+            guild_config.bullet_chan_id = None
+            await guild_config.save()
+            return
 
         bullet_found.found = True
         bullet_found.finder = message.author.id
         await bullet_found.save()
+
+        embed = bullet_found.found_embed(str(message.author))
 
         await message.reply(embed=embed)
         await bullet_chan.send(embed=embed)

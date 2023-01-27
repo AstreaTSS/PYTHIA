@@ -1,15 +1,17 @@
 import asyncio
+import contextlib
 import logging
 import os
 import typing
 from collections import defaultdict
 
+import discord_typings
 import naff
 from dotenv import load_dotenv
 from tortoise import Tortoise
-from tortoise.exceptions import ConfigurationError
 from websockets.exceptions import ConnectionClosedOK
 
+import common.help_tools as help_tools
 import common.utils as utils
 
 load_dotenv()
@@ -18,7 +20,7 @@ load_dotenv()
 logger = logging.getLogger("uibot")
 logger.setLevel(logging.INFO)
 handler = logging.FileHandler(
-    filename=os.environ.get("LOG_FILE_PATH"), encoding="utf-8", mode="a"
+    filename=os.environ["LOG_FILE_PATH"], encoding="utf-8", mode="a"
 )
 handler.setFormatter(
     logging.Formatter("%(asctime)s:%(levelname)s:%(name)s: %(message)s")
@@ -26,48 +28,7 @@ handler.setFormatter(
 logger.addHandler(handler)
 
 
-async def _get_prefixes(bot: utils.UIBase, msg: naff.Message):
-    if not msg.guild:
-        return set()
-
-    if prefixes := bot.cached_prefixes[msg.guild.id]:
-        return prefixes
-
-    guild_config = bot.cached_configs.get(msg.id) or await utils.create_or_get(
-        msg.guild.id
-    )
-    bot.cached_configs[msg.id] = guild_config
-
-    prefixes = bot.cached_prefixes[msg.guild.id] = guild_config.prefixes
-    return prefixes
-
-
-async def investigator_prefixes(bot: naff.Client, msg: naff.Message):
-    mention_prefixes = {f"<@{bot.user.id}> ", f"<@!{bot.user.id}> "}
-
-    try:
-        custom_prefixes = await _get_prefixes(bot, msg)
-    except AttributeError:
-        # prefix handling runs before command checks, so there's a chance there's no guild
-        custom_prefixes = {"v!"}
-    except ConfigurationError:  # prefix handling also runs before on_ready sometimes
-        custom_prefixes = set()
-    except KeyError:  # rare possibility, but you know
-        custom_prefixes = set()
-
-    return mention_prefixes.union(custom_prefixes)
-
-
 class UltimateInvestigator(utils.UIBase):
-    @naff.listen("startup")
-    async def on_startup(self):
-        # you'll have to generate this yourself if you want to
-        # run your own instance, but it's super easy to do so
-        # just run gen_dbs.py
-        await Tortoise.init(
-            db_url=os.environ.get("DB_URL"), modules={"models": ["common.models"]}
-        )
-
     @naff.listen("ready")
     async def on_ready(self):
         utcnow = naff.Timestamp.utcnow()
@@ -93,110 +54,45 @@ class UltimateInvestigator(utils.UIBase):
             await utils.msg_to_owner(bot, "Reconnecting...")
 
     @naff.listen("resume")
-    async def on_resume(self):
+    async def on_resume_func(self):
         activity = naff.Activity.create(
             name="for Truth Bullets", type=naff.ActivityType.WATCHING
         )
         await self.change_presence(activity=activity)
 
-    @naff.listen("message_create")
-    async def _dispatch_prefixed_commands(
-        self, event: naff.events.MessageCreate
+    # technically, this is in naff itself now, but its easier for my purposes to do this
+    @naff.listen("raw_application_command_permissions_update")
+    async def i_like_my_events_very_raw(
+        self, event: naff.events.RawGatewayEvent
     ) -> None:
-        """Determine if a command is being triggered, and dispatch it.
-        Annoyingly, unlike d.py, we have to overwrite this whole method
-        in order to provide the 'replace _ with -' trick that was in the
-        d.py version."""
-        message = event.message
+        data: discord_typings.GuildApplicationCommandPermissionData = event.data  # type: ignore
 
-        if not message.content:
+        guild_id = int(data["guild_id"])
+
+        if not self.slash_perms_cache[guild_id]:
+            await help_tools.process_bulk_slash_perms(self, guild_id)
             return
 
-        if not message.author.bot:
-            prefixes: str | typing.Iterable[str] = await self.generate_prefixes(
-                self, message
-            )  # type: ingore
+        cmds = help_tools.get_commands_for_scope_by_ids(self, guild_id)
+        if cmd := cmds.get(int(data["id"])):
+            self.slash_perms_cache[guild_id][
+                int(data["id"])
+            ] = help_tools.PermissionsResolver(
+                cmd.default_member_permissions, guild_id, data["permissions"]  # type: ignore
+            )
 
-            if isinstance(prefixes, str) or prefixes == naff.MENTION_PREFIX:
-                prefixes = (prefixes,)  # type: ignore
+    @naff.listen(is_default_listener=True)
+    async def on_error(self, event: naff.events.Error) -> None:
+        await utils.error_handle(self, event.error)
 
-            prefix_used = None
+    def load_extension(
+        self, name: str, package: str | None = None, **load_kwargs: typing.Any
+    ) -> None:
+        super().load_extension(name, package, **load_kwargs)
 
-            for prefix in prefixes:
-                if prefix == naff.MENTION_PREFIX:
-                    if mention := self._mention_reg.search(message.content):  # type: ignore
-                        prefix = mention.group()
-                    else:
-                        continue
-
-                if message.content.startswith(prefix):
-                    prefix_used = prefix
-                    break
-
-            if prefix_used:
-                context = await self.get_context(message)
-                context.prefix = prefix_used
-
-                content_parameters = message.content.removeprefix(prefix_used)  # type: ignore
-                command = self  # yes, this is a hack
-
-                while True:
-                    first_word: str = naff.utils.get_first_word(content_parameters)  # type: ignore
-                    command_first_word: str = (
-                        first_word.replace("-", "_") if first_word else first_word
-                    )
-                    if isinstance(command, naff.PrefixedCommand):
-                        new_command = command.subcommands.get(command_first_word)
-                    else:
-                        new_command = command.prefixed_commands.get(command_first_word)
-                    if not new_command or not new_command.enabled:
-                        break
-
-                    command = new_command
-                    content_parameters = content_parameters.removeprefix(
-                        first_word
-                    ).strip()
-
-                    if command.subcommands and command.hierarchical_checking:
-                        try:
-                            await new_command._can_run(
-                                context
-                            )  # will error out if we can't run this command
-                        except Exception as e:
-                            if new_command.error_callback:
-                                await new_command.error_callback(e, context)
-                            elif (
-                                new_command.extension
-                                and new_command.extension.extension_error
-                            ):
-                                await new_command.extension.extension_error(context)
-                            else:
-                                await self.on_command_error(context, e)
-                            return
-
-                if not isinstance(command, naff.PrefixedCommand):
-                    command = None
-
-                if command and command.enabled:
-                    # yeah, this looks ugly
-                    context.command = command
-                    context.invoke_target = (
-                        message.content.removeprefix(prefix_used).removesuffix(content_parameters).strip()  # type: ignore
-                    )
-                    context.args = naff.utils.get_args(context.content_parameters)
-                    try:
-                        if self.pre_run_callback:
-                            await self.pre_run_callback(context)
-                        await self._run_prefixed_command(command, context)
-                        if self.post_run_callback:
-                            await self.post_run_callback(context)
-                    except Exception as e:
-                        await self.on_command_error(context, e)
-                    finally:
-                        await self.on_command(context)
-
-    async def on_error(self, source: str, error: Exception, *args, **kwargs) -> None:
-        await utils.error_handle(self, error)
+        # naff forgets to do this lol
+        if not self.sync_ext and self._ready.is_set():
+            asyncio.create_task(self._cache_interactions(warn_missing=False))
 
     async def stop(self):
         await Tortoise.close_connections()
@@ -215,23 +111,43 @@ intents = naff.Intents.new(
 mentions = naff.AllowedMentions.all()
 
 bot = UltimateInvestigator(
-    generate_prefixes=investigator_prefixes,
+    sync_interactions=False,  # big bots really shouldn't have this on
+    sync_ext=False,
+    disable_dm_commands=True,
     allowed_mentions=mentions,
     intents=intents,
     interaction_context=utils.InvestigatorContext,
-    auto_defer=False,  # we already handle deferring
+    auto_defer=naff.AutoDefer(enabled=True, time_until_defer=0),
     logger=logger,
 )
 bot.init_load = True
-bot.cached_prefixes = defaultdict(set)
-bot.cached_configs = naff.utils.TTLCache(ttl=30)
-bot.color = naff.Color(int(os.environ.get("BOT_COLOR")))
+bot.slash_perms_cache = defaultdict(dict)
+bot.mini_commands_per_scope = {}
+bot.color = naff.Color(int(os.environ["BOT_COLOR"]))  # #D92C43 or 14232643
 
-ext_list = utils.get_all_extensions(os.environ.get("DIRECTORY_OF_FILE"))
-for ext in ext_list:
-    try:
-        bot.load_extension(ext)
-    except naff.errors.ExtensionLoadException:
-        raise
 
-asyncio.run(bot.astart(os.environ.get("MAIN_TOKEN")))
+async def start() -> None:
+    await Tortoise.init(
+        db_url=os.environ.get("DB_URL"), modules={"models": ["common.models"]}
+    )
+
+    ext_list = utils.get_all_extensions(os.environ["DIRECTORY_OF_FILE"])
+    for ext in ext_list:
+        try:
+            bot.load_extension(ext)
+        except naff.errors.ExtensionLoadException:
+            raise
+
+    await bot.astart(os.environ["MAIN_TOKEN"])
+
+
+if __name__ == "__main__":
+    loop_factory = None
+
+    with contextlib.suppress(ImportError):
+        import uvloop  # type: ignore
+
+        loop_factory = uvloop.new_event_loop
+
+    with asyncio.Runner(loop_factory=loop_factory) as runner:
+        asyncio.run(start())

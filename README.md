@@ -8,11 +8,6 @@ A niche use, but it comes in use because doing it manually takes quite a bit of 
 
 The bot relies on a user to find out a 'key word' in order to actually get the Truth Bullet. It's up to the people who use this to hint at the key words.
 
-Setup instructions may come sooner or later.
-
-If you wish to invite the bot, join the Support Server linked below and DM me. Can't let the thing grow exponentially.
-
-Environment vars: `MAIN_TOKEN`, `DIRECTORY_OF_FILE`, `LOG_FILE_PATH`.
-
 Links:
 * [Join Support Server](https://discord.gg/NSdetwGjpK)
+* [Invite Bot](https://discord.com/api/oauth2/authorize?client_id=843994199187914753&permissions=8&scope=bot%20applications.commands)

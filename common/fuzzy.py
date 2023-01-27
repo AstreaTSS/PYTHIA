@@ -1,22 +1,24 @@
 import typing
 
 import naff
-from rapidfuzz import fuzz
+import rapidfuzz
 from rapidfuzz import process
 
 import common.models as models
 
+T = typing.TypeVar("T")
+
 
 def extract_from_list(
-    argument,
-    list_of_items,
-    processors,
-    score_cutoff=80,
-    scorers=None,
-):
+    argument: str,
+    list_of_items: typing.Collection[T],
+    processors: typing.Iterable[typing.Callable],
+    score_cutoff: float = 0.8,
+    scorers: typing.Iterable[typing.Callable] | None = None,
+) -> list[list[T]]:
     """Uses multiple scorers and processors for a good mix of accuracy and fuzzy-ness"""
     if scorers is None:
-        scorers = [fuzz.WRatio]
+        scorers = [rapidfuzz.distance.JaroWinkler.similarity]
     combined_list = []
 
     for scorer in scorers:
@@ -29,22 +31,7 @@ def extract_from_list(
                 score_cutoff=score_cutoff,
             ):
                 combined_entries = [e[0] for e in combined_list]
-
-                if (
-                    processor == fuzz.WRatio
-                ):  # WRatio isn't the best, so we add in extra filters to make sure everythings turns out ok
-                    new_members = [
-                        e
-                        for e in fuzzy_list
-                        if e[0] not in combined_entries
-                        and (len(processor(e[0])) >= 2 or len(argument) <= 2)
-                    ]
-
-                else:
-                    new_members = [
-                        e for e in fuzzy_list if e[0] not in combined_entries
-                    ]
-
+                new_members = [e for e in fuzzy_list if e[0] not in combined_entries]
                 combined_list.extend(new_members)
 
     return combined_list
