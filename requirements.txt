@@ -6,7 +6,7 @@ charset-normalizer==3.0.1
 aiodns==3.0.0
 Brotli==1.0.9
 humanize==4.4.0
-websockets==10.3
+websockets==10.4
 python-dotenv==0.21.1
 orjson==3.8.5
 rapidfuzz==2.13.7
