@@ -3,15 +3,12 @@ import collections
 import contextlib
 import importlib
 import io
-import os
 import platform
 import textwrap
 import traceback
 import typing
-import unicodedata
 
 import naff
-import tansy
 from naff.ext import paginators
 from naff.ext.debug_extension.utils import debug_embed
 from naff.ext.debug_extension.utils import get_cache_state
