@@ -255,12 +255,12 @@ class OwnerCMDs(utils.Extension):
         await ctx.reply("Done!")
 
     async def ext_error(self, error: Exception, ctx: naff.Context) -> None:
-        if isinstance(ctx, naff.PrefixedContext):
-            ctx.send = ctx.message.reply  # type: ignore
-
         if isinstance(error, naff.errors.CommandCheckFailure):
             if isinstance(ctx, naff.SendableContext):
-                await ctx.send("Nice try.")
+                if isinstance(ctx, naff.PrefixedContext):
+                    await ctx.reply("Nice try.")
+                else:
+                    await ctx.send("Nice try.")
             return
 
         await utils.error_handle(self.bot, error, ctx)
