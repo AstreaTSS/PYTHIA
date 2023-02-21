@@ -125,9 +125,9 @@ async def get_bullet_from_name(channel_id: int, name: str):
     return TruthBullet(**possible_bullet[1][0])
 
 
-async def bullet_exists_by_name(channel_id: int, name: str):
+async def bullet_exists_by_name(channel_id: int, name: str) -> bool:
     result = await connections.get("default").execute_query(
         BULLET_EXISTS_BY_NAME, [channel_id, name.lower()]
     )
 
-    return bool(result[0])
+    return result[1][0]["exists"]
