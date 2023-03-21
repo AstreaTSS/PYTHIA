@@ -8,6 +8,6 @@ Brotli==1.0.9
 humanize==4.4.0
 websockets==10.4
 python-dotenv==0.21.1
-orjson==3.8.5
+orjson==3.8.8
 rapidfuzz==2.13.7
 uvloop==0.17.0; platform_system == "Linux"
