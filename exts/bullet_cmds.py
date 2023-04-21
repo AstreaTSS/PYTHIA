@@ -410,7 +410,7 @@ class BulletCMDs(utils.Extension):
     async def _bullet_name_autocomplete(self, ctx: naff.AutocompleteContext, **kwargs):
         return await fuzzy.autocomplete_bullets(ctx, **kwargs)
 
-    @add_alias.autocomplete("alias")
+    @remove_alias.autocomplete("alias")
     async def _remove_alias_alias_autocomplete(
         self, ctx: naff.AutocompleteContext, **kwargs
     ):
