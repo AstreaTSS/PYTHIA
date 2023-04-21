@@ -11,6 +11,10 @@ import common.models as models
 import common.utils as utils
 
 
+def name_shorten(name: str):
+    return f"{name[:20].strip()}..." if len(name) > 20 else name
+
+
 class BulletCMDs(utils.Extension):
     """Commands for using and modifying Truth Bullets."""
 
@@ -59,7 +63,7 @@ class BulletCMDs(utils.Extension):
                     naff.ShortText(
                         label="What's the name of the Truth Bullet?",
                         custom_id="truth_bullet_name",
-                        max_length=100,
+                        max_length=75,
                     ),
                     naff.ParagraphText(
                         label="What's the description of the Truth Bullet?",
@@ -226,7 +230,7 @@ class BulletCMDs(utils.Extension):
             raise naff.errors.BadArgument(f"Truth Bullet `{name}` does not exist!")
 
         modal = naff.Modal(
-            title=f"Edit {possible_bullet.name} for #{channel.name}",
+            title=f"Edit {name_shorten(possible_bullet.name)} for #{channel.name}",
             components=[
                 naff.ParagraphText(
                     "New description",
