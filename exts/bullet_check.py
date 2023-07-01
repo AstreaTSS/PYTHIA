@@ -98,11 +98,10 @@ class BulletCheck(utils.Extension):
         if not guild_config:
             return
 
-        if not (
-            guild_config.bullets_enabled
-            and guild_config.player_role
-            # internal list that has list of ids, faster than using roles property
-            and message.author.has_role(guild_config.player_role)
+        if (
+            not guild_config.bullets_enabled
+            or not guild_config.player_role
+            or not message.author.has_role(guild_config.player_role)
         ):
             return
 
@@ -113,17 +112,20 @@ class BulletCheck(utils.Extension):
             if isinstance(message.channel, naff.ThreadChannel)
             else message.channel.id
         )
+        async for bullet in models.TruthBullet.filter(channel_id=channel_id):
+            if (
+                message.content.lower() in bullet.aliases
+                or message.content.lower() == bullet.name.lower()
+            ):
+                bullet_found = bullet
+                break
 
-        possible_bullet = await connections.get("default").execute_query(
-            BULLET_QUERY, [channel_id, message.content]
-        )
-
-        if possible_bullet[0] == 0:
+        if not bullet_found:
             return
 
-        bullet_found = models.TruthBullet(**possible_bullet[1][0])
-
-        bullet_chan: naff.GuildText = self.bot.get_channel(guild_config.bullet_chan_id)
+        bullet_chan: naff.GuildText | None = await self.bot.fetch_channel(
+            guild_config.bullet_chan_id
+        )
         if not bullet_chan:
             guild_config.bullets_enabled = False
             guild_config.bullet_chan_id = None
