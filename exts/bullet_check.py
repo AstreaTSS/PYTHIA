@@ -112,10 +112,10 @@ class BulletCheck(utils.Extension):
             if isinstance(message.channel, naff.ThreadChannel)
             else message.channel.id
         )
+        content = message.content.lower()
         async for bullet in models.TruthBullet.filter(channel_id=channel_id):
-            if (
-                message.content.lower() in (a.lower() for a in bullet.aliases)
-                or message.content.lower() == bullet.name.lower()
+            if bullet.name.lower() in content or any(
+                a.lower() in content for a in bullet.aliases
             ):
                 bullet_found = bullet
                 break
