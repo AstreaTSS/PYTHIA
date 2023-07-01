@@ -114,7 +114,7 @@ class BulletCheck(utils.Extension):
         )
         async for bullet in models.TruthBullet.filter(channel_id=channel_id):
             if (
-                message.content.lower() in bullet.aliases
+                message.content.lower() in (a.lower() for a in bullet.aliases)
                 or message.content.lower() == bullet.name.lower()
             ):
                 bullet_found = bullet
