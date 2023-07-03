@@ -79,7 +79,7 @@ async def autocomplete_aliases(
         return await ctx.send([])
 
     truth_bullet = await models.TruthBullet.get_or_none(
-        channel_id=channel.id, name=name
+        channel_id=channel.id, name__iexact=name
     )
     if not truth_bullet:
         return await ctx.send([])

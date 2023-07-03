@@ -4,6 +4,7 @@ import typing
 
 import naff
 import tansy
+from tortoise.expressions import Q
 
 import common.fuzzy as fuzzy
 import common.help_tools as help_tools
@@ -11,8 +12,8 @@ import common.models as models
 import common.utils as utils
 
 
-def name_shorten(name: str):
-    return f"{name[:16].strip()}..." if len(name) > 20 else name
+def name_shorten(name: str, shorten_amount: int = 16):
+    return f"{name[:shorten_amount].strip()}..." if len(name) > shorten_amount else name
 
 
 class BulletCMDs(utils.Extension):
@@ -63,7 +64,7 @@ class BulletCMDs(utils.Extension):
                     naff.ShortText(
                         label="What's the name of the Truth Bullet?",
                         custom_id="truth_bullet_name",
-                        max_length=75,
+                        max_length=60,
                     ),
                     naff.ParagraphText(
                         label="What's the description of the Truth Bullet?",
@@ -82,9 +83,13 @@ class BulletCMDs(utils.Extension):
         if ctx.custom_id.startswith("ui-modal:add_bullets-"):
             channel_id = int(ctx.custom_id.removeprefix("ui-modal:add_bullets-"))
 
-            if await models.bullet_exists_by_name(
-                channel_id, ctx.responses["truth_bullet_name"]
-            ):
+            if await models.TruthBullet.filter(
+                Q(channel_id=channel_id)
+                & Q(
+                    Q(name__iexact=ctx.responses["truth_bullet_name"])
+                    | Q(aliases__icontains=[ctx.responses["truth_bullet_name"]])
+                )
+            ).exists():
                 await ctx.send(
                     "A Truth Bullet in this channel is either already called"
                     f" `{ctx.responses['truth_bullet_name']}` or has an alias named"
@@ -231,8 +236,8 @@ class BulletCMDs(utils.Extension):
 
         modal = naff.Modal(
             title=(
-                f"Edit {name_shorten(possible_bullet.name)} for"
-                f" #{name_shorten(channel.name)}"
+                f"Edit {name_shorten(possible_bullet.name, 10)} for"
+                f" #{name_shorten(channel.name, 14)}"
             ),
             components=[
                 naff.ParagraphText(
