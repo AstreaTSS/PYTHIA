@@ -48,7 +48,7 @@ class OtherCMDs(utils.Extension):
         embed = ipy.Embed(
             "Pong!", color=self.bot.color, timestamp=ipy.Timestamp.utcnow()
         )
-        embed.description = f"Average Ping: `{average_ping}` ms\nCalculating RTT..."
+        embed.description = f"Discord Ping: `{average_ping}` ms\nCalculating RTT..."
 
         mes = await ctx.send(embed=embed)
 
@@ -56,7 +56,7 @@ class OtherCMDs(utils.Extension):
         # not really rtt ping but shh
         rtt_ping = round(((end_time - start_time) * 1000), 2)
         embed.description = (
-            f"Average Ping: `{average_ping}` ms\nRTT Ping: `{rtt_ping}` ms"
+            f"Discord Ping: `{average_ping}` ms\nRTT Ping: `{rtt_ping}` ms"
         )
 
         await ctx.edit(message=mes, embed=embed)
