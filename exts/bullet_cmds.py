@@ -159,9 +159,9 @@ class BulletCMDs(utils.Extension):
         if not guild_bullets:
             raise utils.CustomCheckFailure("There's no Truth Bullets for this server!")
 
-        bullet_dict: typing.DefaultDict[
-            int, list[models.TruthBullet]
-        ] = collections.defaultdict(list)
+        bullet_dict: typing.DefaultDict[int, list[models.TruthBullet]] = (
+            collections.defaultdict(list)
+        )
         for bullet in guild_bullets:
             bullet_dict[bullet.channel_id].append(bullet)
 

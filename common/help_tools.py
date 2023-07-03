@@ -328,10 +328,10 @@ class GuildApplicationCommandPermissionData(typing.TypedDict):
 
 
 async def process_bulk_slash_perms(bot: utils.UIBase, guild_id: int) -> None:
-    perms: list[
-        GuildApplicationCommandPermissionData
-    ] = await bot.http.batch_get_application_command_permissions(  # type: ignore
-        int(bot.app.id), guild_id
+    perms: list[GuildApplicationCommandPermissionData] = (
+        await bot.http.batch_get_application_command_permissions(  # type: ignore
+            int(bot.app.id), guild_id
+        )
     )
 
     guild_perms = {}
