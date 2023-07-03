@@ -1,7 +1,7 @@
 import importlib
 import typing
 
-import naff
+import interactions as ipy
 import tansy
 
 import common.models as models
@@ -18,7 +18,7 @@ class BulletConfigCMDs(utils.Extension):
     config = tansy.SlashCommand(
         name="config",
         description="Handles configuration of the bot.",  # type: ignore
-        default_member_permissions=naff.Permissions.MANAGE_GUILD,
+        default_member_permissions=ipy.Permissions.MANAGE_GUILD,
         dm_permission=False,
     )
 
@@ -28,7 +28,7 @@ class BulletConfigCMDs(utils.Extension):
             "Lists out the Truth Bullet configuration settings for the server."
         ),
     )
-    async def bullet_config(self, ctx: utils.InvestigatorContext):
+    async def bullet_config(self, ctx: utils.UIInteractionContext):
         guild_config = await ctx.fetch_config()
 
         str_builder = [
@@ -52,11 +52,11 @@ class BulletConfigCMDs(utils.Extension):
                 ),
             )
         )
-        embed = naff.Embed(
+        embed = ipy.Embed(
             title=f"Server config for {ctx.guild.name}",
             description="\n".join(str_builder),
             color=ctx.bot.color,
-            timestamp=naff.Timestamp.utcnow(),
+            timestamp=ipy.Timestamp.utcnow(),
         )
         await ctx.send(embed=embed)
 
@@ -66,8 +66,8 @@ class BulletConfigCMDs(utils.Extension):
     )
     async def set_bullet_channel(
         self,
-        ctx: utils.InvestigatorContext,
-        channel: typing.Optional[naff.GuildText] = tansy.Option(
+        ctx: utils.UIInteractionContext,
+        channel: typing.Optional[ipy.GuildText] = tansy.Option(
             "The channel to send Truth Bullets to.", default=None
         ),
         unset: bool = tansy.Option(
@@ -75,7 +75,7 @@ class BulletConfigCMDs(utils.Extension):
         ),
     ):
         if not (bool(channel) ^ unset):
-            raise naff.errors.BadArgument(
+            raise ipy.errors.BadArgument(
                 "You must set a Truth Bullet channel or specify to unset it."
             )
 
@@ -95,8 +95,8 @@ class BulletConfigCMDs(utils.Extension):
     )
     async def set_best_detective_role(
         self,
-        ctx: utils.InvestigatorContext,
-        role: typing.Optional[naff.Role] = tansy.Option(
+        ctx: utils.UIInteractionContext,
+        role: typing.Optional[ipy.Role] = tansy.Option(
             "The Best Detective role to use.",
             converter=utils.ValidRoleConverter,
             default=None,
@@ -104,7 +104,7 @@ class BulletConfigCMDs(utils.Extension):
         unset: bool = tansy.Option("Should the role be unset?", default=False),
     ):
         if not (bool(role) ^ unset):
-            raise naff.errors.BadArgument(
+            raise ipy.errors.BadArgument(
                 "You must either specify a role or specify to unset the role."
             )
 
@@ -126,13 +126,10 @@ class BulletConfigCMDs(utils.Extension):
             "Sets (or unsets) the Player role, the role that can find Truth Bullets."
         ),
     )
-    @naff.slash_option(
-        "role", "The Player role to use.", naff.OptionTypes.ROLE, required=True
-    )
     async def set_player_role(
         self,
-        ctx: utils.InvestigatorContext,
-        role: typing.Optional[naff.Role] = tansy.Option(
+        ctx: utils.UIInteractionContext,
+        role: typing.Optional[ipy.Role] = tansy.Option(
             "The Player role to use.",
             converter=utils.ValidRoleConverter,
             default=None,
@@ -140,7 +137,7 @@ class BulletConfigCMDs(utils.Extension):
         unset: bool = tansy.Option("Should the role be unset?", default=False),
     ):
         if not (bool(role) ^ unset):
-            raise naff.errors.BadArgument(
+            raise ipy.errors.BadArgument(
                 "You must either specify a role or specify to unset the role."
             )
 
@@ -172,7 +169,7 @@ class BulletConfigCMDs(utils.Extension):
     )
     async def toggle_bullets(
         self,
-        ctx: utils.InvestigatorContext,
+        ctx: utils.UIInteractionContext,
         toggle: bool = tansy.Option(
             "Should the Truth Bullets be on (true) or off (false)?"
         ),

@@ -2,11 +2,14 @@ import asyncio
 import importlib
 import subprocess
 import time
+from importlib.metadata import version as _v
 
-import naff
+import interactions as ipy
 import tansy
 
 import common.utils as utils
+
+IPY_VERSION = _v("discord-py-interactions")
 
 
 class OtherCMDs(utils.Extension):
@@ -38,41 +41,42 @@ class OtherCMDs(utils.Extension):
             " but has no real use."
         ),
     )
-    async def ping(self, ctx: utils.InvestigatorContext) -> None:
+    async def ping(self, ctx: utils.UIInteractionContext) -> None:
         start_time = time.perf_counter()
-        ping_discord = round((self.bot.latency * 1000), 2)
+        average_ping = round((self.bot.latency * 1000), 2)
 
-        mes = await ctx.send(
-            f"Pong!\n`{ping_discord}` ms from Discord.\nCalculating personal ping..."
+        embed = ipy.Embed(
+            "Pong!", color=self.bot.color, timestamp=ipy.Timestamp.utcnow()
         )
+        embed.description = f"Average Ping: `{average_ping}` ms\nCalculating RTT..."
+
+        mes = await ctx.send(embed=embed)
 
         end_time = time.perf_counter()
-        ping_personal = round(((end_time - start_time) * 1000), 2)
-
-        await ctx.edit(
-            message=mes,
-            content=(
-                f"Pong!\n`{ping_discord}` ms from Discord.\n`{ping_personal}` ms"
-                " personally."
-            ),
+        # not really rtt ping but shh
+        rtt_ping = round(((end_time - start_time) * 1000), 2)
+        embed.description = (
+            f"Average Ping: `{average_ping}` ms\nRTT Ping: `{rtt_ping}` ms"
         )
+
+        await ctx.edit(message=mes, embed=embed)
 
     @tansy.slash_command(
         name="invite",
         description="Sends the link to invite the bot to your server.",
     )
-    async def invite(self, ctx: utils.InvestigatorContext):
+    async def invite(self, ctx: utils.UIInteractionContext):
         await ctx.send(self.invite_link)
 
     @tansy.slash_command(
         "support",
         description="Gives an invite link to the support server.",
     )
-    async def support(self, ctx: utils.InvestigatorContext):
+    async def support(self, ctx: utils.UIInteractionContext):
         await ctx.send("Support server:\nhttps://discord.gg/NSdetwGjpK")
 
     @tansy.slash_command("about", description="Gives information about the bot.")
-    async def about(self, ctx: naff.InteractionContext):
+    async def about(self, ctx: ipy.InteractionContext):
         msg_list = [
             (
                 "Hi! I'm the Ultimate Investigator, a bot meant to help out with"
@@ -86,7 +90,7 @@ class OtherCMDs(utils.Extension):
             ),
         ]
 
-        about_embed = naff.Embed(
+        about_embed = ipy.Embed(
             title="About",
             color=self.bot.color,
             description="\n".join(msg_list),
@@ -99,7 +103,7 @@ class OtherCMDs(utils.Extension):
 
         commit_hash = await self.get_commit_hash()
         command_num = len(self.bot.application_commands) + len(
-            self.bot.prefixed_commands
+            self.bot.prefixed.commands
         )
 
         about_embed.add_field(
@@ -110,15 +114,15 @@ class OtherCMDs(utils.Extension):
                     f"Commands: {command_num} ",
                     (
                         "Startup Time:"
-                        f" {naff.Timestamp.fromdatetime(self.bot.start_time).format(naff.TimestampStyles.RelativeTime)}"
+                        f" {ipy.Timestamp.fromdatetime(self.bot.start_time).format(ipy.TimestampStyles.RelativeTime)}"
                     ),
                     (
                         "Commit Hash:"
                         f" [{commit_hash}](https://github.com/AstreaTSS/UltimateInvestigator/commit/{commit_hash})"
                     ),
                     (
-                        "NAFF Version:"
-                        f" [{naff.const.__version__}](https://github.com/NAFTeam/NAFF/tree/NAFF-{naff.const.__version__})"
+                        "Interactions.py Version:"
+                        f" [{IPY_VERSION}]((https://github.com/interactions-py/interactions.py/tree/{IPY_VERSION})"
                     ),
                     "Made By: [AstreaTSS](https://github.com/AstreaTSS)",
                 )
@@ -137,7 +141,7 @@ class OtherCMDs(utils.Extension):
             value="\n".join(links),
             inline=True,
         )
-        about_embed.timestamp = naff.Timestamp.utcnow()
+        about_embed.timestamp = ipy.Timestamp.utcnow()
 
         await ctx.send(embed=about_embed)
 

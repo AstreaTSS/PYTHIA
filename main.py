@@ -6,10 +6,10 @@ import typing
 from collections import defaultdict
 
 import discord_typings
-import naff
+import interactions as ipy
 from dotenv import load_dotenv
+from interactions.ext import prefixed_commands as prefixed
 from tortoise import Tortoise
-from websockets.exceptions import ConnectionClosedOK
 
 import common.help_tools as help_tools
 import common.utils as utils
@@ -29,9 +29,9 @@ logger.addHandler(handler)
 
 
 class UltimateInvestigator(utils.UIBase):
-    @naff.listen("ready")
+    @ipy.listen("ready")
     async def on_ready(self):
-        utcnow = naff.Timestamp.utcnow()
+        utcnow = ipy.Timestamp.utcnow()
         time_format = f"<t:{int(utcnow.timestamp())}:f>"
 
         connect_msg = (
@@ -44,26 +44,23 @@ class UltimateInvestigator(utils.UIBase):
 
         self.init_load = False
 
-        activity = naff.Activity.create(
-            name="for Truth Bullets", type=naff.ActivityType.WATCHING
+        activity = ipy.Activity.create(
+            name="for Truth Bullets", type=ipy.ActivityType.WATCHING
         )
 
-        try:
-            await self.change_presence(activity=activity)
-        except ConnectionClosedOK:
-            await utils.msg_to_owner(bot, "Reconnecting...")
+        await self.change_presence(activity=activity)
 
-    @naff.listen("resume")
+    @ipy.listen("resume")
     async def on_resume_func(self):
-        activity = naff.Activity.create(
-            name="for Truth Bullets", type=naff.ActivityType.WATCHING
+        activity = ipy.Activity.create(
+            name="for Truth Bullets", type=ipy.ActivityType.WATCHING
         )
         await self.change_presence(activity=activity)
 
-    # technically, this is in naff itself now, but its easier for my purposes to do this
-    @naff.listen("raw_application_command_permissions_update")
+    # technically, this is in ipy itself now, but its easier for my purposes to do this
+    @ipy.listen("raw_application_command_permissions_update")
     async def i_like_my_events_very_raw(
-        self, event: naff.events.RawGatewayEvent
+        self, event: ipy.events.RawGatewayEvent
     ) -> None:
         data: discord_typings.GuildApplicationCommandPermissionData = event.data  # type: ignore
 
@@ -81,9 +78,9 @@ class UltimateInvestigator(utils.UIBase):
                 cmd.default_member_permissions, guild_id, data["permissions"]  # type: ignore
             )
 
-    @naff.listen(is_default_listener=True)
-    async def on_error(self, event: naff.events.Error) -> None:
-        await utils.error_handle(self, event.error)
+    @ipy.listen(is_default_listener=True)
+    async def on_error(self, event: ipy.events.Error) -> None:
+        await utils.error_handle(self, event.error, event.ctx)
 
     def load_extension(
         self, name: str, package: str | None = None, **load_kwargs: typing.Any
@@ -100,15 +97,14 @@ class UltimateInvestigator(utils.UIBase):
 
 
 # honestly don't think i need the members stuff
-intents = naff.Intents.new(
-    default=False,
+intents = ipy.Intents.new(
     guilds=True,
     guild_emojis_and_stickers=True,
     messages=True,
     reactions=True,
-    guild_message_content=True,
+    message_content=True,
 )
-mentions = naff.AllowedMentions.all()
+mentions = ipy.AllowedMentions.all()
 
 bot = UltimateInvestigator(
     sync_interactions=False,  # big bots really shouldn't have this on
@@ -116,14 +112,16 @@ bot = UltimateInvestigator(
     disable_dm_commands=True,
     allowed_mentions=mentions,
     intents=intents,
-    interaction_context=utils.InvestigatorContext,
-    auto_defer=naff.AutoDefer(enabled=True, time_until_defer=0),
+    interaction_context=utils.UIInteractionContext,
+    slash_context=utils.UISlashContext,
+    auto_defer=ipy.AutoDefer(enabled=True, time_until_defer=0),
     logger=logger,
 )
 bot.init_load = True
 bot.slash_perms_cache = defaultdict(dict)
 bot.mini_commands_per_scope = {}
-bot.color = naff.Color(int(os.environ["BOT_COLOR"]))  # #D92C43 or 14232643
+bot.color = ipy.Color(int(os.environ["BOT_COLOR"]))  # #D92C43 or 14232643
+prefixed.setup(bot)
 
 
 async def start() -> None:
@@ -135,7 +133,7 @@ async def start() -> None:
     for ext in ext_list:
         try:
             bot.load_extension(ext)
-        except naff.errors.ExtensionLoadException:
+        except ipy.errors.ExtensionLoadException:
             raise
 
     await bot.astart(os.environ["MAIN_TOKEN"])
@@ -150,4 +148,4 @@ if __name__ == "__main__":
         loop_factory = uvloop.new_event_loop
 
     with asyncio.Runner(loop_factory=loop_factory) as runner:
-        asyncio.run(start())
+        runner.run(start())

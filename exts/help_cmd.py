@@ -85,7 +85,7 @@ class HelpCMD(utils.Extension):
 
     async def get_multi_command_embeds(
         self,
-        ctx: utils.InvestigatorContext,
+        ctx: utils.UIInteractionContext,
         commands: list[help_tools.MiniCommand],
         name: str,
         description: typing.Optional[str],
@@ -127,7 +127,7 @@ class HelpCMD(utils.Extension):
 
     async def get_ext_cmd_embeds(
         self,
-        ctx: utils.InvestigatorContext,
+        ctx: utils.UIInteractionContext,
         cmds: dict[str, help_tools.MiniCommand],
         ext: naff.Extension,
     ) -> list[naff.Embed]:
@@ -148,7 +148,7 @@ class HelpCMD(utils.Extension):
 
     async def get_all_cmd_embeds(
         self,
-        ctx: utils.InvestigatorContext,
+        ctx: utils.UIInteractionContext,
         cmds: dict[str, help_tools.MiniCommand],
     ) -> list[naff.Embed]:
         embeds: list[naff.Embed] = []
@@ -161,7 +161,7 @@ class HelpCMD(utils.Extension):
         return embeds
 
     async def get_command_embeds(
-        self, ctx: utils.InvestigatorContext, command: help_tools.MiniCommand
+        self, ctx: utils.UIInteractionContext, command: help_tools.MiniCommand
     ) -> list[naff.Embed]:
         if command.subcommands:
             return await self.get_multi_command_embeds(
@@ -184,7 +184,7 @@ class HelpCMD(utils.Extension):
     )
     async def help_cmd(
         self,
-        ctx: utils.InvestigatorContext,
+        ctx: utils.UIInteractionContext,
         query: typing.Optional[str] = tansy.Option(
             "The query to search for. Can be a command or a category.",
             autocomplete=True,

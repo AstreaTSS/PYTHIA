@@ -1,9 +1,8 @@
 import os
 import typing
 
-import naff
+import interactions as ipy
 from tortoise import fields
-from tortoise.connection import connections
 from tortoise.contrib.postgres.fields import ArrayField
 from tortoise.models import Model
 
@@ -69,9 +68,9 @@ class TruthBullet(Model):
         return "\n".join(str_list)
 
     def found_embed(self, username: str):
-        embed = naff.Embed(
+        embed = ipy.Embed(
             title="Truth Bullet Discovered",
-            timestamp=naff.Timestamp.utcnow(),
+            timestamp=ipy.Timestamp.utcnow(),
             color=int(os.environ["BOT_COLOR"]),
         )
         embed.description = (

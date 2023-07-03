@@ -3,23 +3,10 @@ import collections
 import importlib
 import typing
 
-import naff
-from tortoise.connection import connections
+import interactions as ipy
 
 import common.models as models
 import common.utils as utils
-
-# a very complicated way of saying
-# find a truth bullet that has a channel id of our first value, and either has:
-# - the name in the second value (a string) we provide
-# - an alias in the second value we provide
-BULLET_QUERY = f"""
-SELECT *
-FROM {models.TruthBullet.Meta.table}
-WHERE channel_id=$1 and found = false
-AND ($2 ILIKE '%' || name || '%'
-OR (EXISTS (SELECT 1 FROM unnest(aliases) a WHERE $2 ILIKE '%' || a || '%')))
-""".strip()
 
 
 class BulletCheck(utils.Extension):
@@ -32,8 +19,8 @@ class BulletCheck(utils.Extension):
 
     async def check_for_finish(
         self,
-        guild: naff.Guild,
-        bullet_chan: naff.GuildText,
+        guild: ipy.Guild,
+        bullet_chan: ipy.GuildText,
         guild_config: models.Config,
     ):
         if await models.TruthBullet.filter(guild_id=guild.id, found=False).exists():
@@ -76,11 +63,11 @@ class BulletCheck(utils.Extension):
                             guild.id, person_id, ult_detect_role_obj.id
                         )
                         await asyncio.sleep(1)  # we don't want to trigger ratelimits
-                    except naff.errors.HTTPException:
+                    except ipy.errors.HTTPException:
                         continue
 
-    @naff.listen("message_create")
-    async def on_message(self, event: naff.events.MessageCreate):
+    @ipy.listen("message_create")
+    async def on_message(self, event: ipy.events.MessageCreate):
         message = event.message
 
         # if the message is from a bot, from discord, not from a guild, not a default message or a reply, or is empty
@@ -88,7 +75,7 @@ class BulletCheck(utils.Extension):
             message.author.bot
             or message.author.system
             or not message.guild
-            or message.type not in {naff.MessageTypes.DEFAULT, naff.MessageTypes.REPLY}
+            or message.type not in {ipy.MessageType.DEFAULT, ipy.MessageType.REPLY}
             or not message.content
         ):
             return
@@ -109,7 +96,7 @@ class BulletCheck(utils.Extension):
 
         channel_id = (
             message.channel.parent_channel.id
-            if isinstance(message.channel, naff.ThreadChannel)
+            if isinstance(message.channel, ipy.ThreadChannel)
             else message.channel.id
         )
         content = message.content.lower()
@@ -123,7 +110,7 @@ class BulletCheck(utils.Extension):
         if not bullet_found:
             return
 
-        bullet_chan: naff.GuildText | None = await self.bot.fetch_channel(
+        bullet_chan: ipy.GuildText | None = await self.bot.fetch_channel(
             guild_config.bullet_chan_id
         )
         if not bullet_chan:

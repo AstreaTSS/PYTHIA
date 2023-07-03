@@ -1,6 +1,6 @@
 import typing
 
-import naff
+import interactions as ipy
 import rapidfuzz
 from rapidfuzz import process
 
@@ -42,9 +42,9 @@ def get_bullet_name(bullet: models.TruthBullet):
 
 
 async def autocomplete_bullets(
-    ctx: naff.AutocompleteContext,
+    ctx: ipy.AutocompleteContext,
     name: str,
-    channel: typing.Optional[naff.GuildText] = None,
+    channel: typing.Optional[ipy.GuildText] = None,
     **kwargs,
 ):
     if not channel:
@@ -69,9 +69,9 @@ def get_alias_name(alias: str):
 
 
 async def autocomplete_aliases(
-    ctx: naff.AutocompleteContext,
+    ctx: ipy.AutocompleteContext,
     alias: str,
-    channel: typing.Optional[naff.GuildText] = None,
+    channel: typing.Optional[ipy.GuildText] = None,
     name: typing.Optional[str] = None,
     **kwargs,
 ):

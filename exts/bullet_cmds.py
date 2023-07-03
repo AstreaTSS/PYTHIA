@@ -2,7 +2,7 @@ import collections
 import importlib
 import typing
 
-import naff
+import interactions as ipy
 import tansy
 from tortoise.expressions import Q
 
@@ -29,14 +29,14 @@ class BulletCMDs(utils.Extension):
     )
     async def add_bullets(
         self,
-        ctx: utils.InvestigatorContext,
-        channel: naff.GuildText = tansy.Option(
+        ctx: utils.UISlashContext,
+        channel: ipy.GuildText = tansy.Option(
             "The channel for the Truth Bullets to be added.",
             converter=utils.ValidChannelConverter,
         ),
     ):
-        button = naff.Button(
-            style=naff.ButtonStyles.GREEN,
+        button = ipy.Button(
+            style=ipy.ButtonStyle.GREEN,
             label=f"Add Truth Bullets for #{channel.name}",
             custom_id=f"ui-button:add_bullets-{channel.id}",
         )
@@ -45,39 +45,37 @@ class BulletCMDs(utils.Extension):
             content="Add Truth Bullets via the button below!", components=button
         )
 
-    @naff.listen("component")
-    async def on_add_bullets_button(self, event: naff.events.Component):
+    @ipy.listen("component")
+    async def on_add_bullets_button(self, event: ipy.events.Component):
         ctx = event.ctx
 
         if ctx.custom_id.startswith("ui-button:add_bullets-"):
             channel_id = int(ctx.custom_id.removeprefix("ui-button:add_bullets-"))
-            channel = self.bot.get_channel(channel_id)
+            channel = await self.bot.fetch_channel(channel_id)
 
             if not channel:
                 raise utils.CustomCheckFailure(
                     "Could not find the channel this was associated to. Was it deleted?"
                 )
 
-            modal = naff.Modal(
+            modal = ipy.Modal(
+                ipy.ShortText(
+                    label="What's the name of the Truth Bullet?",
+                    custom_id="truth_bullet_name",
+                    max_length=60,
+                ),
+                ipy.ParagraphText(
+                    label="What's the description of the Truth Bullet?",
+                    custom_id="truth_bullet_desc",
+                    max_length=3900,
+                ),
                 title=f"Add Truth Bullets for #{name_shorten(channel.name)}",
-                components=[
-                    naff.ShortText(
-                        label="What's the name of the Truth Bullet?",
-                        custom_id="truth_bullet_name",
-                        max_length=60,
-                    ),
-                    naff.ParagraphText(
-                        label="What's the description of the Truth Bullet?",
-                        custom_id="truth_bullet_desc",
-                        max_length=3900,
-                    ),
-                ],
                 custom_id=f"ui-modal:add_bullets-{channel.id}",
             )
             await ctx.send_modal(modal)
 
-    @naff.listen("modal_completion")
-    async def on_modal_add_bullet(self, event: naff.events.ModalCompletion):
+    @ipy.listen("modal_completion")
+    async def on_modal_add_bullet(self, event: ipy.events.ModalCompletion):
         ctx = event.ctx
 
         if ctx.custom_id.startswith("ui-modal:add_bullets-"):
@@ -117,8 +115,8 @@ class BulletCMDs(utils.Extension):
     )
     async def remove_bullet(
         self,
-        ctx: utils.InvestigatorContext,
-        channel: naff.GuildText = tansy.Option(
+        ctx: utils.UISlashContext,
+        channel: ipy.GuildText = tansy.Option(
             "The channel for the Truth Bullet to be removed."
         ),
         name: str = tansy.Option(
@@ -132,7 +130,7 @@ class BulletCMDs(utils.Extension):
         if num_deleted > 0:
             await ctx.send(f"`{name}` deleted!")
         else:
-            raise naff.errors.BadArgument(f"Truth Bullet `{name}` does not exists!")
+            raise ipy.errors.BadArgument(f"Truth Bullet `{name}` does not exists!")
 
     @utils.manage_guild_slash_cmd(
         "clear-bullets",
@@ -141,7 +139,7 @@ class BulletCMDs(utils.Extension):
             " irreversible."
         ),
     )
-    async def clear_bullets(self, ctx: utils.InvestigatorContext):
+    async def clear_bullets(self, ctx: utils.UISlashContext):
         num_deleted = await models.TruthBullet.filter(guild_id=ctx.guild.id).delete()
 
         # just to give a more clear indication to users
@@ -156,7 +154,7 @@ class BulletCMDs(utils.Extension):
     @utils.manage_guild_slash_cmd(
         "list-bullets", "Lists all Truth Bullets in the server this is run in."
     )
-    async def list_bullets(self, ctx: utils.InvestigatorContext):
+    async def list_bullets(self, ctx: utils.UIInteractionContext):
         guild_bullets = await models.TruthBullet.filter(guild_id=ctx.guild.id)
         if not guild_bullets:
             raise utils.CustomCheckFailure("There's no Truth Bullets for this server!")
@@ -196,8 +194,8 @@ class BulletCMDs(utils.Extension):
     )
     async def bullet_info(
         self,
-        ctx: utils.InvestigatorContext,
-        channel: naff.GuildText = tansy.Option("The channel the Truth Bullet is in."),
+        ctx: utils.UISlashContext,
+        channel: ipy.GuildText = tansy.Option("The channel the Truth Bullet is in."),
         name: str = tansy.Option("The name of the Truth Bullet.", autocomplete=True),
     ):
         possible_bullet = await models.TruthBullet.get_or_none(
@@ -205,14 +203,14 @@ class BulletCMDs(utils.Extension):
         )
 
         if not possible_bullet:
-            raise naff.errors.BadArgument(f"Truth Bullet `{name}` does not exist!")
+            raise ipy.errors.BadArgument(f"Truth Bullet `{name}` does not exist!")
 
         bullet_info = possible_bullet.bullet_info()
-        embed = naff.Embed(
+        embed = ipy.Embed(
             title=f"Information about {name}",
             description=bullet_info,
             color=ctx.bot.color,
-            timestamp=naff.Timestamp.utcnow(),
+            timestamp=ipy.Timestamp.utcnow(),
         )
 
         await ctx.send(embeds=embed, allowed_mentions=utils.deny_mentions(ctx.author))
@@ -222,8 +220,8 @@ class BulletCMDs(utils.Extension):
     )
     async def edit_bullet(
         self,
-        ctx: naff.InteractionContext,
-        channel: naff.GuildText = tansy.Option("The channel the Truth Bullet is in."),
+        ctx: utils.UISlashContext,
+        channel: ipy.GuildText = tansy.Option("The channel the Truth Bullet is in."),
         name: str = tansy.Option(
             "The name of the Truth Bullet to edit.", autocomplete=True
         ),
@@ -232,30 +230,28 @@ class BulletCMDs(utils.Extension):
             channel_id=channel.id, name__iexact=name
         )
         if not possible_bullet:
-            raise naff.errors.BadArgument(f"Truth Bullet `{name}` does not exist!")
+            raise ipy.errors.BadArgument(f"Truth Bullet `{name}` does not exist!")
 
-        modal = naff.Modal(
+        modal = ipy.Modal(
+            ipy.ParagraphText(
+                label="New description",
+                custom_id="description",
+                value=possible_bullet.description,
+                max_length=3900,
+            ),
             title=(
                 f"Edit {name_shorten(possible_bullet.name, 10)} for"
                 f" #{name_shorten(channel.name, 14)}"
             ),
-            components=[
-                naff.ParagraphText(
-                    "New description",
-                    "description",
-                    value=possible_bullet.description,
-                    max_length=3900,
-                )
-            ],
             custom_id=f"ui:edit-bullet-{channel.id}|{name}",
         )
         await ctx.send_modal(modal)
         await ctx.send("Done!")
 
-    edit_bullet.auto_defer = naff.AutoDefer(enabled=False)
+    edit_bullet.auto_defer = ipy.AutoDefer(enabled=False)
 
-    @naff.listen("modal_completion")
-    async def on_modal_edit_bullet(self, event: naff.events.ModalCompletion):
+    @ipy.listen("modal_completion")
+    async def on_modal_edit_bullet(self, event: ipy.events.ModalCompletion):
         ctx = event.ctx
 
         if ctx.custom_id.startswith("ui:edit-bullet-"):
@@ -280,8 +276,8 @@ class BulletCMDs(utils.Extension):
     @utils.manage_guild_slash_cmd("unfind-bullet", "Un-finds a Truth Bullet.")
     async def unfind_bullet(
         self,
-        ctx: utils.InvestigatorContext,
-        channel: naff.GuildText = tansy.Option("The channel the Truth Bullet is in."),
+        ctx: utils.UISlashContext,
+        channel: ipy.GuildText = tansy.Option("The channel the Truth Bullet is in."),
         name: str = tansy.Option(
             "The name of the Truth Bullet to unfind.", autocomplete=True
         ),
@@ -292,9 +288,9 @@ class BulletCMDs(utils.Extension):
         )
 
         if not possible_bullet:
-            raise naff.errors.BadArgument(f"Truth Bullet `{name}` does not exist!")
+            raise ipy.errors.BadArgument(f"Truth Bullet `{name}` does not exist!")
         if not possible_bullet.found:
-            raise naff.errors.BadArgument(f"Truth Bullet `{name}` has not been found!")
+            raise ipy.errors.BadArgument(f"Truth Bullet `{name}` has not been found!")
 
         possible_bullet.found = False
         possible_bullet.finder = None
@@ -308,19 +304,19 @@ class BulletCMDs(utils.Extension):
     )
     async def override_bullet(
         self,
-        ctx: utils.InvestigatorContext,
-        channel: naff.GuildText = tansy.Option("The channel the Truth Bullet is in."),
+        ctx: utils.UISlashContext,
+        channel: ipy.GuildText = tansy.Option("The channel the Truth Bullet is in."),
         name: str = tansy.Option(
             "The name of the Truth Bullet to unfind.", autocomplete=True
         ),
-        user: naff.Member = tansy.Option("The user who will find the Truth Bullet."),
+        user: ipy.Member = tansy.Option("The user who will find the Truth Bullet."),
     ):
         possible_bullet = await models.TruthBullet.get_or_none(
             channel_id=channel.id,
             name__iexact=name,
         )
         if not possible_bullet:
-            raise naff.errors.BadArgument(f"Truth Bullet `{name}` does not exist!")
+            raise ipy.errors.BadArgument(f"Truth Bullet `{name}` does not exist!")
 
         possible_bullet.found = True
         possible_bullet.finder = user.id
@@ -333,8 +329,8 @@ class BulletCMDs(utils.Extension):
     )
     async def add_alias(
         self,
-        ctx: utils.InvestigatorContext,
-        channel: naff.GuildText = tansy.Option("The channel the Truth Bullet is in."),
+        ctx: utils.UISlashContext,
+        channel: ipy.GuildText = tansy.Option("The channel the Truth Bullet is in."),
         name: str = tansy.Option(
             "The name of the Truth Bullet to add an alias to.", autocomplete=True
         ),
@@ -343,13 +339,13 @@ class BulletCMDs(utils.Extension):
         ),
     ):
         if len(alias) > 40:
-            raise naff.errors.BadArgument(
+            raise ipy.errors.BadArgument(
                 "The name is too large for me to use! "
                 + "Please use something at or under 40 characters."
             )
 
         if await models.TruthBullet.exists(channel_id=channel.id, name__iexact=alias):
-            raise naff.errors.BadArgument(
+            raise ipy.errors.BadArgument(
                 f"Alias `{alias}` is used as a name for another Truth Bullet for this"
                 " channel!"
             )
@@ -358,7 +354,7 @@ class BulletCMDs(utils.Extension):
             channel_id=channel.id, name__iexact=name
         )
         if not possible_bullet:
-            raise naff.errors.BadArgument(f"Truth Bullet `{name}` does not exist!")
+            raise ipy.errors.BadArgument(f"Truth Bullet `{name}` does not exist!")
 
         if len(possible_bullet.aliases) >= 5:
             raise utils.CustomCheckFailure(
@@ -366,7 +362,7 @@ class BulletCMDs(utils.Extension):
             )
 
         if alias in possible_bullet.aliases:
-            raise naff.errors.BadArgument(
+            raise ipy.errors.BadArgument(
                 f"Alias `{alias}` already exists for this Truth Bullet!"
             )
 
@@ -380,8 +376,8 @@ class BulletCMDs(utils.Extension):
     )
     async def remove_alias(
         self,
-        ctx: utils.InvestigatorContext,
-        channel: naff.GuildText = tansy.Option("The channel the Truth Bullet is in."),
+        ctx: utils.UISlashContext,
+        channel: ipy.GuildText = tansy.Option("The channel the Truth Bullet is in."),
         name: str = tansy.Option(
             "The name of the Truth Bullet to remove an alias to.", autocomplete=True
         ),
@@ -392,12 +388,12 @@ class BulletCMDs(utils.Extension):
             name__iexact=name,
         )
         if not possible_bullet:
-            raise naff.errors.BadArgument(f"Truth Bullet `{name}` does not exist!")
+            raise ipy.errors.BadArgument(f"Truth Bullet `{name}` does not exist!")
 
         try:
             possible_bullet.aliases.remove(alias)
         except KeyError:
-            raise naff.errors.BadArgument(
+            raise ipy.errors.BadArgument(
                 f"Alias `{alias}` does not exists for this Truth Bullet!"
             ) from None
 
@@ -412,12 +408,12 @@ class BulletCMDs(utils.Extension):
     @override_bullet.autocomplete("name")
     @add_alias.autocomplete("name")
     @remove_alias.autocomplete("name")
-    async def _bullet_name_autocomplete(self, ctx: naff.AutocompleteContext, **kwargs):
+    async def _bullet_name_autocomplete(self, ctx: ipy.AutocompleteContext, **kwargs):
         return await fuzzy.autocomplete_bullets(ctx, **kwargs)
 
     @remove_alias.autocomplete("alias")
     async def _remove_alias_alias_autocomplete(
-        self, ctx: naff.AutocompleteContext, **kwargs
+        self, ctx: ipy.AutocompleteContext, **kwargs
     ):
         return await fuzzy.autocomplete_aliases(ctx, **kwargs)
 

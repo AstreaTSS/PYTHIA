@@ -2,27 +2,27 @@ import datetime
 import importlib
 
 import humanize
-import naff
+import interactions as ipy
 
 import common.utils as utils
 
 
-class OnCMDError(naff.Extension):
+class OnCMDError(ipy.Extension):
     def __init__(self, bot):
-        self.bot: naff.Client = bot
+        self.bot: ipy.Client = bot
 
     def error_embed_generate(self, error_msg):
-        return naff.Embed(color=naff.MaterialColors.RED, description=error_msg)
+        return ipy.Embed(color=ipy.MaterialColors.RED, description=error_msg)
 
-    @naff.listen(disable_default_listeners=True)
+    @ipy.listen(disable_default_listeners=True)
     async def on_command_error(
         self,
-        event: naff.events.CommandError,
+        event: ipy.events.CommandError,
     ):
-        if not isinstance(event.ctx, naff.SendableContext):
+        if not hasattr(event.ctx, "send"):
             return await utils.error_handle(self.bot, event.error)
 
-        if isinstance(event.error, naff.errors.CommandOnCooldown):
+        if isinstance(event.error, ipy.errors.CommandOnCooldown):
             delta_wait = datetime.timedelta(
                 seconds=event.error.cooldown.get_cooldown_time()
             )
@@ -37,10 +37,10 @@ class OnCMDError(naff.Extension):
             await event.ctx.send(embeds=self.error_embed_generate(str(event.error)))
         elif isinstance(
             event.error,
-            naff.errors.BadArgument,
+            ipy.errors.BadArgument,
         ):
             await event.ctx.send(embeds=self.error_embed_generate(str(event.error)))
-        elif isinstance(event.error, naff.errors.CommandCheckFailure):
+        elif isinstance(event.error, ipy.errors.CommandCheckFailure):
             if event.ctx.guild:
                 await event.ctx.send(
                     embeds=self.error_embed_generate(

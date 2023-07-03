@@ -7,8 +7,9 @@ import typing
 from pathlib import Path
 
 import aiohttp
-import naff
+import interactions as ipy
 import tansy
+from interactions.ext import prefixed_commands as prefixed
 
 import common.models as models
 
@@ -16,21 +17,21 @@ import common.models as models
 @functools.wraps(tansy.slash_command)
 def manage_guild_slash_cmd(
     name: str,
-    description: naff.Absent[str] = naff.MISSING,
+    description: ipy.Absent[str] = ipy.MISSING,
 ):
     return tansy.slash_command(
         name=name,
         description=description,
-        default_member_permissions=naff.Permissions.MANAGE_GUILD,
+        default_member_permissions=ipy.Permissions.MANAGE_GUILD,
     )
 
 
 def error_embed_generate(error_msg: str):
-    return naff.Embed(color=naff.RoleColors.RED, description=error_msg)
+    return ipy.Embed(color=ipy.RoleColors.RED, description=error_msg)
 
 
 async def error_handle(
-    bot: naff.Client, error: Exception, ctx: naff.Context | None = None
+    bot: ipy.Client, error: Exception, ctx: ipy.BaseContext | None = None
 ):
     # handles errors and sends them to owner
     if isinstance(error, aiohttp.ServerDisconnectedError):
@@ -44,7 +45,7 @@ async def error_handle(
             chunks[i][0] = f"```py\n{chunks[i][0]}"
             chunks[i][-1] += "\n```"
 
-        final_chunks: list[str | naff.Embed] = [
+        final_chunks: list[str | ipy.Embed] = [
             error_embed_generate("\n".join(chunk)) for chunk in chunks
         ]
         if ctx and hasattr(ctx, "message") and hasattr(ctx.message, "jump_url"):
@@ -54,12 +55,12 @@ async def error_handle(
 
     await msg_to_owner(bot, to_send)
 
-    if ctx and isinstance(ctx, naff.SendableContext):
-        if isinstance(ctx, naff.PrefixedContext):
+    if ctx and hasattr(ctx, "send"):
+        if isinstance(ctx, prefixed.PrefixedContext):
             await ctx.reply(
                 "An internal error has occured. The bot owner has been notified."
             )
-        elif isinstance(ctx, naff.InteractionContext):
+        elif isinstance(ctx, ipy.InteractionContext):
             await ctx.send(
                 content=(
                     "An internal error has occured. The bot owner has been notified."
@@ -74,14 +75,14 @@ async def error_handle(
 
 async def msg_to_owner(
     bot: "UIBase",
-    chunks: list[str] | list[naff.Embed] | list[str | naff.Embed] | str | naff.Embed,
+    chunks: list[str] | list[ipy.Embed] | list[str | ipy.Embed] | str | ipy.Embed,
 ):
     if not isinstance(chunks, list):
         chunks = [chunks]
 
     # sends a message to the owner
     for chunk in chunks:
-        if isinstance(chunk, naff.Embed):
+        if isinstance(chunk, ipy.Embed):
             await bot.owner.send(embeds=chunk)
         else:
             await bot.owner.send(chunk)
@@ -94,8 +95,9 @@ def line_split(content: str, split_by=20):
     ]
 
 
-def embed_check(embed: naff.Embed) -> bool:
-    """Checks if an embed is valid, as per Discord's guidelines.
+def embed_check(embed: ipy.Embed) -> bool:
+    """
+    Checks if an embed is valid, as per Discord's guidelines.
     See https://discord.com/developers/docs/resources/channel#embed-limits for details.
     """
     if len(embed) > 6000:
@@ -123,7 +125,7 @@ def embed_check(embed: naff.Embed) -> bool:
 
 def deny_mentions(user):
     # generates an AllowedMentions object that only pings the user specified
-    return naff.AllowedMentions(users=[user])
+    return ipy.AllowedMentions(users=[user])
 
 
 def error_format(error: Exception):
@@ -179,7 +181,7 @@ def yesno_friendly_str(bool_to_convert):
     return "yes" if bool_to_convert == True else "no"
 
 
-def role_check(ctx: naff.Context, role: naff.Role):
+def role_check(ctx: ipy.BaseContext, role: ipy.Role):
     top_role = ctx.guild.me.top_role
 
     if role > top_role:
@@ -192,90 +194,110 @@ def role_check(ctx: naff.Context, role: naff.Role):
     return role
 
 
-class ValidRoleConverter(naff.Converter):
-    async def convert(self, context: naff.InteractionContext, argument: naff.Role):
+class ValidRoleConverter(ipy.Converter):
+    async def convert(self, context: ipy.InteractionContext, argument: ipy.Role):
         return role_check(context, argument)
 
 
-class CustomCheckFailure(naff.errors.BadArgument):
+class CustomCheckFailure(ipy.errors.BadArgument):
     # custom classs for custom prerequisite failures outside of normal command checks
     pass
 
 
-class GuildMessageable(naff.GuildChannel, naff.MessageableMixin):
+class GuildMessageable(ipy.GuildChannel, ipy.MessageableMixin):
     pass
 
 
-def valid_channel_check(channel: naff.GuildChannel) -> GuildMessageable:
-    if not isinstance(channel, naff.MessageableMixin):
-        raise naff.errors.BadArgument(f"Cannot send messages in {channel.name}.")
+def valid_channel_check(
+    channel: ipy.GuildChannel, perms: ipy.Permissions
+) -> GuildMessageable:
+    if not isinstance(channel, ipy.MessageableMixin):
+        raise ipy.errors.BadArgument(f"Cannot send messages in {channel.name}.")
 
-    perms = channel.permissions_for(channel.guild.me)
+    if not perms:
+        raise ipy.errors.BadArgument(f"Cannot resolve permissions for {channel.name}.")
 
     if (
-        naff.Permissions.VIEW_CHANNEL not in perms
+        ipy.Permissions.VIEW_CHANNEL not in perms
     ):  # technically pointless, but who knows
-        raise naff.errors.BadArgument(f"Cannot read messages in {channel.name}.")
-    elif naff.Permissions.READ_MESSAGE_HISTORY not in perms:
-        raise naff.errors.BadArgument(f"Cannot read message history in {channel.name}.")
-    elif naff.Permissions.SEND_MESSAGES not in perms:
-        raise naff.errors.BadArgument(f"Cannot send messages in {channel.name}.")
-    elif naff.Permissions.EMBED_LINKS not in perms:
-        raise naff.errors.BadArgument(f"Cannot send embeds in {channel.name}.")
+        raise ipy.errors.BadArgument(f"Cannot read messages in {channel.name}.")
+    elif ipy.Permissions.READ_MESSAGE_HISTORY not in perms:
+        raise ipy.errors.BadArgument(f"Cannot read message history in {channel.name}.")
+    elif ipy.Permissions.SEND_MESSAGES not in perms:
+        raise ipy.errors.BadArgument(f"Cannot send messages in {channel.name}.")
+    elif ipy.Permissions.EMBED_LINKS not in perms:
+        raise ipy.errors.BadArgument(f"Cannot send embeds in {channel.name}.")
 
     return channel  # type: ignore
 
 
-class ValidChannelConverter(naff.Converter):
-    async def convert(self, ctx: naff.InteractionContext, argument: naff.GuildText):
-        return valid_channel_check(argument)
+class ValidChannelConverter(ipy.Converter):
+    async def convert(self, ctx: ipy.InteractionContext, argument: ipy.GuildText):
+        return valid_channel_check(argument, ctx.app_permissions)
 
 
-async def _global_checks(ctx: naff.Context):
+async def _global_checks(ctx: ipy.BaseContext):
     return bool(ctx.guild) if ctx.bot.is_ready else False
 
 
-class Extension(naff.Extension):
-    def __new__(cls, bot: naff.Client, *args, **kwargs):
+class Extension(ipy.Extension):
+    def __new__(cls, bot: ipy.Client, *args, **kwargs):
         new_cls = super().__new__(cls, bot, *args, **kwargs)
         new_cls.add_ext_check(_global_checks)
         return new_cls
 
 
 if typing.TYPE_CHECKING:
+    from interactions.ext.prefixed_commands import PrefixedInjectedClient
     from .help_tools import MiniCommand, PermissionsResolver
 
-    class UIBase(naff.Client):
-        owner: naff.User
-        color: naff.Color
+    class UIBase(PrefixedInjectedClient):
+        owner: ipy.User
+        color: ipy.Color
         slash_perms_cache: collections.defaultdict[int, dict[int, PermissionsResolver]]
         mini_commands_per_scope: dict[int, dict[str, MiniCommand]]
 
 else:
 
-    class UIBase(naff.Client):
+    class UIBase(ipy.Client):
         pass
 
 
-@naff.utils.define
-class InvestigatorContext(naff.InteractionContext):
-    guild_config: typing.Optional[models.Config] = naff.utils.field(default=None)
+class UIContextMixin:
+    guild_config: typing.Optional[models.Config]
+
+    def __init__(self, *args: typing.Any, **kwargs: typing.Any) -> None:
+        self.guild_config = None
+        super().__init__(*args, **kwargs)
 
     @property
-    def guild(self) -> naff.Guild:
-        return self._client.cache.get_guild(self.guild_id)  # type: ignore
+    def guild(self) -> ipy.Guild:
+        return self.client.cache.get_guild(self.guild_id)  # type: ignore
 
     @property
     def bot(self) -> "UIBase":
         """A reference to the bot instance."""
-        return self._client  # type: ignore
+        return self.client  # type: ignore
 
-    async def fetch_config(self):
+    async def fetch_config(self) -> models.Config:
+        """
+        Gets the configuration for the context's guild.
+
+        Returns:
+            GuildConfig: The guild config.
+        """
         if self.guild_config:
             return self.guild_config
 
-        self.guild_config, _ = await models.Config.get_or_create(guild_id=self.guild.id)
-        return self.guild_config
+        config, _ = await models.Config.get_or_create(guild_id=self.guild_id)
 
-    async def reply(self, **kwargs):
-        return await self.send(**kwargs)
+        self.guild_config = config
+        return config
+
+
+class UIInteractionContext(UIContextMixin, ipy.InteractionContext):
+    pass
+
+
+class UISlashContext(UIContextMixin, ipy.SlashContext):
+    pass
