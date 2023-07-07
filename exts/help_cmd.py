@@ -1,7 +1,7 @@
 import importlib
 import typing
 
-import naff
+import interactions as ipy
 import tansy
 
 import common.fuzzy as fuzzy
@@ -10,13 +10,15 @@ import common.utils as utils
 
 
 class HelpCMD(utils.Extension):
-    """The extension that handles the help command."""
+    """The cog that handles the help command."""
 
     def __init__(self, bot: utils.UIBase) -> None:
         self.name = "Help Category"
         self.bot: utils.UIBase = bot
 
-    async def _check_wrapper(self, ctx: naff.Context, check: typing.Callable) -> bool:
+    async def _check_wrapper(
+        self, ctx: ipy.BaseContext, check: typing.Callable
+    ) -> bool:
         """A wrapper to ignore errors by checks."""
         try:
             return await check(ctx)
@@ -24,7 +26,7 @@ class HelpCMD(utils.Extension):
             return False
 
     async def _custom_can_run(
-        self, ctx: naff.Context, cmd: help_tools.MiniCommand
+        self, ctx: ipy.BaseContext, cmd: help_tools.MiniCommand
     ) -> bool:
         """
         Determines if this command can be run, but ignores cooldowns and concurrency.
@@ -33,6 +35,9 @@ class HelpCMD(utils.Extension):
         slash_cmd = cmd.slash_command
 
         if not slash_cmd.get_cmd_id(int(ctx.guild_id)):
+            return False
+
+        if not self.bot.slash_perms_cache.get(int(ctx.guild_id)):
             return False
 
         if not self.bot.slash_perms_cache[int(ctx.guild_id)][
@@ -58,7 +63,7 @@ class HelpCMD(utils.Extension):
         return True
 
     async def extract_commands(
-        self, ctx: naff.AutocompleteContext, argument: typing.Optional[str]
+        self, ctx: ipy.AutocompleteContext, argument: typing.Optional[str]
     ) -> tuple[str, ...]:
         cmds = help_tools.get_mini_commands_for_scope(self.bot, int(ctx.guild_id))
 
@@ -85,12 +90,12 @@ class HelpCMD(utils.Extension):
 
     async def get_multi_command_embeds(
         self,
-        ctx: utils.UIInteractionContext,
+        ctx: ipy.SlashContext,
         commands: list[help_tools.MiniCommand],
         name: str,
         description: typing.Optional[str],
-    ) -> list[naff.Embed]:
-        embeds: list[naff.Embed] = []
+    ) -> list[ipy.Embed]:
+        embeds: list[ipy.Embed] = []
 
         commands = [c for c in commands if await self._custom_can_run(ctx, c)]
         if not commands:
@@ -100,7 +105,7 @@ class HelpCMD(utils.Extension):
         multiple_embeds = len(chunks) > 1
 
         for index, chunk in enumerate(chunks):
-            embed = naff.Embed(description=description, color=ctx.bot.color)
+            embed = ipy.Embed(description=description, color=ctx.bot.color)
 
             embed.add_field(
                 name="Support",
@@ -127,10 +132,10 @@ class HelpCMD(utils.Extension):
 
     async def get_ext_cmd_embeds(
         self,
-        ctx: utils.UIInteractionContext,
+        ctx: ipy.SlashContext,
         cmds: dict[str, help_tools.MiniCommand],
-        ext: naff.Extension,
-    ) -> list[naff.Embed]:
+        ext: ipy.Extension,
+    ) -> list[ipy.Embed]:
         slash_cmds = [
             c
             for c in cmds.values()
@@ -148,12 +153,13 @@ class HelpCMD(utils.Extension):
 
     async def get_all_cmd_embeds(
         self,
-        ctx: utils.UIInteractionContext,
+        ctx: ipy.SlashContext,
         cmds: dict[str, help_tools.MiniCommand],
-    ) -> list[naff.Embed]:
-        embeds: list[naff.Embed] = []
+        bot: utils.UIBase,
+    ) -> list[ipy.Embed]:
+        embeds: list[ipy.Embed] = []
 
-        for ext in ctx.bot.ext.values():
+        for ext in bot.ext.values():
             ext_cmd_embeds = await self.get_ext_cmd_embeds(ctx, cmds, ext)
             if ext_cmd_embeds:
                 embeds.extend(ext_cmd_embeds)
@@ -161,8 +167,8 @@ class HelpCMD(utils.Extension):
         return embeds
 
     async def get_command_embeds(
-        self, ctx: utils.UIInteractionContext, command: help_tools.MiniCommand
-    ) -> list[naff.Embed]:
+        self, ctx: ipy.SlashContext, command: help_tools.MiniCommand
+    ) -> list[ipy.Embed]:
         if command.subcommands:
             return await self.get_multi_command_embeds(
                 ctx, command.view_subcommands, command.name, command.description
@@ -170,7 +176,7 @@ class HelpCMD(utils.Extension):
 
         signature = f"{command.resolved_name} {command.signature}"
         return [
-            naff.Embed(
+            ipy.Embed(
                 title=signature,
                 description=command.description,
                 color=ctx.bot.color,
@@ -184,7 +190,7 @@ class HelpCMD(utils.Extension):
     )
     async def help_cmd(
         self,
-        ctx: utils.UIInteractionContext,
+        ctx: ipy.SlashContext,
         query: typing.Optional[str] = tansy.Option(
             "The query to search for. Can be a command or a category.",
             autocomplete=True,
@@ -192,7 +198,7 @@ class HelpCMD(utils.Extension):
         ),
     ) -> None:
         """Shows help about the bot, a command, or a category."""
-        embeds: list[naff.Embed] = []
+        embeds: list[ipy.Embed] = []
 
         if not self.bot.slash_perms_cache[int(ctx.guild_id)]:
             await help_tools.process_bulk_slash_perms(self.bot, int(ctx.guild_id))
@@ -200,29 +206,29 @@ class HelpCMD(utils.Extension):
         cmds = help_tools.get_mini_commands_for_scope(self.bot, int(ctx.guild_id))
 
         if not query:
-            embeds = await self.get_all_cmd_embeds(ctx, cmds)
+            embeds = await self.get_all_cmd_embeds(ctx, cmds, self.bot)
         elif (command := cmds.get(query.lower())) and await self._custom_can_run(
             ctx, command
         ):
             embeds = await self.get_command_embeds(ctx, command)
         else:
-            ext: typing.Optional[naff.Extension] = next(
+            ext: typing.Optional[ipy.Extension] = next(
                 (s for s in self.bot.ext.values() if s.name.lower() == query.lower()),
                 None,
             )
             if not ext:
-                raise naff.errors.BadArgument(
+                raise ipy.errors.BadArgument(
                     f"No valid command called `{query}` found."
                 )
 
             embeds = await self.get_ext_cmd_embeds(ctx, cmds, ext)
             if not embeds:
-                raise naff.errors.BadArgument(
+                raise ipy.errors.BadArgument(
                     f"There are no valid commands for `{ext.name}`."
                 )
 
         if not embeds:
-            raise naff.errors.BadArgument(f"No valid command called `{query}` found.")
+            raise ipy.errors.BadArgument(f"No valid command called `{query}` found.")
 
         if len(embeds) == 1:
             # pointless to do a paginator here
@@ -235,10 +241,10 @@ class HelpCMD(utils.Extension):
     @help_cmd.autocomplete("query")
     async def query_autocomplete(
         self,
-        ctx: naff.AutocompleteContext,
-        query: typing.Optional[str] = None,
-        **kwargs: typing.Any,
+        ctx: ipy.AutocompleteContext,
     ) -> None:
+        query = ctx.kwargs.get("query")
+
         if not self.bot.slash_perms_cache[int(ctx.guild_id)]:
             await help_tools.process_bulk_slash_perms(self.bot, int(ctx.guild_id))
 
