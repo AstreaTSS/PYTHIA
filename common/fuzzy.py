@@ -44,13 +44,13 @@ def get_bullet_name(bullet: models.TruthBullet):
 async def autocomplete_bullets(
     ctx: ipy.AutocompleteContext,
     name: str,
-    channel: typing.Optional[ipy.GuildText] = None,
+    channel: typing.Optional[str] = None,
     **kwargs,
 ):
     if not channel:
         return await ctx.send([])
 
-    channel_bullets = await models.TruthBullet.filter(channel_id=channel.id)
+    channel_bullets = await models.TruthBullet.filter(channel_id=int(channel))
 
     if not name:
         return await ctx.send([{"name": b.name, "value": b.name} for b in channel_bullets][:25])  # type: ignore
@@ -71,7 +71,7 @@ def get_alias_name(alias: str):
 async def autocomplete_aliases(
     ctx: ipy.AutocompleteContext,
     alias: str,
-    channel: typing.Optional[ipy.GuildText] = None,
+    channel: typing.Optional[str] = None,
     name: typing.Optional[str] = None,
     **kwargs,
 ):
@@ -79,7 +79,7 @@ async def autocomplete_aliases(
         return await ctx.send([])
 
     truth_bullet = await models.TruthBullet.get_or_none(
-        channel_id=channel.id, name__iexact=name
+        channel_id=int(channel), name__iexact=name
     )
     if not truth_bullet:
         return await ctx.send([])
