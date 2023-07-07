@@ -408,14 +408,14 @@ class BulletCMDs(utils.Extension):
     @override_bullet.autocomplete("name")
     @add_alias.autocomplete("name")
     @remove_alias.autocomplete("name")
-    async def _bullet_name_autocomplete(self, ctx: ipy.AutocompleteContext, **kwargs):
-        return await fuzzy.autocomplete_bullets(ctx, **kwargs)
+    async def _bullet_name_autocomplete(self, ctx: ipy.AutocompleteContext):
+        return await fuzzy.autocomplete_bullets(ctx, **ctx.kwargs)
 
     @remove_alias.autocomplete("alias")
     async def _remove_alias_alias_autocomplete(
-        self, ctx: ipy.AutocompleteContext, **kwargs
+        self, ctx: ipy.AutocompleteContext,
     ):
-        return await fuzzy.autocomplete_aliases(ctx, **kwargs)
+        return await fuzzy.autocomplete_aliases(ctx, **ctx.kwargs)
 
 
 def setup(bot):
