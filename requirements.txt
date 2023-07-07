@@ -7,6 +7,6 @@ aiodns==3.0.0
 Brotli==1.0.9
 humanize==4.7.0
 python-dotenv==1.0.0
-orjson==3.9.1
+orjson==3.9.2
 rapidfuzz==3.1.1
 uvloop==0.17.0; platform_system == "Linux"
