@@ -172,7 +172,7 @@ class HelpPaginator(paginators.Paginator):
 
         if self.timeout_interval > 1:
             self._timeout_task = CustomTimeout(self)
-            ctx.bot.create_task(self._timeout_task())
+            asyncio.create_task(self._timeout_task())
 
         return self._message
 
@@ -190,7 +190,7 @@ class HelpPaginator(paginators.Paginator):
 
         if self.timeout_interval > 1:
             self._timeout_task = CustomTimeout(self)
-            ctx.bot.create_task(self._timeout_task())
+            asyncio.create_task(self._timeout_task())
 
         return self._message
 
