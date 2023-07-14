@@ -413,7 +413,8 @@ class BulletCMDs(utils.Extension):
 
     @remove_alias.autocomplete("alias")
     async def _remove_alias_alias_autocomplete(
-        self, ctx: ipy.AutocompleteContext,
+        self,
+        ctx: ipy.AutocompleteContext,
     ):
         return await fuzzy.autocomplete_aliases(ctx, **ctx.kwargs)
 
