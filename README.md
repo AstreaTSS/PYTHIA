@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://cdn.discordapp.com/attachments/844051056936615976/846960909192396820/UltInvestBanner.png" alt="Ultimate Investigator's Banner" width="700"/>
+  <img src="https://cdn.discordapp.com/attachments/775915758588657664/1138697597406691328/UltInvestBanner.png" alt="Ultimate Investigator's Banner" width="700"/>
 </p>
 
 A bot made to help automate investigations during Danganronpa RPs.
