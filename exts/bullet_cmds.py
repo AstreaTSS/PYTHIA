@@ -218,6 +218,7 @@ class BulletCMDs(utils.Extension):
     @utils.manage_guild_slash_cmd(
         "edit-bullet", "Sends a prompt to edit a Truth Bullet."
     )
+    @ipy.auto_defer(enabled=False)
     async def edit_bullet(
         self,
         ctx: utils.UISlashContext,
@@ -247,8 +248,6 @@ class BulletCMDs(utils.Extension):
         )
         await ctx.send_modal(modal)
         await ctx.send("Done!")
-
-    edit_bullet.auto_defer = ipy.AutoDefer(enabled=False)
 
     @ipy.listen("modal_completion")
     async def on_modal_edit_bullet(self, event: ipy.events.ModalCompletion):

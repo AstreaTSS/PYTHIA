@@ -10,25 +10,11 @@ import interactions as ipy
 from interactions.ext import paginators
 from interactions.ext import prefixed_commands as prefixed
 from interactions.models.discord.emoji import process_emoji
-from interactions.models.discord.user import Member
 
 import common.utils as utils
 
 # i use spaces, so...
 DOUBLE_TAB = re.compile(r" {8}")
-
-
-@attrs.define(eq=False, order=False, hash=False, kw_only=True)
-class PatchedMember(Member):
-    permissions: typing.Optional[ipy.Permissions] = attrs.field(
-        repr=False, default=None, converter=ipy.utils.optional(ipy.Permissions)
-    )
-    """Calculated permissions for the member, only given in slash commands"""
-
-
-Member.__init__ = PatchedMember.__init__
-Member.from_dict = PatchedMember.from_dict
-Member.from_list = PatchedMember.from_list
 
 
 @ipy.utils.define(kw_only=False)
@@ -67,8 +53,7 @@ async def callback(ctx: ipy.ComponentContext) -> None:
         (
             "[argument]",
             (
-                "This means the argument is __**optional**__.\n\nNow that you know the"
-                " basics, it should be noted that...\n__**You do not type in the"
+                "This means the argument is __**optional**__.\n\n__**Do not type in the"
                 " brackets!**__"
             ),
         ),
@@ -262,12 +247,10 @@ class PermissionsResolver:
     def has_permission(
         self,
         channel: ipy.GuildChannel,
-        author: "PatchedMember",
+        author: ipy.Member,
+        author_permissions: ipy.Permissions,
     ) -> bool:
-        if (
-            author.permissions is not None
-            and ipy.Permissions.ADMINISTRATOR in author.permissions
-        ):
+        if ipy.Permissions.ADMINISTRATOR in author_permissions:
             return True
 
         # channel stuff is checked first
@@ -309,15 +292,15 @@ class PermissionsResolver:
 
         return (
             all(
-                permission in author.permissions
+                permission in author_permissions
                 for permission in self.default_member_permissions
             )
-            if self.default_member_permissions and author.permissions is not None
+            if self.default_member_permissions
             else True
         )
 
-    def has_permission_ctx(self, ctx: ipy.BaseContext) -> bool:
-        return self.has_permission(ctx.channel, ctx.author)  # type: ignore
+    def has_permission_ctx(self, ctx: ipy.BaseInteractionContext) -> bool:
+        return self.has_permission(ctx.channel, ctx.author, ctx.author_permissions)  # type: ignore
 
 
 class GuildApplicationCommandPermissionData(typing.TypedDict):
