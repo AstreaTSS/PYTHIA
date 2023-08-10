@@ -125,6 +125,7 @@ class HelpPaginator(paginators.Paginator):
 
         if isinstance(page, paginators.Page):
             page = page.to_embed()
+            page.timestamp = ipy.Timestamp.utcnow()
             if not page.title and self.default_title:
                 page.title = self.default_title
         if not (page.author and page.author.name):

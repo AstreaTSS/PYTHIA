@@ -205,6 +205,7 @@ class HelpCMD(utils.Extension):
 
         if len(embeds) == 1:
             # pointless to do a paginator here
+            embeds[0].timestamp = ipy.Timestamp.utcnow()
             await ctx.send(embeds=embeds)
             return
 

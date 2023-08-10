@@ -181,6 +181,7 @@ class BulletCMDs(utils.Extension):
         )
         if len(pag.pages) == 1:
             embed = pag.pages[0].to_embed()  # type: ignore
+            embed.timestamp = ipy.Timestamp.utcnow()
             embed.color = ctx.bot.color
             return await ctx.send(embeds=embed)
 
