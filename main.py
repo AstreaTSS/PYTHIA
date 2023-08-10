@@ -11,10 +11,10 @@ from dotenv import load_dotenv
 from interactions.ext import prefixed_commands as prefixed
 from tortoise import Tortoise
 
+load_dotenv()
+
 import common.help_tools as help_tools
 import common.utils as utils
-
-load_dotenv()
 
 
 logger = logging.getLogger("uibot")
