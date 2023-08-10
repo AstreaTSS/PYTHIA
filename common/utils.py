@@ -1,7 +1,7 @@
-#!/usr/bin/env python3.8
 import collections
 import functools
 import logging
+import os
 import traceback
 import typing
 from pathlib import Path
@@ -28,6 +28,18 @@ def manage_guild_slash_cmd(
 
 def error_embed_generate(error_msg: str):
     return ipy.Embed(color=ipy.RoleColors.RED, description=error_msg)
+
+
+_bot_color = ipy.Color(int(os.environ["BOT_COLOR"]))
+
+
+def make_embed(description: str, *, title: str | None = None) -> ipy.Embed:
+    return ipy.Embed(
+        title=title,
+        description=description,
+        color=_bot_color,
+        timestamp=ipy.Timestamp.utcnow(),
+    )
 
 
 async def error_handle(

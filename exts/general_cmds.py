@@ -61,19 +61,46 @@ class OtherCMDs(utils.Extension):
 
         await ctx.edit(message=mes, embed=embed)
 
-    @tansy.slash_command(
+    @ipy.slash_command(
         name="invite",
-        description="Sends the link to invite the bot to your server.",
+        description="Sends instructions on how to set up and invite the bot.",
     )
-    async def invite(self, ctx: utils.UIInteractionContext):
-        await ctx.send(self.invite_link)
+    async def invite(self, ctx: utils.UISlashContext) -> None:
+        embed = utils.make_embed(
+            "If you want to invite me to your server, it's a good idea to use the"
+            " Server Setup Guide. However, if you know what you're doing, you can"
+            " use the Invite Link instead.",
+            title="Invite Bot",
+        )
+        components = [
+            ipy.Button(
+                style=ipy.ButtonStyle.URL,
+                label="Server Setup Guide",
+                url="https://ui.astrea.cc/server_setup.html",
+            ),
+            ipy.Button(
+                style=ipy.ButtonStyle.URL,
+                label="Invite Link",
+                url=self.invite_link,
+            ),
+        ]
+        await ctx.send(embeds=embed, components=components)
 
-    @tansy.slash_command(
-        "support",
-        description="Gives an invite link to the support server.",
+    @ipy.slash_command(
+        "support", description="Gives an invite link to the support server."
     )
-    async def support(self, ctx: utils.UIInteractionContext):
-        await ctx.send("Support server:\nhttps://discord.gg/NSdetwGjpK")
+    async def support(self, ctx: utils.UISlashContext) -> None:
+        embed = utils.make_embed(
+            "If you need help with the bot, or just want to hang out, join the"
+            " support server!",
+            title="Support Server",
+        )
+        button = ipy.Button(
+            style=ipy.ButtonStyle.URL,
+            label="Join Support Server",
+            url="https://discord.gg/NSdetwGjpK",
+        )
+        await ctx.send(embeds=embed, components=button)
 
     @tansy.slash_command("about", description="Gives information about the bot.")
     async def about(self, ctx: ipy.InteractionContext):
@@ -131,13 +158,14 @@ class OtherCMDs(utils.Extension):
         )
 
         links = [
+            "Website: [Link](https://ui.astrea.cc)",
             f"Invite Bot: [Link]({self.invite_link})",
             "Support Server: [Link](https://discord.gg/NSdetwGjpK)",
             "Source Code: [Link](https://github.com/AstreaTSS/UltimateInvestigator)",
         ]
 
         about_embed.add_field(
-            name="Links:",
+            name="Links",
             value="\n".join(links),
             inline=True,
         )

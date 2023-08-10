@@ -188,6 +188,25 @@ class BulletConfigCMDs(utils.Extension):
             f" {utils.toggle_friendly_str(guild_config.bullets_enabled)}!"
         )
 
+    @config.subcommand(
+        sub_cmd_name="help",
+        sub_cmd_description="Tells you how to set up this bot.",
+    )
+    async def setup_help(
+        self,
+        ctx: utils.UISlashContext,
+    ) -> None:
+        embed = utils.make_embed(
+            "To set up this bot, follow the Server Setup Guide below.",
+            title="Setup Bot",
+        )
+        button = ipy.Button(
+            style=ipy.ButtonStyle.LINK,
+            label="Server Setup Guide",
+            url="https://ui.astrea.cc/server_setup.html",
+        )
+        await ctx.send(embeds=embed, components=button)
+
 
 def setup(bot):
     importlib.reload(utils)
