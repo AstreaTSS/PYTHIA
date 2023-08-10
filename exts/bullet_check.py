@@ -125,7 +125,14 @@ class BulletCheck(utils.Extension):
         embed = bullet_found.found_embed(str(message.author))
 
         await message.reply(embed=embed)
-        await bullet_chan.send(embed=embed)
+        await bullet_chan.send(
+            embed=embed,
+            components=ipy.Button(
+                style=ipy.ButtonStyle.LINK,
+                label="Triggering Message",
+                url=message.jump_url,
+            ),
+        )
 
         await bullet_found.save(force_update=True)
         await self.check_for_finish(message.guild, bullet_chan, guild_config)
