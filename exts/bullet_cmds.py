@@ -30,7 +30,8 @@ class BulletCMDs(utils.Extension):
     async def add_bullets(
         self,
         ctx: utils.UISlashContext,
-        channel: ipy.GuildText = tansy.Option(
+        channel: ipy.GuildText
+        | ipy.GuildPublicThread = tansy.Option(
             "The channel for the Truth Bullets to be added.",
             converter=utils.ValidChannelConverter,
         ),
@@ -116,7 +117,8 @@ class BulletCMDs(utils.Extension):
     async def remove_bullet(
         self,
         ctx: utils.UISlashContext,
-        channel: ipy.GuildText = tansy.Option(
+        channel: ipy.GuildText
+        | ipy.GuildPublicThread = tansy.Option(
             "The channel for the Truth Bullet to be removed."
         ),
         name: str = tansy.Option(
@@ -196,7 +198,8 @@ class BulletCMDs(utils.Extension):
     async def bullet_info(
         self,
         ctx: utils.UISlashContext,
-        channel: ipy.GuildText = tansy.Option("The channel the Truth Bullet is in."),
+        channel: ipy.GuildText
+        | ipy.GuildPublicThread = tansy.Option("The channel the Truth Bullet is in."),
         name: str = tansy.Option("The name of the Truth Bullet.", autocomplete=True),
     ):
         possible_bullet = await models.TruthBullet.get_or_none(
@@ -223,7 +226,8 @@ class BulletCMDs(utils.Extension):
     async def edit_bullet(
         self,
         ctx: utils.UISlashContext,
-        channel: ipy.GuildText = tansy.Option("The channel the Truth Bullet is in."),
+        channel: ipy.GuildText
+        | ipy.GuildPublicThread = tansy.Option("The channel the Truth Bullet is in."),
         name: str = tansy.Option(
             "The name of the Truth Bullet to edit.", autocomplete=True
         ),
@@ -277,7 +281,8 @@ class BulletCMDs(utils.Extension):
     async def unfind_bullet(
         self,
         ctx: utils.UISlashContext,
-        channel: ipy.GuildText = tansy.Option("The channel the Truth Bullet is in."),
+        channel: ipy.GuildText
+        | ipy.GuildPublicThread = tansy.Option("The channel the Truth Bullet is in."),
         name: str = tansy.Option(
             "The name of the Truth Bullet to unfind.", autocomplete=True
         ),
@@ -305,7 +310,8 @@ class BulletCMDs(utils.Extension):
     async def override_bullet(
         self,
         ctx: utils.UISlashContext,
-        channel: ipy.GuildText = tansy.Option("The channel the Truth Bullet is in."),
+        channel: ipy.GuildText
+        | ipy.GuildPublicThread = tansy.Option("The channel the Truth Bullet is in."),
         name: str = tansy.Option(
             "The name of the Truth Bullet to unfind.", autocomplete=True
         ),
@@ -330,7 +336,8 @@ class BulletCMDs(utils.Extension):
     async def add_alias(
         self,
         ctx: utils.UISlashContext,
-        channel: ipy.GuildText = tansy.Option("The channel the Truth Bullet is in."),
+        channel: ipy.GuildText
+        | ipy.GuildPublicThread = tansy.Option("The channel the Truth Bullet is in."),
         name: str = tansy.Option(
             "The name of the Truth Bullet to add an alias to.", autocomplete=True
         ),
@@ -377,7 +384,8 @@ class BulletCMDs(utils.Extension):
     async def remove_alias(
         self,
         ctx: utils.UISlashContext,
-        channel: ipy.GuildText = tansy.Option("The channel the Truth Bullet is in."),
+        channel: ipy.GuildText
+        | ipy.GuildPublicThread = tansy.Option("The channel the Truth Bullet is in."),
         name: str = tansy.Option(
             "The name of the Truth Bullet to remove an alias to.", autocomplete=True
         ),

@@ -95,11 +95,7 @@ class BulletCheck(utils.Extension):
 
         bullet_found: typing.Optional[models.TruthBullet] = None
 
-        channel_id = (
-            message.channel.parent_channel.id
-            if isinstance(message.channel, ipy.ThreadChannel)
-            else message.channel.id
-        )
+        channel_id = message.channel.id
         content = message.content.lower()
         async for bullet in models.TruthBullet.filter(
             channel_id=channel_id, found=False
