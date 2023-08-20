@@ -2,7 +2,6 @@ import asyncio
 import collections
 import importlib
 import typing
-from http.client import FOUND
 
 import interactions as ipy
 
