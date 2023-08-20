@@ -2,6 +2,7 @@ import asyncio
 import collections
 import importlib
 import typing
+from http.client import FOUND
 
 import interactions as ipy
 
@@ -100,7 +101,9 @@ class BulletCheck(utils.Extension):
             else message.channel.id
         )
         content = message.content.lower()
-        async for bullet in models.TruthBullet.filter(channel_id=channel_id):
+        async for bullet in models.TruthBullet.filter(
+            channel_id=channel_id, found=False
+        ):
             if bullet.name.lower() in content or any(
                 a.lower() in content for a in bullet.aliases
             ):
