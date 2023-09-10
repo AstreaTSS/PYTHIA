@@ -11,4 +11,4 @@ The bot relies on a user to find out a 'key word' in order to actually get the T
 Links:
 * [Website](https://ui.astrea.cc)
 * [Join Support Server](https://discord.gg/NSdetwGjpK)
-* [Invite Bot](https://discord.com/api/oauth2/authorize?client_id=843994199187914753&permissions=8&scope=bot%20applications.commands)
+* [Invite Bot](https://discord.com/api/oauth2/authorize?client_id=843994199187914753&permissions=532576332864&scope=bot%20applications.commands)
