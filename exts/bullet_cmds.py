@@ -173,7 +173,7 @@ class BulletCMDs(utils.Extension):
             str_builder.append(f"<#{channel_id}>:")
             for bullet in bullet_dict[channel_id]:
                 str_builder.append(
-                    f"\t- `{bullet.name}`{' (found)' if bullet.found else ''}"
+                    f"- `{bullet.name}`{' (found)' if bullet.found else ''}"
                 )
 
             str_builder.append("")
