@@ -135,25 +135,23 @@ class OtherCMDs(utils.Extension):
 
         about_embed.add_field(
             name="Stats",
-            value="\n".join(
+            value="\n".join((
+                f"Servers: {len(self.bot.guilds)}",
+                f"Commands: {command_num} ",
                 (
-                    f"Servers: {len(self.bot.guilds)}",
-                    f"Commands: {command_num} ",
-                    (
-                        "Startup Time:"
-                        f" {ipy.Timestamp.fromdatetime(self.bot.start_time).format(ipy.TimestampStyles.RelativeTime)}"
-                    ),
-                    (
-                        "Commit Hash:"
-                        f" [{commit_hash}](https://github.com/AstreaTSS/UltimateInvestigator/commit/{commit_hash})"
-                    ),
-                    (
-                        "Interactions.py Version:"
-                        f" [{IPY_VERSION}](https://github.com/interactions-py/interactions.py/tree/{IPY_VERSION})"
-                    ),
-                    "Made By: [AstreaTSS](https://github.com/AstreaTSS)",
-                )
-            ),
+                    "Startup Time:"
+                    f" {ipy.Timestamp.fromdatetime(self.bot.start_time).format(ipy.TimestampStyles.RelativeTime)}"
+                ),
+                (
+                    "Commit Hash:"
+                    f" [{commit_hash}](https://github.com/AstreaTSS/UltimateInvestigator/commit/{commit_hash})"
+                ),
+                (
+                    "Interactions.py Version:"
+                    f" [{IPY_VERSION}](https://github.com/interactions-py/interactions.py/tree/{IPY_VERSION})"
+                ),
+                "Made By: [AstreaTSS](https://github.com/AstreaTSS)",
+            )),
             inline=True,
         )
 

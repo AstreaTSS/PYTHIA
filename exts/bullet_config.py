@@ -40,18 +40,16 @@ class BulletConfigCMDs(utils.Extension):
             "",
         ]
 
-        str_builder.extend(
+        str_builder.extend((
             (
-                (
-                    "Player role:"
-                    f" {f'<@&{guild_config.player_role}>' if guild_config.player_role else 'N/A'}"
-                ),
-                (
-                    "Best Detective role:"
-                    f" {f'<@&{guild_config.ult_detective_role}>' if guild_config.ult_detective_role else 'N/A'}"
-                ),
-            )
-        )
+                "Player role:"
+                f" {f'<@&{guild_config.player_role}>' if guild_config.player_role else 'N/A'}"
+            ),
+            (
+                "Best Detective role:"
+                f" {f'<@&{guild_config.ult_detective_role}>' if guild_config.ult_detective_role else 'N/A'}"
+            ),
+        ))
         embed = ipy.Embed(
             title=f"Server config for {ctx.guild.name}",
             description="\n".join(str_builder),
