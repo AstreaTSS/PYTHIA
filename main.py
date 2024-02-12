@@ -132,6 +132,7 @@ bot = UltimateInvestigator(
 bot.init_load = True
 bot.slash_perms_cache = defaultdict(dict)
 bot.mini_commands_per_scope = {}
+bot.background_tasks = set()
 bot.color = ipy.Color(int(os.environ["BOT_COLOR"]))  # #D92C43 or 14232643
 prefixed.setup(bot)
 
