@@ -56,11 +56,9 @@ class BulletConfigCMDs(utils.Extension):
                 f" {f'<@&{guild_config.ult_detective_role}>' if guild_config.ult_detective_role else 'N/A'}"
             ),
         ))
-        embed = ipy.Embed(
+        embed = utils.make_embed(
             title=f"Server config for {ctx.guild.name}",
             description="\n".join(str_builder),
-            color=ctx.bot.color,
-            timestamp=ipy.Timestamp.utcnow(),
         )
         await ctx.send(embed=embed)
 
@@ -89,9 +87,13 @@ class BulletConfigCMDs(utils.Extension):
         await guild_config.save()
 
         if channel:
-            await ctx.send(f"Truth Bullet channel set to {channel.mention}!")
+            await ctx.send(
+                embed=utils.make_embed(
+                    f"Truth Bullet channel set to {channel.mention}!"
+                )
+            )
         else:
-            await ctx.send("Truth Bullet channel unset.")
+            await ctx.send(embed=utils.make_embed("Truth Bullet channel unset."))
 
     @config.subcommand(
         sub_cmd_name="best-detective",
@@ -118,11 +120,10 @@ class BulletConfigCMDs(utils.Extension):
 
         if role:
             await ctx.send(
-                f"Best Detective role set to {role.mention}!",
-                allowed_mentions=utils.deny_mentions(ctx.author),
+                embed=utils.make_embed(f"Best Detective role set to {role.mention}!"),
             )
         else:
-            await ctx.send("Best Detective role unset.")
+            await ctx.send(embed=utils.make_embed("Best Detective role unset."))
 
     @config.subcommand(
         sub_cmd_name="player",
@@ -151,11 +152,10 @@ class BulletConfigCMDs(utils.Extension):
 
         if role:
             await ctx.send(
-                f"Player role set to {role.mention}!",
-                allowed_mentions=utils.deny_mentions(ctx.author),
+                embed=utils.make_embed(f"Player role set to {role.mention}!"),
             )
         else:
-            await ctx.send("Player role unset.")
+            await ctx.send(embed=utils.make_embed("Player role unset."))
 
     def enable_check(self, config: models.Config) -> None:
         if not config.player_role:
@@ -188,8 +188,9 @@ class BulletConfigCMDs(utils.Extension):
         await guild_config.save()
 
         await ctx.send(
-            "Truth Bullets turned"
-            f" {utils.toggle_friendly_str(guild_config.bullets_enabled)}!"
+            embed=utils.make_embed(
+                f"Truth Bullets turned {utils.toggle_friendly_str(guild_config.bullets_enabled)}!"
+            )
         )
 
     @config.subcommand(

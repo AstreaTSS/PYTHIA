@@ -33,7 +33,12 @@ def manage_guild_slash_cmd(
 
 
 def error_embed_generate(error_msg: str) -> ipy.Embed:
-    return ipy.Embed(color=ipy.RoleColors.RED, description=error_msg)
+    return ipy.Embed(
+        title="Error",
+        description=error_msg,
+        color=ipy.MaterialColors.ORANGE,
+        timestamp=ipy.Timestamp.utcnow(),
+    )
 
 
 _bot_color = ipy.Color(int(os.environ["BOT_COLOR"]))
@@ -83,7 +88,7 @@ async def error_handle(
                 content=(
                     "An internal error has occured. The bot owner has been notified."
                 ),
-                ephemeral=True,
+                ephemeral=ctx.ephemeral,
             )
         else:
             await ctx.send(
@@ -113,34 +118,6 @@ def line_split(content: str, split_by: int = 20) -> list[list[str]]:
     ]
 
 
-def embed_check(embed: ipy.Embed) -> bool:
-    """
-    Checks if an embed is valid, as per Discord's guidelines.
-    See https://discord.com/developers/docs/resources/channel#embed-limits for details.
-    """
-    if len(embed) > 6000:
-        return False
-
-    if embed.title and len(embed.title) > 256:
-        return False
-    if embed.description and len(embed.description) > 4096:
-        return False
-    if embed.author and embed.author.name and len(embed.author.name) > 256:
-        return False
-    if embed.footer and embed.footer.text and len(embed.footer.text) > 2048:
-        return False
-    if embed.fields:
-        if len(embed.fields) > 25:
-            return False
-        for field in embed.fields:
-            if field.name and len(field.name) > 1024:
-                return False
-            if field.value and len(field.value) > 2048:
-                return False
-
-    return True
-
-
 def deny_mentions(user: ipy.Snowflake_Type) -> ipy.AllowedMentions:
     # generates an AllowedMentions object that only pings the user specified
     return ipy.AllowedMentions(users=[user])
@@ -162,7 +139,7 @@ def file_to_ext(str_path: str, base_path: str) -> str:
     return str_path.replace(".py", "")
 
 
-def get_all_extensions(str_path: str, folder: str = "exts") -> list[str]:
+def get_all_extensions(str_path: str, folder: str = "exts") -> collections.deque[str]:
     # gets all extensions in a folder
     ext_files = collections.deque()
     loc_split = str_path.split(folder)

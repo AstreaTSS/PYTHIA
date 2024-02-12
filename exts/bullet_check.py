@@ -35,9 +35,9 @@ class BulletCheck(utils.Extension):
             counter[bullet.finder] += 1  # type: ignore
 
         most_found = counter.most_common(None)
-        most_found_num = most_found[0][
-            1
-        ]  # number of truth bullets found by highest person
+
+        # number of truth bullets found by highest person
+        most_found_num = most_found[0][1]
         # the next is just fancy code to check for ties and make a list for the top people
         most_found_people = tuple(p[0] for p in most_found if p[1] == most_found_num)
 
@@ -48,7 +48,7 @@ class BulletCheck(utils.Extension):
         ]
         str_builder.extend(f"<@{person_id}>" for person_id in most_found_people)
 
-        await bullet_chan.send("\n".join(str_builder))
+        await bullet_chan.send(embed=utils.make_embed("\n".join(str_builder)))
 
         guild_config.bullets_enabled = False
         await guild_config.save()

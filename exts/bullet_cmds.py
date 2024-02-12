@@ -47,7 +47,8 @@ class BulletCMDs(utils.Extension):
         )
 
         await ctx.send(
-            content="Add Truth Bullets via the button below!", components=button
+            embed=utils.make_embed("Add Truth Bullets via the button below!"),
+            components=button,
         )
 
     @ipy.listen("component")
@@ -111,7 +112,9 @@ class BulletCMDs(utils.Extension):
             )
 
             await ctx.send(
-                f"Added Truth Bullet `{ctx.responses['truth_bullet_name']}`!"
+                embed=utils.make_embed(
+                    f"Added Truth Bullet `{ctx.responses['truth_bullet_name']}`!"
+                ),
             )
 
     @utils.manage_guild_slash_cmd(
@@ -133,7 +136,7 @@ class BulletCMDs(utils.Extension):
         ).delete()
 
         if num_deleted > 0:
-            await ctx.send(f"`{name}` deleted!")
+            await ctx.send(embed=utils.make_embed(f"`{name}` deleted!"))
         else:
             raise ipy.errors.BadArgument(f"Truth Bullet `{name}` does not exists!")
 
@@ -150,7 +153,9 @@ class BulletCMDs(utils.Extension):
         # just to give a more clear indication to users
         # technically everything's fine without this
         if num_deleted > 0:
-            await ctx.send("Cleared all Truth Bullets for this server!")
+            await ctx.send(
+                embed=utils.make_embed("Cleared all Truth Bullets for this server!")
+            )
         else:
             raise utils.CustomCheckFailure(
                 "There's no Truth Bullets to delete for this server!"
@@ -257,7 +262,7 @@ class BulletCMDs(utils.Extension):
             custom_id=f"ui:edit-bullet-{channel.id}|{name}",
         )
         await ctx.send_modal(modal)
-        await ctx.send("Done!")
+        await ctx.send(embed=utils.make_embed("Done!"))
 
     @ipy.listen("modal_completion")
     async def on_modal_edit_bullet(self, event: ipy.events.ModalCompletion) -> None:
@@ -280,7 +285,11 @@ class BulletCMDs(utils.Extension):
             possible_bullet.description = ctx.responses["description"]
             await possible_bullet.save()
 
-            await ctx.send(f"Edited Truth Bullet `{ctx.responses['description']}`!")
+            await ctx.send(
+                embed=utils.make_embed(
+                    f"Edited Truth Bullet `{ctx.responses['description']}`!"
+                )
+            )
 
     @utils.manage_guild_slash_cmd("unfind-bullet", "Un-finds a Truth Bullet.")
     async def unfind_bullet(
@@ -307,7 +316,7 @@ class BulletCMDs(utils.Extension):
         possible_bullet.finder = None
         await possible_bullet.save()
 
-        await ctx.send("Truth Bullet un-found!")
+        await ctx.send(embed=utils.make_embed("Truth Bullet un-found!"))
 
     @utils.manage_guild_slash_cmd(
         "override-bullet",
@@ -335,7 +344,7 @@ class BulletCMDs(utils.Extension):
         possible_bullet.finder = user.id
         await possible_bullet.save()
 
-        await ctx.send("Truth Bullet overrided and found!")
+        await ctx.send(embed=utils.make_embed("Truth Bullet overrided and found!"))
 
     @utils.manage_guild_slash_cmd(
         "add-alias", "Adds an alias to the Truth Bullet specified."
@@ -384,7 +393,9 @@ class BulletCMDs(utils.Extension):
         possible_bullet.aliases.add(alias)
         await possible_bullet.save()
 
-        await ctx.send(f"Alias `{alias}` added to Truth Bullet!")
+        await ctx.send(
+            embed=utils.make_embed(f"Alias `{alias}` added to Truth Bullet!")
+        )
 
     @utils.manage_guild_slash_cmd(
         "remove-alias", "Removes an alias from the Truth Bullet specified."
@@ -416,7 +427,9 @@ class BulletCMDs(utils.Extension):
 
         await possible_bullet.save()
 
-        await ctx.send(f"Alias `{alias}` removed from Truth Bullet!")
+        await ctx.send(
+            embed=utils.make_embed(f"Alias `{alias}` removed from Truth Bullet!")
+        )
 
     @remove_bullet.autocomplete("name")
     @bullet_info.autocomplete("name")
