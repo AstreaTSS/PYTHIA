@@ -92,19 +92,9 @@ class BulletCheck(utils.Extension):
         ):
             return
 
-        bullet_found: typing.Optional[models.TruthBullet] = None
-
-        channel_id = message.channel.id
-        content = message.content.lower()
-        async for bullet in models.TruthBullet.filter(
-            channel_id=channel_id, found=False
-        ):
-            if bullet.name.lower() in content or any(
-                a.lower() in content for a in bullet.aliases
-            ):
-                bullet_found = bullet
-                break
-
+        bullet_found = await models.find_truth_bullet(
+            message.channel.id, message.content
+        )
         if not bullet_found:
             return
 

@@ -2,6 +2,7 @@ import os
 import typing
 
 import interactions as ipy
+from tortoise import connections
 from tortoise import fields
 from tortoise.contrib.postgres.fields import ArrayField
 from tortoise.models import Model
@@ -92,3 +93,22 @@ class Config(Model):
     ult_detective_role: typing.Optional[int] = fields.BigIntField(null=True)
     player_role: typing.Optional[int] = fields.BigIntField(null=True)
     bullets_enabled: bool = fields.BooleanField(default=False)  # type: ignore
+
+
+async def find_truth_bullet(
+    channel_id: ipy.Snowflake_Type, content: str
+) -> typing.Optional[TruthBullet]:
+    conn = connections.get("default")
+
+    result = await conn.execute_query(
+        f"SELECT {', '.join(TruthBullet._meta.fields)} FROM"
+        f" {TruthBullet.Meta.table} WHERE channel_id=$1 AND ((position(LOWER(name) in"
+        " LOWER($2)))>0 OR 0 < ANY(SELECT position(LOWER(UNNEST(aliases)) in"
+        " LOWER($2))));",
+        [int(channel_id), content],
+    )
+
+    try:
+        return None if result[0] <= 0 else TruthBullet(**dict(result[1][0]))
+    except (KeyError, IndexError, ValueError):
+        return None
