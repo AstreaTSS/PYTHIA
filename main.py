@@ -119,6 +119,7 @@ bot = UltimateInvestigator(
     activity=ipy.Activity(
         name="Status", type=ipy.ActivityType.CUSTOM, state="Loading..."
     ),
+    status=ipy.Status.IDLE,
     sync_interactions=False,  # big bots really shouldn't have this on
     sync_ext=False,
     disable_dm_commands=True,
