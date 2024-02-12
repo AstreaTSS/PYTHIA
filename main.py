@@ -51,16 +51,19 @@ class UltimateInvestigator(utils.UIBase):
 
         self.init_load = False
 
-        activity = ipy.Activity.create(
-            name="for Truth Bullets", type=ipy.ActivityType.WATCHING
+        activity = ipy.Activity(
+            name="Splash Text",
+            type=ipy.ActivityType.CUSTOM,
+            state="Watching for Truth Bullets",
         )
-
         await self.change_presence(activity=activity)
 
     @ipy.listen("resume")
     async def on_resume_func(self) -> None:
-        activity = ipy.Activity.create(
-            name="for Truth Bullets", type=ipy.ActivityType.WATCHING
+        activity = ipy.Activity(
+            name="Splash Text",
+            type=ipy.ActivityType.CUSTOM,
+            state="Watching for Truth Bullets",
         )
         await self.change_presence(activity=activity)
 
@@ -113,6 +116,9 @@ intents = ipy.Intents.new(
 mentions = ipy.AllowedMentions.all()
 
 bot = UltimateInvestigator(
+    activity=ipy.Activity(
+        name="Status", type=ipy.ActivityType.CUSTOM, state="Loading..."
+    ),
     sync_interactions=False,  # big bots really shouldn't have this on
     sync_ext=False,
     disable_dm_commands=True,
