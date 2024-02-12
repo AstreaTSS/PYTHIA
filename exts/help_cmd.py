@@ -1,3 +1,9 @@
+"""
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at https://mozilla.org/MPL/2.0/.
+"""
+
 import importlib
 import typing
 
@@ -86,7 +92,7 @@ class HelpCMD(utils.Extension):
 
     async def get_multi_command_embeds(
         self,
-        ctx: ipy.SlashContext,
+        ctx: utils.UISlashContext,
         commands: list[help_tools.MiniCommand],
         name: str,
         description: typing.Optional[str],
@@ -119,7 +125,7 @@ class HelpCMD(utils.Extension):
 
     async def get_ext_cmd_embeds(
         self,
-        ctx: ipy.SlashContext,
+        ctx: utils.UISlashContext,
         cmds: dict[str, help_tools.MiniCommand],
         ext: ipy.Extension,
     ) -> list[ipy.Embed]:
@@ -140,7 +146,7 @@ class HelpCMD(utils.Extension):
 
     async def get_all_cmd_embeds(
         self,
-        ctx: utils.UIInteractionContext,
+        ctx: utils.UISlashContext,
         cmds: dict[str, help_tools.MiniCommand],
         bot: utils.UIBase,
     ) -> list[ipy.Embed]:
@@ -154,7 +160,7 @@ class HelpCMD(utils.Extension):
         return embeds
 
     async def get_command_embeds(
-        self, ctx: utils.UIBase, command: help_tools.MiniCommand
+        self, ctx: utils.UISlashContext, command: help_tools.MiniCommand
     ) -> list[ipy.Embed]:
         if command.subcommands:
             return await self.get_multi_command_embeds(
@@ -177,7 +183,7 @@ class HelpCMD(utils.Extension):
     )
     async def help_cmd(
         self,
-        ctx: utils.UIInteractionContext,
+        ctx: utils.UISlashContext,
         query: typing.Optional[str] = tansy.Option(
             "The command to search for.",
             autocomplete=True,
@@ -205,7 +211,6 @@ class HelpCMD(utils.Extension):
 
         if len(embeds) == 1:
             # pointless to do a paginator here
-            embeds[0].timestamp = ipy.Timestamp.utcnow()
             await ctx.send(embeds=embeds)
             return
 

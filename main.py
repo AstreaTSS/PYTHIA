@@ -1,3 +1,9 @@
+"""
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at https://mozilla.org/MPL/2.0/.
+"""
+
 import asyncio
 import contextlib
 import logging
@@ -5,7 +11,6 @@ import os
 import typing
 from collections import defaultdict
 
-import discord_typings
 import interactions as ipy
 from dotenv import load_dotenv
 from interactions.ext import prefixed_commands as prefixed
@@ -16,6 +21,8 @@ load_dotenv()
 import common.help_tools as help_tools
 import common.utils as utils
 
+if typing.TYPE_CHECKING:
+    import discord_typings
 
 logger = logging.getLogger("uibot")
 logger.setLevel(logging.INFO)
@@ -30,13 +37,13 @@ logger.addHandler(handler)
 
 class UltimateInvestigator(utils.UIBase):
     @ipy.listen("ready")
-    async def on_ready(self):
+    async def on_ready(self) -> None:
         utcnow = ipy.Timestamp.utcnow()
         time_format = f"<t:{int(utcnow.timestamp())}:f>"
 
         connect_msg = (
             f"Logged in at {time_format}!"
-            if self.init_load == True
+            if self.init_load
             else f"Reconnected at {time_format}!"
         )
 
@@ -51,7 +58,7 @@ class UltimateInvestigator(utils.UIBase):
         await self.change_presence(activity=activity)
 
     @ipy.listen("resume")
-    async def on_resume_func(self):
+    async def on_resume_func(self) -> None:
         activity = ipy.Activity.create(
             name="for Truth Bullets", type=ipy.ActivityType.WATCHING
         )
@@ -62,7 +69,7 @@ class UltimateInvestigator(utils.UIBase):
     async def i_like_my_events_very_raw(
         self, event: ipy.events.RawGatewayEvent
     ) -> None:
-        data: discord_typings.GuildApplicationCommandPermissionData = event.data  # type: ignore
+        data: "discord_typings.GuildApplicationCommandPermissionData" = event.data  # type: ignore
 
         guild_id = int(data["guild_id"])
 
@@ -82,16 +89,15 @@ class UltimateInvestigator(utils.UIBase):
     async def on_error(self, event: ipy.events.Error) -> None:
         await utils.error_handle(self, event.error, event.ctx)
 
-    def load_extension(
-        self, name: str, package: str | None = None, **load_kwargs: typing.Any
-    ) -> None:
-        super().load_extension(name, package, **load_kwargs)
+    def create_task(self, coro: typing.Coroutine) -> asyncio.Task:
+        # see the "important" note below for why we do this (to prevent early gc)
+        # https://docs.python.org/3/library/asyncio-task.html#asyncio.create_task
+        task = asyncio.create_task(coro)
+        self.background_tasks.add(task)
+        task.add_done_callback(self.background_tasks.discard)
+        return task
 
-        # naff forgets to do this lol
-        if not self.sync_ext and self._ready.is_set():
-            asyncio.create_task(self._cache_interactions(warn_missing=False))
-
-    async def stop(self):
+    async def stop(self) -> None:
         await Tortoise.close_connections()
         await super().stop()
 

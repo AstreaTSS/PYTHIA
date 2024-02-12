@@ -1,3 +1,9 @@
+"""
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at https://mozilla.org/MPL/2.0/.
+"""
+
 import asyncio
 import importlib
 import subprocess
@@ -13,25 +19,25 @@ IPY_VERSION = _v("discord-py-interactions")
 
 
 class OtherCMDs(utils.Extension):
-    def __init__(self, bot: utils.UIBase):
+    def __init__(self, bot: utils.UIBase) -> None:
         self.name = "General"
         self.bot: utils.UIBase = bot
         self.invite_link = ""
 
-        asyncio.create_task(self.when_ready())
+        self.bot.create_task(self.when_ready())
 
     async def when_ready(self) -> None:
         await self.bot.wait_until_ready()
         self.invite_link = f"https://discord.com/api/oauth2/authorize?client_id={self.bot.owner.id}&permissions=532576332864&scope=bot%20applications.commands"
 
-    def _get_commit_hash(self):
+    def _get_commit_hash(self) -> str:
         return (
             subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
             .decode("ascii")
             .strip()
         )
 
-    async def get_commit_hash(self):
+    async def get_commit_hash(self) -> str:
         return await asyncio.to_thread(self._get_commit_hash)
 
     @tansy.slash_command(
@@ -103,7 +109,7 @@ class OtherCMDs(utils.Extension):
         await ctx.send(embeds=embed, components=button)
 
     @tansy.slash_command("about", description="Gives information about the bot.")
-    async def about(self, ctx: ipy.InteractionContext):
+    async def about(self, ctx: ipy.InteractionContext) -> None:
         msg_list = [
             (
                 "Hi! I'm the Ultimate Investigator, a bot meant to help out with"
@@ -172,6 +178,6 @@ class OtherCMDs(utils.Extension):
         await ctx.send(embed=about_embed)
 
 
-def setup(bot):
+def setup(bot: utils.UIBase) -> None:
     importlib.reload(utils)
     OtherCMDs(bot)

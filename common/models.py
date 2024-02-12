@@ -1,31 +1,38 @@
+"""
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at https://mozilla.org/MPL/2.0/.
+"""
+
 import os
 import typing
 
 import interactions as ipy
-from tortoise import connections
 from tortoise import fields
+from tortoise.connection import connections
 from tortoise.contrib.postgres.fields import ArrayField
 from tortoise.models import Model
 
 
 # yes, this is a copy from common.utils
 # but circular imports are a thing
-def yesno_friendly_str(bool_to_convert):
-    return "yes" if bool_to_convert == True else "no"
+def yesno_friendly_str(bool_to_convert: bool) -> str:
+    return "yes" if bool_to_convert else "no"
 
 
 class SetField(ArrayField, set):
     """A somewhat exploity way of using an array field to store a set."""
 
-    def to_python_value(self, value):
+    def to_python_value(self, value: typing.Any) -> typing.Optional[set]:
         value = None if value is None else set(value)
         self.validate(value)
         return value
 
-    def to_db_value(self, value, _):
+    def to_db_value(
+        self, value: typing.Optional[set], _: typing.Any
+    ) -> typing.Optional[list]:
         self.validate(value)
-        value = None if value is None else list(value)
-        return value
+        return None if value is None else list(value)
 
 
 class TruthBullet(Model):
@@ -48,7 +55,7 @@ class TruthBullet(Model):
     finder: typing.Optional[int] = fields.BigIntField(null=True)
 
     @property
-    def chan_mention(self):
+    def chan_mention(self) -> str:
         return f"<#{self.channel_id}>"
 
     def bullet_info(self) -> str:
@@ -66,7 +73,7 @@ class TruthBullet(Model):
 
         return "\n".join(str_list)
 
-    def found_embed(self, username: str):
+    def found_embed(self, username: str) -> ipy.Embed:
         embed = ipy.Embed(
             title="Truth Bullet Discovered",
             timestamp=ipy.Timestamp.utcnow(),
@@ -99,7 +106,7 @@ async def find_truth_bullet(
     conn = connections.get("default")
 
     result = await conn.execute_query(
-        f"SELECT {', '.join(TruthBullet._meta.fields)} FROM"
+        f"SELECT {', '.join(TruthBullet._meta.fields)} FROM"  # noqa: S608
         f" {TruthBullet.Meta.table} WHERE channel_id=$1 AND ((position(LOWER(name) in"
         " LOWER($2)))>0 OR 0 < ANY(SELECT position(LOWER(UNNEST(aliases)) in"
         " LOWER($2))));",

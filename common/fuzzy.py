@@ -1,3 +1,9 @@
+"""
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at https://mozilla.org/MPL/2.0/.
+"""
+
 import typing
 
 import interactions as ipy
@@ -37,7 +43,7 @@ def extract_from_list(
     return combined_list
 
 
-def get_bullet_name(bullet: models.TruthBullet):
+def get_bullet_name(bullet: models.TruthBullet) -> str:
     return bullet.name.lower() if isinstance(bullet, models.TruthBullet) else bullet
 
 
@@ -45,8 +51,8 @@ async def autocomplete_bullets(
     ctx: ipy.AutocompleteContext,
     name: str,
     channel: typing.Optional[str] = None,
-    **kwargs,
-):
+    **kwargs: typing.Any,  # noqa: ARG001
+) -> None:
     if not channel:
         return await ctx.send([])
 
@@ -64,7 +70,7 @@ async def autocomplete_bullets(
     return await ctx.send([{"name": b[0].name, "value": b[0].name} for b in query][:25])  # type: ignore
 
 
-def get_alias_name(alias: str):
+def get_alias_name(alias: str) -> str:
     return alias.lower()
 
 
@@ -73,8 +79,8 @@ async def autocomplete_aliases(
     alias: str,
     channel: typing.Optional[str] = None,
     name: typing.Optional[str] = None,
-    **kwargs,
-):
+    **kwargs: typing.Any,  # noqa: ARG001,
+) -> None:
     if not channel or not name:
         return await ctx.send([])
 

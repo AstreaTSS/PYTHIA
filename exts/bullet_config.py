@@ -1,3 +1,9 @@
+"""
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at https://mozilla.org/MPL/2.0/.
+"""
+
 import importlib
 import typing
 
@@ -11,9 +17,9 @@ import common.utils as utils
 class BulletConfigCMDs(utils.Extension):
     """Commands for using and modifying Truth Bullet server settings."""
 
-    def __init__(self, bot):
+    def __init__(self, bot: utils.UIBase) -> None:
         self.name = "Bullet Config"
-        self.bot = bot
+        self.bot: utils.UIBase = bot
 
     config = tansy.SlashCommand(
         name="config",
@@ -28,7 +34,7 @@ class BulletConfigCMDs(utils.Extension):
             "Lists out the Truth Bullet configuration settings for the server."
         ),
     )
-    async def bullet_config(self, ctx: utils.UIInteractionContext):
+    async def bullet_config(self, ctx: utils.UIInteractionContext) -> None:
         guild_config = await ctx.fetch_config()
 
         str_builder = [
@@ -71,7 +77,7 @@ class BulletConfigCMDs(utils.Extension):
         unset: bool = tansy.Option(
             "Should the Truth Bullet channel be unset?", default=False
         ),
-    ):
+    ) -> None:
         if not (bool(channel) ^ unset):
             raise ipy.errors.BadArgument(
                 "You must set a Truth Bullet channel or specify to unset it."
@@ -100,7 +106,7 @@ class BulletConfigCMDs(utils.Extension):
             default=None,
         ),
         unset: bool = tansy.Option("Should the role be unset?", default=False),
-    ):
+    ) -> None:
         if not (bool(role) ^ unset):
             raise ipy.errors.BadArgument(
                 "You must either specify a role or specify to unset the role."
@@ -133,7 +139,7 @@ class BulletConfigCMDs(utils.Extension):
             default=None,
         ),
         unset: bool = tansy.Option("Should the role be unset?", default=False),
-    ):
+    ) -> None:
         if not (bool(role) ^ unset):
             raise ipy.errors.BadArgument(
                 "You must either specify a role or specify to unset the role."
@@ -151,7 +157,7 @@ class BulletConfigCMDs(utils.Extension):
         else:
             await ctx.send("Player role unset.")
 
-    def enable_check(self, config: models.Config):
+    def enable_check(self, config: models.Config) -> None:
         if not config.player_role:
             raise utils.CustomCheckFailure(
                 "You still need to set the Player role for this server!"
@@ -171,7 +177,7 @@ class BulletConfigCMDs(utils.Extension):
         toggle: bool = tansy.Option(
             "Should the Truth Bullets be on (true) or off (false)?"
         ),
-    ):
+    ) -> None:
         guild_config = await ctx.fetch_config()
         if (
             not guild_config.bullets_enabled and toggle
@@ -206,6 +212,6 @@ class BulletConfigCMDs(utils.Extension):
         await ctx.send(embeds=embed, components=button)
 
 
-def setup(bot):
+def setup(bot: utils.UIBase) -> None:
     importlib.reload(utils)
     BulletConfigCMDs(bot)

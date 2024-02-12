@@ -1,3 +1,9 @@
+"""
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at https://mozilla.org/MPL/2.0/.
+"""
+
 import datetime
 import importlib
 
@@ -8,17 +14,14 @@ import common.utils as utils
 
 
 class OnCMDError(ipy.Extension):
-    def __init__(self, bot):
+    def __init__(self, bot: ipy.Client) -> None:
         self.bot: ipy.Client = bot
-
-    def error_embed_generate(self, error_msg):
-        return ipy.Embed(color=ipy.MaterialColors.RED, description=error_msg)
 
     @ipy.listen(disable_default_listeners=True)
     async def on_command_error(
         self,
         event: ipy.events.CommandError,
-    ):
+    ) -> None:
         if not hasattr(event.ctx, "send"):
             return await utils.error_handle(self.bot, event.error)
 
@@ -27,22 +30,22 @@ class OnCMDError(ipy.Extension):
                 seconds=event.error.cooldown.get_cooldown_time()
             )
             await event.ctx.send(
-                embeds=self.error_embed_generate(
+                embeds=utils.error_embed_generate(
                     "You're doing that command too fast! " + "Try again in"
                     f" `{humanize.precisedelta(delta_wait, format='%0.0f')}`."
                 )
             )
         elif isinstance(event.error, utils.CustomCheckFailure):
-            await event.ctx.send(embeds=self.error_embed_generate(str(event.error)))
+            await event.ctx.send(embeds=utils.error_embed_generate(str(event.error)))
         elif isinstance(
             event.error,
             ipy.errors.BadArgument,
         ):
-            await event.ctx.send(embeds=self.error_embed_generate(str(event.error)))
+            await event.ctx.send(embeds=utils.error_embed_generate(str(event.error)))
         elif isinstance(event.error, ipy.errors.CommandCheckFailure):
             if event.ctx.guild:
                 await event.ctx.send(
-                    embeds=self.error_embed_generate(
+                    embeds=utils.error_embed_generate(
                         "You do not have the proper permissions to use that command."
                     )
                 )
@@ -50,6 +53,6 @@ class OnCMDError(ipy.Extension):
             await utils.error_handle(self.bot, event.error, event.ctx)
 
 
-def setup(bot):
+def setup(bot: ipy.Client) -> None:
     importlib.reload(utils)
     OnCMDError(bot)

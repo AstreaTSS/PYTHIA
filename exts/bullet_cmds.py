@@ -1,6 +1,11 @@
+"""
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at https://mozilla.org/MPL/2.0/.
+"""
+
 import collections
 import importlib
-import typing
 
 import interactions as ipy
 import tansy
@@ -12,16 +17,16 @@ import common.models as models
 import common.utils as utils
 
 
-def name_shorten(name: str, shorten_amount: int = 16):
+def name_shorten(name: str, shorten_amount: int = 16) -> str:
     return f"{name[:shorten_amount].strip()}..." if len(name) > shorten_amount else name
 
 
 class BulletCMDs(utils.Extension):
     """Commands for using and modifying Truth Bullets."""
 
-    def __init__(self, bot):
+    def __init__(self, bot: utils.UIBase) -> None:
         self.name = "Bullet"
-        self.bot = bot
+        self.bot: utils.UIBase = bot
 
     @utils.manage_guild_slash_cmd(
         name="add-bullets",
@@ -34,7 +39,7 @@ class BulletCMDs(utils.Extension):
             "The channel for the Truth Bullets to be added.",
             converter=utils.ValidChannelConverter,
         ),
-    ):
+    ) -> None:
         button = ipy.Button(
             style=ipy.ButtonStyle.GREEN,
             label=f"Add Truth Bullets for #{channel.name}",
@@ -46,7 +51,7 @@ class BulletCMDs(utils.Extension):
         )
 
     @ipy.listen("component")
-    async def on_add_bullets_button(self, event: ipy.events.Component):
+    async def on_add_bullets_button(self, event: ipy.events.Component) -> None:
         ctx = event.ctx
 
         if ctx.custom_id.startswith("ui-button:add_bullets-"):
@@ -75,7 +80,7 @@ class BulletCMDs(utils.Extension):
             await ctx.send_modal(modal)
 
     @ipy.listen("modal_completion")
-    async def on_modal_add_bullet(self, event: ipy.events.ModalCompletion):
+    async def on_modal_add_bullet(self, event: ipy.events.ModalCompletion) -> None:
         ctx = event.ctx
 
         if ctx.custom_id.startswith("ui-modal:add_bullets-"):
@@ -122,7 +127,7 @@ class BulletCMDs(utils.Extension):
         name: str = tansy.Option(
             "The name of the Truth Bullet to be removed.", autocomplete=True
         ),
-    ):
+    ) -> None:
         num_deleted = await models.TruthBullet.filter(
             channel_id=channel.id, name__iexact=name
         ).delete()
@@ -139,7 +144,7 @@ class BulletCMDs(utils.Extension):
             " irreversible."
         ),
     )
-    async def clear_bullets(self, ctx: utils.UISlashContext):
+    async def clear_bullets(self, ctx: utils.UISlashContext) -> None:
         num_deleted = await models.TruthBullet.filter(guild_id=ctx.guild.id).delete()
 
         # just to give a more clear indication to users
@@ -154,12 +159,12 @@ class BulletCMDs(utils.Extension):
     @utils.manage_guild_slash_cmd(
         "list-bullets", "Lists all Truth Bullets in the server this is run in."
     )
-    async def list_bullets(self, ctx: utils.UIInteractionContext):
+    async def list_bullets(self, ctx: utils.UIInteractionContext) -> None:
         guild_bullets = await models.TruthBullet.filter(guild_id=ctx.guild.id)
         if not guild_bullets:
             raise utils.CustomCheckFailure("There's no Truth Bullets for this server!")
 
-        bullet_dict: typing.DefaultDict[int, list[models.TruthBullet]] = (
+        bullet_dict: collections.defaultdict[int, list[models.TruthBullet]] = (
             collections.defaultdict(list)
         )
         for bullet in guild_bullets:
@@ -200,7 +205,7 @@ class BulletCMDs(utils.Extension):
             "The channel the Truth Bullet is in."
         ),
         name: str = tansy.Option("The name of the Truth Bullet.", autocomplete=True),
-    ):
+    ) -> None:
         possible_bullet = await models.TruthBullet.get_or_none(
             channel_id=channel.id, name__iexact=name
         )
@@ -231,7 +236,7 @@ class BulletCMDs(utils.Extension):
         name: str = tansy.Option(
             "The name of the Truth Bullet to edit.", autocomplete=True
         ),
-    ):
+    ) -> None:
         possible_bullet = await models.TruthBullet.get_or_none(
             channel_id=channel.id, name__iexact=name
         )
@@ -255,7 +260,7 @@ class BulletCMDs(utils.Extension):
         await ctx.send("Done!")
 
     @ipy.listen("modal_completion")
-    async def on_modal_edit_bullet(self, event: ipy.events.ModalCompletion):
+    async def on_modal_edit_bullet(self, event: ipy.events.ModalCompletion) -> None:
         ctx = event.ctx
 
         if ctx.custom_id.startswith("ui:edit-bullet-"):
@@ -287,7 +292,7 @@ class BulletCMDs(utils.Extension):
         name: str = tansy.Option(
             "The name of the Truth Bullet to unfind.", autocomplete=True
         ),
-    ):
+    ) -> None:
         possible_bullet = await models.TruthBullet.get_or_none(
             channel_id=channel.id,
             name__iexact=name,
@@ -318,7 +323,7 @@ class BulletCMDs(utils.Extension):
             "The name of the Truth Bullet to unfind.", autocomplete=True
         ),
         user: ipy.Member = tansy.Option("The user who will find the Truth Bullet."),
-    ):
+    ) -> None:
         possible_bullet = await models.TruthBullet.get_or_none(
             channel_id=channel.id,
             name__iexact=name,
@@ -347,7 +352,7 @@ class BulletCMDs(utils.Extension):
         alias: str = tansy.Option(
             "The alias to add. Cannot be over 40 characters.", max_length=40
         ),
-    ):
+    ) -> None:
         if len(alias) > 40:
             raise ipy.errors.BadArgument(
                 "The name is too large for me to use! "
@@ -394,7 +399,7 @@ class BulletCMDs(utils.Extension):
             "The name of the Truth Bullet to remove an alias to.", autocomplete=True
         ),
         alias: str = tansy.Option("The alias to remove.", autocomplete=True),
-    ):
+    ) -> None:
         possible_bullet = await models.TruthBullet.get_or_none(
             channel_id=channel.id,
             name__iexact=name,
@@ -420,18 +425,18 @@ class BulletCMDs(utils.Extension):
     @override_bullet.autocomplete("name")
     @add_alias.autocomplete("name")
     @remove_alias.autocomplete("name")
-    async def _bullet_name_autocomplete(self, ctx: ipy.AutocompleteContext):
+    async def _bullet_name_autocomplete(self, ctx: ipy.AutocompleteContext) -> None:
         return await fuzzy.autocomplete_bullets(ctx, **ctx.kwargs)
 
     @remove_alias.autocomplete("alias")
     async def _remove_alias_alias_autocomplete(
         self,
         ctx: ipy.AutocompleteContext,
-    ):
+    ) -> None:
         return await fuzzy.autocomplete_aliases(ctx, **ctx.kwargs)
 
 
-def setup(bot):
+def setup(bot: utils.UIBase) -> None:
     importlib.reload(utils)
     importlib.reload(fuzzy)
     BulletCMDs(bot)

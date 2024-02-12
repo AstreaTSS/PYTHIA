@@ -1,7 +1,12 @@
+"""
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at https://mozilla.org/MPL/2.0/.
+"""
+
 import asyncio
 import collections
 import importlib
-import typing
 
 import interactions as ipy
 
@@ -12,17 +17,15 @@ import common.utils as utils
 class BulletCheck(utils.Extension):
     """The cog that checks for the Truth Bullets."""
 
-    bot: utils.UIBase
-
-    def __init__(self, bot: utils.UIBase):
-        self.bot = bot
+    def __init__(self, bot: utils.UIBase) -> None:
+        self.bot: utils.UIBase = bot
 
     async def check_for_finish(
         self,
         guild: ipy.Guild,
         bullet_chan: ipy.GuildText,
         guild_config: models.Config,
-    ):
+    ) -> None:
         if await models.TruthBullet.filter(guild_id=guild.id, found=False).exists():
             return
 
@@ -50,24 +53,25 @@ class BulletCheck(utils.Extension):
         guild_config.bullets_enabled = False
         await guild_config.save()
 
-        if guild_config.ult_detective_role:  # if the role had been specified
-            if ult_detect_role_obj := guild.get_role(guild_config.ult_detective_role):
-                for person_id in most_found_people:
-                    try:
-                        # use an internal method to save on an http request
-                        # we get to skip out on asking for the member, which was
-                        # pointless to do for our needs
-                        # but dont do this unless you're me
+        if guild_config.ult_detective_role and (
+            ult_detect_role_obj := guild.get_role(guild_config.ult_detective_role)
+        ):
+            for person_id in most_found_people:
+                try:
+                    # use an internal method to save on an http request
+                    # we get to skip out on asking for the member, which was
+                    # pointless to do for our needs
+                    # but dont do this unless you're me
 
-                        await self.bot.http.add_guild_member_role(
-                            guild.id, person_id, ult_detect_role_obj.id
-                        )
-                        await asyncio.sleep(1)  # we don't want to trigger ratelimits
-                    except ipy.errors.HTTPException:
-                        continue
+                    await self.bot.http.add_guild_member_role(
+                        guild.id, person_id, ult_detect_role_obj.id
+                    )
+                    await asyncio.sleep(1)  # we don't want to trigger ratelimits
+                except ipy.errors.HTTPException:
+                    continue
 
     @ipy.listen("message_create")
-    async def on_message(self, event: ipy.events.MessageCreate):
+    async def on_message(self, event: ipy.events.MessageCreate) -> None:
         message = event.message
 
         # if the message is from a bot, from discord, not from a guild, not a default message or a reply, or is empty
@@ -126,6 +130,6 @@ class BulletCheck(utils.Extension):
         await self.check_for_finish(message.guild, bullet_chan, guild_config)
 
 
-def setup(bot):
+def setup(bot: utils.UIBase) -> None:
     importlib.reload(utils)
     BulletCheck(bot)

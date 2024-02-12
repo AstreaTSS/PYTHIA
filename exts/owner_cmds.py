@@ -1,3 +1,9 @@
+"""
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at https://mozilla.org/MPL/2.0/.
+"""
+
 import asyncio
 import contextlib
 import importlib
@@ -10,8 +16,7 @@ import typing
 import interactions as ipy
 from interactions.ext import paginators
 from interactions.ext import prefixed_commands as prefixed
-from interactions.ext.debug_extension.utils import debug_embed
-from interactions.ext.debug_extension.utils import get_cache_state
+from interactions.ext.debug_extension.utils import debug_embed, get_cache_state
 
 import common.utils as utils
 
@@ -92,7 +97,7 @@ class OwnerCMDs(ipy.Extension):
     @load.error
     @unload.error
     async def extension_error(
-        self, error: Exception, ctx: prefixed.PrefixedContext, *args: typing.Any
+        self, error: Exception, ctx: prefixed.PrefixedContext, *_: typing.Any
     ) -> ipy.Message | None:
         if isinstance(error, ipy.errors.CommandCheckFailure):
             return await ctx.reply(
@@ -132,7 +137,7 @@ class OwnerCMDs(ipy.Extension):
         func = env["func"]
         try:
             with contextlib.redirect_stdout(stdout):
-                ret = await func()  # noqa
+                ret = await func()
         except Exception:
             await ctx.message.add_reaction("❌")
             raise
@@ -259,8 +264,8 @@ class OwnerCMDs(ipy.Extension):
         self,
         error: Exception,
         ctx: ipy.BaseContext,
-        *args: typing.Any,
-        **kwargs: typing.Any,
+        *_: typing.Any,
+        **__: typing.Any,
     ) -> None:
         if isinstance(ctx, prefixed.PrefixedContext):
             ctx.send = ctx.message.reply  # type: ignore
@@ -290,6 +295,6 @@ class OwnerCMDs(ipy.Extension):
             await ctx.send("An error occured. Please check your DMs.")
 
 
-def setup(bot) -> None:
+def setup(bot: utils.UIBase) -> None:
     importlib.reload(utils)
     OwnerCMDs(bot)

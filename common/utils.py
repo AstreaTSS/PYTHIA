@@ -1,3 +1,9 @@
+"""
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at https://mozilla.org/MPL/2.0/.
+"""
+
 import collections
 import functools
 import logging
@@ -18,7 +24,7 @@ import common.models as models
 def manage_guild_slash_cmd(
     name: str,
     description: ipy.Absent[str] = ipy.MISSING,
-):
+) -> typing.Callable[[ipy.const.AsyncCallable], tansy.TansySlashCommand]:
     return tansy.slash_command(
         name=name,
         description=description,
@@ -26,7 +32,7 @@ def manage_guild_slash_cmd(
     )
 
 
-def error_embed_generate(error_msg: str):
+def error_embed_generate(error_msg: str) -> ipy.Embed:
     return ipy.Embed(color=ipy.RoleColors.RED, description=error_msg)
 
 
@@ -44,7 +50,7 @@ def make_embed(description: str, *, title: str | None = None) -> ipy.Embed:
 
 async def error_handle(
     bot: ipy.Client, error: Exception, ctx: ipy.BaseContext | None = None
-):
+) -> None:
     # handles errors and sends them to owner
     if isinstance(error, aiohttp.ServerDisconnectedError):
         to_send = "Disconnected from server!"
@@ -88,7 +94,7 @@ async def error_handle(
 async def msg_to_owner(
     bot: "UIBase",
     chunks: list[str] | list[ipy.Embed] | list[str | ipy.Embed] | str | ipy.Embed,
-):
+) -> None:
     if not isinstance(chunks, list):
         chunks = [chunks]
 
@@ -100,7 +106,7 @@ async def msg_to_owner(
             await bot.owner.send(chunk)
 
 
-def line_split(content: str, split_by=20):
+def line_split(content: str, split_by: int = 20) -> list[list[str]]:
     content_split = content.splitlines()
     return [
         content_split[x : x + split_by] for x in range(0, len(content_split), split_by)
@@ -135,12 +141,12 @@ def embed_check(embed: ipy.Embed) -> bool:
     return True
 
 
-def deny_mentions(user):
+def deny_mentions(user: ipy.Snowflake_Type) -> ipy.AllowedMentions:
     # generates an AllowedMentions object that only pings the user specified
     return ipy.AllowedMentions(users=[user])
 
 
-def error_format(error: Exception):
+def error_format(error: Exception) -> str:
     # simple function that formats an exception
     return "".join(
         traceback.format_exception(  # type: ignore
@@ -149,19 +155,14 @@ def error_format(error: Exception):
     )
 
 
-def string_split(string):
-    # simple function that splits a string into 1950-character parts
-    return [string[i : i + 1950] for i in range(0, len(string), 1950)]
-
-
-def file_to_ext(str_path, base_path):
+def file_to_ext(str_path: str, base_path: str) -> str:
     # changes a file to an import-like string
     str_path = str_path.replace(base_path, "")
     str_path = str_path.replace("/", ".")
     return str_path.replace(".py", "")
 
 
-def get_all_extensions(str_path, folder="exts"):
+def get_all_extensions(str_path: str, folder: str = "exts") -> list[str]:
     # gets all extensions in a folder
     ext_files = collections.deque()
     loc_split = str_path.split(folder)
@@ -185,15 +186,15 @@ def get_all_extensions(str_path, folder="exts"):
     return ext_files
 
 
-def toggle_friendly_str(bool_to_convert):
-    return "on" if bool_to_convert == True else "off"
+def toggle_friendly_str(bool_to_convert: bool) -> str:
+    return "on" if bool_to_convert else "off"
 
 
-def yesno_friendly_str(bool_to_convert):
-    return "yes" if bool_to_convert == True else "no"
+def yesno_friendly_str(bool_to_convert: bool) -> str:
+    return "yes" if bool_to_convert else "no"
 
 
-def role_check(ctx: ipy.BaseContext, role: ipy.Role):
+def role_check(ctx: ipy.BaseContext, role: ipy.Role) -> ipy.Role:
     top_role = ctx.guild.me.top_role
 
     if role > top_role:
@@ -207,7 +208,9 @@ def role_check(ctx: ipy.BaseContext, role: ipy.Role):
 
 
 class ValidRoleConverter(ipy.Converter):
-    async def convert(self, context: ipy.InteractionContext, argument: ipy.Role):
+    async def convert(
+        self, context: ipy.InteractionContext, argument: ipy.Role
+    ) -> ipy.Role:
         return role_check(context, argument)
 
 
@@ -244,23 +247,30 @@ def valid_channel_check(
 
 
 class ValidChannelConverter(ipy.Converter):
-    async def convert(self, ctx: ipy.InteractionContext, argument: ipy.GuildText):
+    async def convert(
+        self, ctx: ipy.InteractionContext, argument: ipy.GuildText
+    ) -> GuildMessageable:
         return valid_channel_check(argument, ctx.app_permissions)
 
 
-async def _global_checks(ctx: ipy.BaseContext):
+async def _global_checks(ctx: ipy.BaseContext) -> bool:
     return bool(ctx.guild) if ctx.bot.is_ready else False
 
 
 class Extension(ipy.Extension):
-    def __new__(cls, bot: ipy.Client, *args, **kwargs):
+    def __new__(
+        cls, bot: ipy.Client, *args: typing.Any, **kwargs: typing.Any
+    ) -> "typing.Self":
         new_cls = super().__new__(cls, bot, *args, **kwargs)
         new_cls.add_ext_check(_global_checks)
         return new_cls
 
 
 if typing.TYPE_CHECKING:
+    import asyncio
+
     from interactions.ext.prefixed_commands import PrefixedInjectedClient
+
     from .help_tools import MiniCommand, PermissionsResolver
 
     class UIBase(PrefixedInjectedClient):
@@ -268,6 +278,8 @@ if typing.TYPE_CHECKING:
         color: ipy.Color
         slash_perms_cache: collections.defaultdict[int, dict[int, PermissionsResolver]]
         mini_commands_per_scope: dict[int, dict[str, MiniCommand]]
+
+        def create_task(self, coro: typing.Coroutine) -> asyncio.Task: ...
 
 else:
 
@@ -305,6 +317,10 @@ class UIContextMixin:
 
         self.guild_config = config
         return config
+
+
+class UIBaseContext(UIContextMixin, ipy.BaseContext):
+    pass
 
 
 class UIInteractionContext(UIContextMixin, ipy.InteractionContext):

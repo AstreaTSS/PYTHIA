@@ -1,3 +1,9 @@
+"""
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at https://mozilla.org/MPL/2.0/.
+"""
+
 import asyncio
 import contextlib
 import inspect
@@ -28,7 +34,7 @@ class CustomTimeout(paginators.Timeout):
                 await asyncio.wait_for(
                     self.ping.wait(), timeout=self.paginator.timeout_interval
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 if self.paginator.message:
                     with contextlib.suppress(ipy.errors.HTTPException):
                         await self.paginator.message.edit(
@@ -92,6 +98,63 @@ class HelpPaginator(paginators.Paginator):
         default=None, init=False, repr=False
     )
 
+    @classmethod
+    def create_from_list(
+        cls,
+        client: "ipy.Client",
+        content: list[str],
+        prefix: str = "",
+        suffix: str = "",
+        page_size: int = 4000,
+        timeout: int = 0,
+        default_title: str | None = None,
+        default_color: ipy.Color = ipy.BrandColors.BLURPLE,
+    ) -> "paginators.Paginator":
+        """
+        Create a paginator from a list of strings. Useful to maintain formatting.
+
+        Args:
+            client: A reference to the client
+            content: The content to paginate
+            prefix: The prefix for each page to use
+            suffix: The suffix for each page to use
+            page_size: The maximum characters for each page
+            timeout: A timeout to wait before closing the paginator
+            default_title: The title to use for the embeds
+            default_color: The color to use for the embeds
+
+        Returns:
+            A paginator system
+        """
+        pages = []
+        page_length = 0
+        page = ""
+        for entry in content:
+            if len(page) + len(f"\n{entry}") <= page_size:
+                page += f"{entry}\n"
+            else:
+                pages.append(
+                    paginators.Page(
+                        page, f"Page {page_length + 1}", prefix=prefix, suffix=suffix
+                    )
+                )
+                page_length += 1
+                page = ""
+        if page != "":
+            pages.append(
+                paginators.Page(
+                    page, f"Page {page_length + 1}", prefix=prefix, suffix=suffix
+                )
+            )
+        return cls(
+            client,
+            pages=pages,
+            timeout_interval=timeout,
+            show_callback_button=False,
+            default_title=default_title,
+            default_color=default_color,
+        )
+
     def create_components(self, disable: bool = False) -> list[ipy.ActionRow]:
         rows = super().create_components()
 
@@ -125,8 +188,7 @@ class HelpPaginator(paginators.Paginator):
 
         if isinstance(page, paginators.Page):
             page = page.to_embed()
-            page.timestamp = ipy.Timestamp.utcnow()
-            if not page.title and self.default_title:
+            if self.default_title:
                 page.title = self.default_title
         if not (page.author and page.author.name):
             page.set_author(name=f"Page {self.page_index+1}/{len(self.pages)}")
@@ -158,7 +220,7 @@ class HelpPaginator(paginators.Paginator):
 
         if self.timeout_interval > 1:
             self._timeout_task = CustomTimeout(self)
-            asyncio.create_task(self._timeout_task())
+            ctx.bot.create_task(self._timeout_task())
 
         return self._message
 
@@ -176,7 +238,7 @@ class HelpPaginator(paginators.Paginator):
 
         if self.timeout_interval > 1:
             self._timeout_task = CustomTimeout(self)
-            asyncio.create_task(self._timeout_task())
+            ctx.bot.create_task(self._timeout_task())
 
         return self._message
 
@@ -225,7 +287,7 @@ class PermissionsResolver:
                 self.disabled_for_all_channels = permission["permission"]
                 continue
 
-            match permission["type"]:  # noqa: E999
+            match permission["type"]:
                 case 1:  # role
                     (
                         self.allowed_roles.add(object_id)
@@ -347,7 +409,7 @@ def _generate_signature(cmd: ipy.SlashCommand) -> str:
         (ipy.SlashCommandOption(**o) if isinstance(o, dict) else o) for o in cmd.options
     )
     signatures: list[str] = [
-        f"<{str(option.name)}>" if option.required else f"[{str(option.name)}]"
+        f"<{option.name!s}>" if option.required else f"[{option.name!s}]"
         for option in standardized_options
     ]
     return " ".join(signatures)
@@ -362,8 +424,8 @@ def _generate_bottom_text(cmd: ipy.SlashCommand) -> str:
     )
     str_builder = ["__Options:__"]
     str_builder.extend(
-        f"`{str(option.name)}` {'' if option.required else '(optional)'} -"
-        f" {str(option.description)}"
+        f"`{option.name!s}` {'' if option.required else '(optional)'} -"
+        f" {option.description!s}"
         for option in standardized_options
     )
 
@@ -497,7 +559,7 @@ def get_mini_commands_for_scope(
 
         base_mini_cmd = commands_dict[str(cmd.name)]
 
-        group_name = f"{str(cmd.name)} {str(cmd.group_name)}"
+        group_name = f"{cmd.name!s} {cmd.group_name!s}"
         if commands_dict.get(group_name, ipy.MISSING) is ipy.MISSING:
             commands_dict[group_name] = MiniCommand.from_slash_command(cmd, "group")
 
