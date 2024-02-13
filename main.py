@@ -130,7 +130,7 @@ class UltimateInvestigator(utils.UIBase):
 
     @property
     def guild_count(self) -> int:
-        return len(self.user._guild_ids)
+        return len(self.user._guild_ids or ())
 
     def create_task(self, coro: typing.Coroutine) -> asyncio.Task:
         # see the "important" note below for why we do this (to prevent early gc)
