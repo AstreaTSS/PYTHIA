@@ -160,7 +160,9 @@ class BulletCMDs(utils.Extension):
         ).delete()
 
         if num_deleted > 0:
-            await ctx.send(embed=utils.make_embed(f"`{name}` deleted!"))
+            await ctx.send(
+                embed=utils.make_embed(f"`{name}` removed from {channel.mention}!")
+            )
         else:
             raise ipy.errors.BadArgument(f"Truth Bullet `{name}` does not exists!")
 
