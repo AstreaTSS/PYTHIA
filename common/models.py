@@ -103,16 +103,33 @@ class Config(Model):
     bullets_enabled: bool = fields.BooleanField(default=False)  # type: ignore
 
 
+FIND_TRUTH_BULLET_STR: typing.Final[str] = (
+    f"""
+SELECT
+    {' ,'.join(TruthBullet._meta.fields)}
+FROM
+    {TruthBullet.Meta.table}
+WHERE
+    channel_id = $1
+    AND found = false
+    AND (
+        (position(LOWER(name) in LOWER($2))) > 0
+        OR 0 < ANY(
+        SELECT
+            position(LOWER(UNNEST(aliases)) in LOWER($2))
+        )
+    )
+""".strip()
+)
+
+
 async def find_truth_bullet(
     channel_id: ipy.Snowflake_Type, content: str
 ) -> typing.Optional[TruthBullet]:
     conn = connections.get("default")
 
     result = await conn.execute_query(
-        f"SELECT {', '.join(TruthBullet._meta.fields)} FROM"  # noqa: S608
-        f" {TruthBullet.Meta.table} WHERE channel_id=$1 AND ((position(LOWER(name) in"
-        " LOWER($2)))>0 OR 0 < ANY(SELECT position(LOWER(UNNEST(aliases)) in"
-        " LOWER($2))));",
+        FIND_TRUTH_BULLET_STR,
         [int(channel_id), content],
     )
 
