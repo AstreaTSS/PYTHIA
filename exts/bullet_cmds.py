@@ -41,6 +41,10 @@ class BulletCMDs(utils.Extension):
         channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
             "The channel for the Truth Bullets to be added.",
             converter=utils.ValidChannelConverter,
+            channel_types=[
+                ipy.ChannelType.GUILD_TEXT,
+                ipy.ChannelType.GUILD_PUBLIC_THREAD,
+            ],
         ),
     ) -> None:
         button = ipy.Button(
@@ -149,7 +153,11 @@ class BulletCMDs(utils.Extension):
         self,
         ctx: utils.UISlashContext,
         channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
-            "The channel for the Truth Bullet to be removed."
+            "The channel for the Truth Bullet to be removed.",
+            channel_types=[
+                ipy.ChannelType.GUILD_TEXT,
+                ipy.ChannelType.GUILD_PUBLIC_THREAD,
+            ],
         ),
         trigger: str = tansy.Option(
             "The trigger of the Truth Bullet to be removed.", autocomplete=True
@@ -239,7 +247,11 @@ class BulletCMDs(utils.Extension):
         self,
         ctx: utils.UISlashContext,
         channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
-            "The channel the Truth Bullet is in."
+            "The channel the Truth Bullet is in.",
+            channel_types=[
+                ipy.ChannelType.GUILD_TEXT,
+                ipy.ChannelType.GUILD_PUBLIC_THREAD,
+            ],
         ),
         trigger: str = tansy.Option(
             "The trigger of the Truth Bullet.", autocomplete=True
@@ -273,7 +285,11 @@ class BulletCMDs(utils.Extension):
         self,
         ctx: utils.UISlashContext,
         channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
-            "The channel the Truth Bullet is in."
+            "The channel the Truth Bullet is in.",
+            channel_types=[
+                ipy.ChannelType.GUILD_TEXT,
+                ipy.ChannelType.GUILD_PUBLIC_THREAD,
+            ],
         ),
         trigger: str = tansy.Option(
             "The trigger of the Truth Bullet to edit.", autocomplete=True
@@ -354,7 +370,11 @@ class BulletCMDs(utils.Extension):
         self,
         ctx: utils.UISlashContext,
         channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
-            "The channel the Truth Bullet is in."
+            "The channel the Truth Bullet is in.",
+            channel_types=[
+                ipy.ChannelType.GUILD_TEXT,
+                ipy.ChannelType.GUILD_PUBLIC_THREAD,
+            ],
         ),
         trigger: str = tansy.Option(
             "The trigger of the Truth Bullet to unfind.", autocomplete=True
@@ -388,7 +408,11 @@ class BulletCMDs(utils.Extension):
         self,
         ctx: utils.UISlashContext,
         channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
-            "The channel the Truth Bullet is in."
+            "The channel the Truth Bullet is in.",
+            channel_types=[
+                ipy.ChannelType.GUILD_TEXT,
+                ipy.ChannelType.GUILD_PUBLIC_THREAD,
+            ],
         ),
         trigger: str = tansy.Option(
             "The trigger of the Truth Bullet to unfind.", autocomplete=True
@@ -417,7 +441,11 @@ class BulletCMDs(utils.Extension):
         self,
         ctx: utils.UISlashContext,
         channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
-            "The channel the Truth Bullet is in."
+            "The channel the Truth Bullet is in.",
+            channel_types=[
+                ipy.ChannelType.GUILD_TEXT,
+                ipy.ChannelType.GUILD_PUBLIC_THREAD,
+            ],
         ),
         trigger: str = tansy.Option(
             "The trigger of the Truth Bullet to add an alias to.", autocomplete=True
@@ -473,7 +501,11 @@ class BulletCMDs(utils.Extension):
         self,
         ctx: utils.UISlashContext,
         channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
-            "The channel the Truth Bullet is in."
+            "The channel the Truth Bullet is in.",
+            channel_types=[
+                ipy.ChannelType.GUILD_TEXT,
+                ipy.ChannelType.GUILD_PUBLIC_THREAD,
+            ],
         ),
         trigger: str = tansy.Option(
             "The trigger of the Truth Bullet to remove an alias to.", autocomplete=True
