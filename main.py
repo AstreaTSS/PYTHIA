@@ -66,7 +66,7 @@ def default_sentry_filter(
 
 
 # im so sorry
-if not utils.SENTRY_ENABLED:
+if utils.SENTRY_ENABLED:
     ipy.Task.on_error_sentry_hook = HookedTask.on_error_sentry_hook
     sentry_sdk.init(dsn=os.environ["SENTRY_DSN"], before_send=default_sentry_filter)
 
