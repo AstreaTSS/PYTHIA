@@ -2,11 +2,9 @@
   <img src="https://ui.astrea.cc/assets/ui_banner.jpg" alt="Ultimate Investigator's Banner" width="700"/>
 </p>
 
-A bot made to help automate investigations during Danganronpa RPs.
+A bot made to help automate investigations during Danganronpa/Killing Game RPs.
 
-A niche use, but it comes in use because doing it manually takes quite a bit of time.
-
-The bot relies on a user to find out a 'key word' in order to actually get the Truth Bullet. It's up to the people who use this to hint at the key words.
+The bot relies on a user to find out a 'key word'/trigger in order to actually get the Truth Bullet. It's up to the people who use this to hint at the key words.
 
 Links:
 * [Website](https://ui.astrea.cc)

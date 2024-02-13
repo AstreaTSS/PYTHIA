@@ -119,13 +119,13 @@ class OtherCMDs(utils.Extension):
         msg_list = [
             (
                 "Hi! I'm the Ultimate Investigator, a bot meant to help out with"
-                " investigations with Danganronpa RPs. I automate the parts of"
-                " investigating that take up time and energy of hosts to make it easier"
-                " for them to host the KG."
+                " investigations with Danganronpa/Killing Game RPs. I automate the"
+                " parts of investigating that take up time and energy of hosts to make"
+                " it easier for them to host an RP."
             ),
             (
-                'I can handle anything related to "Truth Bullets" (or your KG\'s'
-                " equivalent), managing and sending them out as needed."
+                'More specifcally, I can handle anything related to "Truth Bullets" (or'
+                " your game's equivalent), managing and sending them out as needed."
             ),
         ]
 
