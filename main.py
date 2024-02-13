@@ -126,7 +126,7 @@ class UltimateInvestigator(utils.UIBase):
 
     @ipy.listen(is_default_listener=True)
     async def on_error(self, event: ipy.events.Error) -> None:
-        await utils.error_handle(self, event.error, event.ctx)
+        await utils.error_handle(event.error, ctx=event.ctx)
 
     def create_task(self, coro: typing.Coroutine) -> asyncio.Task:
         # see the "important" note below for why we do this (to prevent early gc)

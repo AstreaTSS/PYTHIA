@@ -106,7 +106,7 @@ class OwnerCMDs(ipy.Extension):
             return await ctx.reply(
                 "You do not have permission to execute this command."
             )
-        await utils.error_handle(self.bot, error, ctx=ctx)
+        await utils.error_handle(error, ctx=ctx)
         return None
 
     @debug.subcommand(aliases=["python", "exc"])

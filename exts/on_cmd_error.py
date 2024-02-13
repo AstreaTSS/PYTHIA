@@ -26,7 +26,7 @@ class OnCMDError(ipy.Extension):
         event: ipy.events.CommandError,
     ) -> None:
         if not hasattr(event.ctx, "send"):
-            return await utils.error_handle(self.bot, event.error)
+            return await utils.error_handle(event.error)
 
         if isinstance(event.error, ipy.errors.CommandOnCooldown):
             delta_wait = datetime.timedelta(
@@ -34,8 +34,7 @@ class OnCMDError(ipy.Extension):
             )
             await event.ctx.send(
                 embeds=utils.error_embed_generate(
-                    "You're doing that command too fast! " + "Try again in"
-                    f" `{humanize.precisedelta(delta_wait, format='%0.0f')}`."
+                    f"You're doing that command too fast! Try again in `{humanize.precisedelta(delta_wait, format='%0.0f')}`."
                 )
             )
         elif isinstance(event.error, utils.CustomCheckFailure):
@@ -53,7 +52,7 @@ class OnCMDError(ipy.Extension):
                     )
                 )
         else:
-            await utils.error_handle(self.bot, event.error, event.ctx)
+            await utils.error_handle(event.error, ctx=event.ctx)
 
 
 def setup(bot: ipy.Client) -> None:
