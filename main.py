@@ -57,7 +57,7 @@ class UltimateInvestigator(utils.UIBase):
         activity = ipy.Activity(
             name="Splash Text",
             type=ipy.ActivityType.CUSTOM,
-            state="Watching for Truth Bullets",
+            state="Watching for Truth Bullets!",
         )
         await self.change_presence(activity=activity)
 
@@ -66,7 +66,7 @@ class UltimateInvestigator(utils.UIBase):
         activity = ipy.Activity(
             name="Splash Text",
             type=ipy.ActivityType.CUSTOM,
-            state="Watching for Truth Bullets",
+            state="Watching for Truth Bullets!",
         )
         await self.change_presence(activity=activity)
 
