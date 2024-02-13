@@ -192,7 +192,8 @@ class BulletConfigCMDs(utils.Extension):
 
         await ctx.send(
             embed=utils.make_embed(
-                f"Truth Bullets turned {utils.toggle_friendly_str(guild_config.bullets_enabled)}!"
+                "Truth Bullets turned"
+                f" {utils.toggle_friendly_str(guild_config.bullets_enabled)}!"
             )
         )
 
