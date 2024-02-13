@@ -84,13 +84,15 @@ async def error_handle(
         if isinstance(ctx, prefixed.PrefixedContext):
             await ctx.reply(
                 embed=error_embed_generate(
-                    "An internal error has occured. The bot owner has been notified and will likely fix the issue soon."
+                    "An internal error has occured. The bot owner has been notified "
+                    "and will likely fix the issue soon."
                 )
             )
         elif isinstance(ctx, ipy.InteractionContext):
             await ctx.send(
                 embed=error_embed_generate(
-                    "An internal error has occured. The bot owner has been notified and will likely fix the issue soon."
+                    "An internal error has occured. The bot owner has been notified "
+                    "and will likely fix the issue soon."
                 ),
                 ephemeral=ctx.ephemeral,
             )
