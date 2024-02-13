@@ -33,14 +33,17 @@ class OtherCMDs(utils.Extension):
         await self.bot.wait_until_ready()
         self.invite_link = f"https://discord.com/api/oauth2/authorize?client_id={self.bot.owner.id}&permissions=532576332864&scope=bot%20applications.commands"
 
-    def _get_commit_hash(self) -> str:
-        return (
-            subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
-            .decode("ascii")
-            .strip()
-        )
+    def _get_commit_hash(self) -> str | None:
+        try:
+            return (
+                subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
+                .decode("ascii")
+                .strip()
+            )
+        except Exception:  # screw it
+            return None
 
-    async def get_commit_hash(self) -> str:
+    async def get_commit_hash(self) -> str | None:
         return await asyncio.to_thread(self._get_commit_hash)
 
     @tansy.slash_command(
@@ -154,6 +157,8 @@ class OtherCMDs(utils.Extension):
                 (
                     "Commit Hash:"
                     f" [{commit_hash}](https://github.com/AstreaTSS/UltimateInvestigator/commit/{commit_hash})"
+                    if commit_hash
+                    else "Commit Hash: N/A"
                 ),
                 (
                     "Interactions.py Version:"
