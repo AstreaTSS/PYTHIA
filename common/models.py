@@ -106,7 +106,7 @@ class Config(Model):
 FIND_TRUTH_BULLET_STR: typing.Final[str] = (
     f"""
 SELECT
-    {' ,'.join(TruthBullet._meta.fields)}
+    {', '.join(TruthBullet._meta.fields)}
 FROM
     {TruthBullet.Meta.table}
 WHERE
