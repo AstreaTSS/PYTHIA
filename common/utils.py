@@ -17,10 +17,15 @@ from pathlib import Path
 
 import aiohttp
 import interactions as ipy
+import sentry_sdk
 import tansy
 from interactions.ext import prefixed_commands as prefixed
 
 import common.models as models
+
+SENTRY_ENABLED = bool(os.environ.get("SENTRY_DSN", False))  # type: ignore
+
+logger = logging.getLogger("uibot")
 
 
 @functools.wraps(tansy.slash_command)
@@ -57,45 +62,37 @@ def make_embed(description: str, *, title: str | None = None) -> ipy.Embed:
 
 
 async def error_handle(
-    bot: ipy.Client, error: Exception, ctx: ipy.BaseContext | None = None
+    error: Exception, *, ctx: typing.Optional[ipy.BaseContext] = None
 ) -> None:
-    # handles errors and sends them to owner
-    if isinstance(error, aiohttp.ServerDisconnectedError):
-        to_send = "Disconnected from server!"
-    else:
-        error_str = error_format(error)
-        logging.getLogger("uibot").error(error_str)
-
-        chunks = line_split(error_str, split_by=40)
-        for i in range(len(chunks)):
-            chunks[i][0] = f"```py\n{chunks[i][0]}"
-            chunks[i][-1] += "\n```"
-
-        final_chunks: list[str | ipy.Embed] = [
-            error_embed_generate("\n".join(chunk)) for chunk in chunks
-        ]
-        if ctx and hasattr(ctx, "message") and hasattr(ctx.message, "jump_url"):
-            final_chunks.insert(0, f"Error on: {ctx.message.jump_url}")
-
-        to_send = final_chunks
-
-    await msg_to_owner(bot, to_send)
-
-    if ctx and hasattr(ctx, "send"):
+    if not isinstance(error, aiohttp.ServerDisconnectedError):
+        if SENTRY_ENABLED:
+            with sentry_sdk.configure_scope() as scope:
+                if ctx:
+                    scope.set_context(
+                        type(ctx).__name__,
+                        {
+                            "args": ctx.args,  # type: ignore
+                            "kwargs": ctx.kwargs,  # type: ignore
+                            "message": ctx.message,
+                        },
+                    )
+                sentry_sdk.capture_exception(error)
+        else:
+            traceback.print_exception(error)
+            logger.error("An error occured.", exc_info=error)
+    if ctx:
         if isinstance(ctx, prefixed.PrefixedContext):
             await ctx.reply(
-                "An internal error has occured. The bot owner has been notified."
+                embed=error_embed_generate(
+                    "An internal error has occured. The bot owner has been notified and will likely fix the issue soon."
+                )
             )
         elif isinstance(ctx, ipy.InteractionContext):
             await ctx.send(
-                content=(
-                    "An internal error has occured. The bot owner has been notified."
+                embed=error_embed_generate(
+                    "An internal error has occured. The bot owner has been notified and will likely fix the issue soon."
                 ),
                 ephemeral=ctx.ephemeral,
-            )
-        else:
-            await ctx.send(
-                "An internal error has occured. The bot owner has been notified."
             )
 
 

@@ -15,8 +15,10 @@ import typing
 from collections import defaultdict
 
 import interactions as ipy
+import sentry_sdk
 from dotenv import load_dotenv
 from interactions.ext import prefixed_commands as prefixed
+from interactions.ext.sentry import HookedTask
 from tortoise import Tortoise
 
 load_dotenv()
@@ -36,6 +38,37 @@ handler.setFormatter(
     logging.Formatter("%(asctime)s:%(levelname)s:%(name)s: %(message)s")
 )
 logger.addHandler(handler)
+
+
+def default_sentry_filter(
+    event: dict[str, typing.Any], hint: dict[str, typing.Any]
+) -> typing.Optional[dict[str, typing.Any]]:
+    if "log_record" in hint:
+        record: logging.LogRecord = hint["log_record"]
+        if "interactions" in record.name or "realms_bot" in record.name:
+            # there are some logging messages that are not worth sending to sentry
+            if ": 403" in record.message:
+                return None
+            if ": 404" in record.message:
+                return None
+            if record.message.startswith("Ignoring exception in "):
+                return None
+            if record.message.startswith("Unsupported channel type for "):
+                # please shut up
+                return None
+
+    if "exc_info" in hint:
+        exc_type, exc_value, tb = hint["exc_info"]
+        if isinstance(exc_value, KeyboardInterrupt):
+            #  We don't need to report a ctrl+c
+            return None
+    return event
+
+
+# im so sorry
+if not utils.SENTRY_ENABLED:
+    ipy.Task.on_error_sentry_hook = HookedTask.on_error_sentry_hook
+    sentry_sdk.init(dsn=os.environ["SENTRY_DSN"], before_send=default_sentry_filter)
 
 
 class UltimateInvestigator(utils.UIBase):
