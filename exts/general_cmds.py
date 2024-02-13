@@ -159,7 +159,7 @@ class OtherCMDs(utils.Extension):
                     "Interactions.py Version:"
                     f" [{IPY_VERSION}](https://github.com/interactions-py/interactions.py/tree/{IPY_VERSION})"
                 ),
-                "Made By: [AstreaTSS](https://github.com/AstreaTSS)",
+                "Made By: [AstreaTSS](https://astrea.cc)",
             )),
             inline=True,
         )
