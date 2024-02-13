@@ -271,6 +271,7 @@ else:
 
 class UIContextMixin:
     guild_config: typing.Optional[models.Config]
+    guild_id: ipy.Snowflake
 
     def __init__(self, *args: typing.Any, **kwargs: typing.Any) -> None:
         self.guild_config = None

@@ -49,8 +49,26 @@ class BulletCMDs(utils.Extension):
             custom_id=f"ui-button:add_bullets-{channel.id}",
         )
 
+        embeds: list[ipy.Embed] = []
+
+        if not await models.TruthBullet.filter(
+            guild_id=ctx.guild_id, found=False
+        ).exists():
+            embeds.append(
+                ipy.Embed(
+                    "Warning",
+                    "This server has Truth Bullets that all have been found, likely from a"
+                    " previous investigation. If you want to start fresh with"
+                    " completely new Truth Bullets, you can clear the current ones with"
+                    f" {self.bot.mention_command('clear-bullets')}.",
+                    color=ipy.RoleColors.YELLOW,
+                )
+            )
+
+        embeds.append(utils.make_embed("Add Truth Bullets via the button below!"))
+
         await ctx.send(
-            embed=utils.make_embed("Add Truth Bullets via the button below!"),
+            embeds=embeds,
             components=button,
         )
 
@@ -118,7 +136,8 @@ class BulletCMDs(utils.Extension):
 
             await ctx.send(
                 embed=utils.make_embed(
-                    f"Added Truth Bullet `{ctx.responses['truth_bullet_name']}` to <#{channel_id}>!"
+                    f"Added Truth Bullet `{ctx.responses['truth_bullet_name']}` to"
+                    f" <#{channel_id}>!"
                 ),
             )
 
@@ -297,7 +316,8 @@ class BulletCMDs(utils.Extension):
 
             await ctx.send(
                 embed=utils.make_embed(
-                    f"Edited Truth Bullet `{ctx.responses['description']}` in <#{channel_id}>!"
+                    f"Edited Truth Bullet `{ctx.responses['description']}` in"
+                    f" <#{channel_id}>!"
                 )
             )
 
