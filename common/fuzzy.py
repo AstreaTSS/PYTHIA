@@ -52,7 +52,7 @@ def get_bullet_name(bullet: models.TruthBullet) -> str:
 
 async def autocomplete_bullets(
     ctx: ipy.AutocompleteContext,
-    name: str,
+    trigger: str,
     channel: typing.Optional[str] = None,
     **kwargs: typing.Any,  # noqa: ARG001
 ) -> None:
@@ -61,11 +61,11 @@ async def autocomplete_bullets(
 
     channel_bullets = await models.TruthBullet.filter(channel_id=int(channel))
 
-    if not name:
+    if not trigger:
         return await ctx.send([{"name": b.name, "value": b.name} for b in channel_bullets][:25])  # type: ignore
 
     query: list[list[models.TruthBullet]] = extract_from_list(
-        argument=name.lower(),
+        argument=trigger.lower(),
         list_of_items=channel_bullets,
         processors=[get_bullet_name],
         score_cutoff=0.6,
