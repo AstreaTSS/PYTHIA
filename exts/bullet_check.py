@@ -44,10 +44,12 @@ class BulletCheck(utils.Extension):
         # the next is just fancy code to check for ties and make a list for the top people
         most_found_people = tuple(p[0] for p in most_found if p[1] == most_found_num)
 
+        plural = " " if len(most_found_people) == 1 else "s"
+
         str_builder: list[str] = [
             "**All Truth Bullets have been found.**",
             "",
-            f"Best Truth Bullet Finder(s) (found {most_found_num} Truth Bullets):",
+            f"Best Truth Bullet Finder{plural} (found {most_found_num} Truth Bullets):",
         ]
         str_builder.extend(f"<@{person_id}>" for person_id in most_found_people)
 

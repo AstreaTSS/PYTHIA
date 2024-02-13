@@ -63,7 +63,7 @@ class TruthBullet(Model):
 
     def bullet_info(self) -> str:
         str_list = [
-            f"`{self.name}` - in {self.chan_mention}",
+            f"Trigger `{self.name}` - in {self.chan_mention}",
             f"Aliases: {', '.join(f'`{a}`' for a in self.aliases)}",
             f"Found: {yesno_friendly_str(self.found)}",
         ]

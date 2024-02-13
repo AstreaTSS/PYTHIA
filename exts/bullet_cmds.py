@@ -87,12 +87,12 @@ class BulletCMDs(utils.Extension):
 
             modal = ipy.Modal(
                 ipy.ShortText(
-                    label="What's the name of the Truth Bullet?",
-                    custom_id="truth_bullet_name",
+                    label="What's the trigger for this Truth Bullet?",
+                    custom_id="truth_bullet_trigger",
                     max_length=60,
                 ),
                 ipy.ParagraphText(
-                    label="What's the description of the Truth Bullet?",
+                    label="What's the description for this Truth Bullet?",
                     custom_id="truth_bullet_desc",
                     max_length=3900,
                 ),
@@ -111,21 +111,21 @@ class BulletCMDs(utils.Extension):
             if await models.TruthBullet.filter(
                 Q(channel_id=channel_id)
                 & Q(
-                    Q(name__iexact=ctx.responses["truth_bullet_name"])
-                    | Q(aliases__icontains=[ctx.responses["truth_bullet_name"]])
+                    Q(name__iexact=ctx.responses["truth_bullet_trigger"])
+                    | Q(aliases__icontains=[ctx.responses["truth_bullet_trigger"]])
                 )
             ).exists():
                 await ctx.send(
                     embed=utils.error_embed_generate(
-                        f"A Truth Bullet in <#{channel_id}> is either already called"
-                        f" `{ctx.responses['truth_bullet_name']}` or has an alias named"
-                        " that!"
+                        f"A Truth Bullet in <#{channel_id}> already has the trigger"
+                        f" `{ctx.responses['truth_bullet_trigger']}` or has an alias"
+                        " named that!"
                     )
                 )
                 return
 
             await models.TruthBullet.create(
-                name=ctx.responses["truth_bullet_name"],
+                name=ctx.responses["truth_bullet_trigger"],
                 aliases=set(),
                 description=ctx.responses["truth_bullet_desc"],
                 channel_id=channel_id,
@@ -136,8 +136,8 @@ class BulletCMDs(utils.Extension):
 
             await ctx.send(
                 embed=utils.make_embed(
-                    f"Added Truth Bullet `{ctx.responses['truth_bullet_name']}` to"
-                    f" <#{channel_id}>!"
+                    "Added Truth Bullet with trigger"
+                    f" `{ctx.responses['truth_bullet_trigger']}` to <#{channel_id}>!"
                 ),
             )
 
@@ -151,20 +151,25 @@ class BulletCMDs(utils.Extension):
         channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
             "The channel for the Truth Bullet to be removed."
         ),
-        name: str = tansy.Option(
-            "The name of the Truth Bullet to be removed.", autocomplete=True
+        trigger: str = tansy.Option(
+            "The trigger of the Truth Bullet to be removed.", autocomplete=True
         ),
     ) -> None:
         num_deleted = await models.TruthBullet.filter(
-            channel_id=channel.id, name__iexact=name
+            channel_id=channel.id, name__iexact=trigger
         ).delete()
 
         if num_deleted > 0:
             await ctx.send(
-                embed=utils.make_embed(f"`{name}` removed from {channel.mention}!")
+                embed=utils.make_embed(
+                    f"Truth Bullet with trigger `{trigger}` removed from"
+                    f" {channel.mention}!"
+                )
             )
         else:
-            raise ipy.errors.BadArgument(f"Truth Bullet `{name}` does not exists!")
+            raise ipy.errors.BadArgument(
+                f"Truth Bullet with trigger `{trigger}` does not exists!"
+            )
 
     @utils.manage_guild_slash_cmd(
         "clear-bullets",
@@ -236,18 +241,23 @@ class BulletCMDs(utils.Extension):
         channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
             "The channel the Truth Bullet is in."
         ),
-        name: str = tansy.Option("The name of the Truth Bullet.", autocomplete=True),
+        trigger: str = tansy.Option(
+            "The trigger of the Truth Bullet.", autocomplete=True
+        ),
     ) -> None:
         possible_bullet = await models.TruthBullet.get_or_none(
-            channel_id=channel.id, name__iexact=name
+            channel_id=channel.id, name__iexact=trigger
         )
 
         if not possible_bullet:
-            raise ipy.errors.BadArgument(f"Truth Bullet `{name}` does not exist!")
+            raise ipy.errors.BadArgument(
+                f"Truth Bullet with trigger `{trigger}` does not exist in"
+                f" {channel.mention}!"
+            )
 
         bullet_info = possible_bullet.bullet_info()
         embed = ipy.Embed(
-            title=f"Information about {name}",
+            title="Information about Truth Bullet",
             description=bullet_info,
             color=ctx.bot.color,
             timestamp=ipy.Timestamp.utcnow(),
@@ -265,20 +275,28 @@ class BulletCMDs(utils.Extension):
         channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
             "The channel the Truth Bullet is in."
         ),
-        name: str = tansy.Option(
-            "The name of the Truth Bullet to edit.", autocomplete=True
+        trigger: str = tansy.Option(
+            "The trigger of the Truth Bullet to edit.", autocomplete=True
         ),
     ) -> None:
         possible_bullet = await models.TruthBullet.get_or_none(
-            channel_id=channel.id, name__iexact=name
+            channel_id=channel.id, name__iexact=trigger
         )
         if not possible_bullet:
-            raise ipy.errors.BadArgument(f"Truth Bullet `{name}` does not exist!")
+            raise ipy.errors.BadArgument(
+                f"Truth Bullet with trigger `{trigger}` does not exist!"
+            )
 
         modal = ipy.Modal(
+            ipy.ShortText(
+                label="New trigger",
+                custom_id="truth_bullet_trigger",
+                value=possible_bullet.name,
+                max_length=60,
+            ),
             ipy.ParagraphText(
                 label="New description",
-                custom_id="description",
+                custom_id="truth_bullet_desc",
                 value=possible_bullet.description,
                 max_length=3900,
             ),
@@ -286,7 +304,7 @@ class BulletCMDs(utils.Extension):
                 f"Edit {name_shorten(possible_bullet.name, 10)} for"
                 f" #{name_shorten(channel.name, 14)}"
             ),
-            custom_id=f"ui:edit-bullet-{channel.id}|{name}",
+            custom_id=f"ui:edit-bullet-{channel.id}|{trigger}",
         )
         await ctx.send_modal(modal)
         await ctx.send(embed=utils.make_embed("Done!"))
@@ -296,32 +314,40 @@ class BulletCMDs(utils.Extension):
         ctx = event.ctx
 
         if ctx.custom_id.startswith("ui:edit-bullet-"):
-            channel_id, name = ctx.custom_id.removeprefix("ui:edit-bullet-").split(
+            channel_id, trigger = ctx.custom_id.removeprefix("ui:edit-bullet-").split(
                 "|", maxsplit=1
             )
             channel_id = int(channel_id)
 
             possible_bullet = await models.TruthBullet.get_or_none(
                 channel_id=channel_id,
-                name__iexact=name,
+                name__iexact=trigger,
             )
             if possible_bullet is None:
                 await ctx.send(
                     embed=utils.error_embed_generate(
-                        f"Truth Bullet `{name}` no longer exists!"
+                        f"Truth Bullet with trigger `{trigger}` no longer exists!"
                     )
                 )
                 return
 
-            possible_bullet.description = ctx.responses["description"]
+            possible_bullet.name = ctx.responses["truth_bullet_trigger"]
+            possible_bullet.description = ctx.responses["truth_bullet_desc"]
             await possible_bullet.save()
 
-            await ctx.send(
-                embed=utils.make_embed(
-                    f"Edited Truth Bullet `{ctx.responses['description']}` in"
-                    f" <#{channel_id}>!"
+            if possible_bullet.name != trigger:
+                await ctx.send(
+                    embed=utils.make_embed(
+                        f"Edited Truth Bullet `{trigger}` (renamed to"
+                        f" `{possible_bullet.name}`) in <#{channel_id}>!"
+                    )
                 )
-            )
+            else:
+                await ctx.send(
+                    embed=utils.make_embed(
+                        f"Edited Truth Bullet `{trigger}` in <#{channel_id}>!"
+                    )
+                )
 
     @utils.manage_guild_slash_cmd("unfind-bullet", "Un-finds a Truth Bullet.")
     async def unfind_bullet(
@@ -330,19 +356,23 @@ class BulletCMDs(utils.Extension):
         channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
             "The channel the Truth Bullet is in."
         ),
-        name: str = tansy.Option(
-            "The name of the Truth Bullet to unfind.", autocomplete=True
+        trigger: str = tansy.Option(
+            "The trigger of the Truth Bullet to unfind.", autocomplete=True
         ),
     ) -> None:
         possible_bullet = await models.TruthBullet.get_or_none(
             channel_id=channel.id,
-            name__iexact=name,
+            name__iexact=trigger,
         )
 
         if not possible_bullet:
-            raise ipy.errors.BadArgument(f"Truth Bullet `{name}` does not exist!")
+            raise ipy.errors.BadArgument(
+                f"Truth Bullet with trigger `{trigger}` does not exist!"
+            )
         if not possible_bullet.found:
-            raise ipy.errors.BadArgument(f"Truth Bullet `{name}` has not been found!")
+            raise ipy.errors.BadArgument(
+                f"Truth Bullet with trigger `{trigger}` has not been found!"
+            )
 
         possible_bullet.found = False
         possible_bullet.finder = None
@@ -360,17 +390,19 @@ class BulletCMDs(utils.Extension):
         channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
             "The channel the Truth Bullet is in."
         ),
-        name: str = tansy.Option(
-            "The name of the Truth Bullet to unfind.", autocomplete=True
+        trigger: str = tansy.Option(
+            "The trigger of the Truth Bullet to unfind.", autocomplete=True
         ),
         user: ipy.Member = tansy.Option("The user who will find the Truth Bullet."),
     ) -> None:
         possible_bullet = await models.TruthBullet.get_or_none(
             channel_id=channel.id,
-            name__iexact=name,
+            name__iexact=trigger,
         )
         if not possible_bullet:
-            raise ipy.errors.BadArgument(f"Truth Bullet `{name}` does not exist!")
+            raise ipy.errors.BadArgument(
+                f"Truth Bullet with `{trigger}` does not exist!"
+            )
 
         possible_bullet.found = True
         possible_bullet.finder = user.id
@@ -387,8 +419,8 @@ class BulletCMDs(utils.Extension):
         channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
             "The channel the Truth Bullet is in."
         ),
-        name: str = tansy.Option(
-            "The name of the Truth Bullet to add an alias to.", autocomplete=True
+        trigger: str = tansy.Option(
+            "The trigger of the Truth Bullet to add an alias to.", autocomplete=True
         ),
         alias: str = tansy.Option(
             "The alias to add. Cannot be over 40 characters.", max_length=40
@@ -402,19 +434,21 @@ class BulletCMDs(utils.Extension):
 
         if await models.TruthBullet.exists(channel_id=channel.id, name__iexact=alias):
             raise ipy.errors.BadArgument(
-                f"Alias `{alias}` is used as a name for another Truth Bullet for this"
-                " channel!"
+                f"Alias `{alias}` is used as a trigger for another Truth Bullet for"
+                " this channel!"
             )
 
         possible_bullet = await models.TruthBullet.get_or_none(
-            channel_id=channel.id, name__iexact=name
+            channel_id=channel.id, name__iexact=trigger
         )
         if not possible_bullet:
-            raise ipy.errors.BadArgument(f"Truth Bullet `{name}` does not exist!")
+            raise ipy.errors.BadArgument(
+                f"Truth Bullet with trigger `{trigger}` does not exist!"
+            )
 
         if len(possible_bullet.aliases) >= 5:
             raise utils.CustomCheckFailure(
-                "I cannot add more aliases to this Truth Bullet!"
+                "Cannot add more aliases to this Truth Bullet!"
             )
 
         if alias in possible_bullet.aliases:
@@ -426,7 +460,10 @@ class BulletCMDs(utils.Extension):
         await possible_bullet.save()
 
         await ctx.send(
-            embed=utils.make_embed(f"Alias `{alias}` added to Truth Bullet!")
+            embed=utils.make_embed(
+                f"Alias `{alias}` added to Truth Bullet with trigger `{trigger}` in"
+                f" {channel.mention}!"
+            )
         )
 
     @utils.manage_guild_slash_cmd(
@@ -438,17 +475,19 @@ class BulletCMDs(utils.Extension):
         channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
             "The channel the Truth Bullet is in."
         ),
-        name: str = tansy.Option(
-            "The name of the Truth Bullet to remove an alias to.", autocomplete=True
+        trigger: str = tansy.Option(
+            "The trigger of the Truth Bullet to remove an alias to.", autocomplete=True
         ),
         alias: str = tansy.Option("The alias to remove.", autocomplete=True),
     ) -> None:
         possible_bullet = await models.TruthBullet.get_or_none(
             channel_id=channel.id,
-            name__iexact=name,
+            name__iexact=trigger,
         )
         if not possible_bullet:
-            raise ipy.errors.BadArgument(f"Truth Bullet `{name}` does not exist!")
+            raise ipy.errors.BadArgument(
+                f"Truth Bullet with `{trigger}` does not exist!"
+            )
 
         try:
             possible_bullet.aliases.remove(alias)
@@ -460,17 +499,20 @@ class BulletCMDs(utils.Extension):
         await possible_bullet.save()
 
         await ctx.send(
-            embed=utils.make_embed(f"Alias `{alias}` removed from Truth Bullet!")
+            embed=utils.make_embed(
+                f"Alias `{alias}` removed from Truth Bullet with trigger `{trigger}` in"
+                f" {channel.mention}!"
+            )
         )
 
-    @remove_bullet.autocomplete("name")
-    @bullet_info.autocomplete("name")
-    @edit_bullet.autocomplete("name")
-    @unfind_bullet.autocomplete("name")
-    @override_bullet.autocomplete("name")
-    @add_alias.autocomplete("name")
-    @remove_alias.autocomplete("name")
-    async def _bullet_name_autocomplete(self, ctx: ipy.AutocompleteContext) -> None:
+    @remove_bullet.autocomplete("trigger")
+    @bullet_info.autocomplete("trigger")
+    @edit_bullet.autocomplete("trigger")
+    @unfind_bullet.autocomplete("trigger")
+    @override_bullet.autocomplete("trigger")
+    @add_alias.autocomplete("trigger")
+    @remove_alias.autocomplete("trigger")
+    async def _bullet_trigger_autocomplete(self, ctx: ipy.AutocompleteContext) -> None:
         return await fuzzy.autocomplete_bullets(ctx, **ctx.kwargs)
 
     @remove_alias.autocomplete("alias")

@@ -99,10 +99,10 @@ class BulletConfigCMDs(utils.Extension):
             await ctx.send(embed=utils.make_embed("Truth Bullet channel unset."))
 
     @config.subcommand(
-        sub_cmd_name="best-detective",
-        sub_cmd_description="Sets (or unsets) the Best Detective role.",
+        sub_cmd_name="best-truth-bullet-finder",
+        sub_cmd_description="Sets (or unsets) the Best Truth Bullet Finder role.",
     )
-    async def set_best_detective_role(
+    async def set_best_truth_bullet_finder_role(
         self,
         ctx: utils.UIInteractionContext,
         role: typing.Optional[ipy.Role] = tansy.Option(
@@ -123,10 +123,14 @@ class BulletConfigCMDs(utils.Extension):
 
         if role:
             await ctx.send(
-                embed=utils.make_embed(f"Best Detective role set to {role.mention}!"),
+                embed=utils.make_embed(
+                    f"Best Truth Bullet Finder role set to {role.mention}!"
+                ),
             )
         else:
-            await ctx.send(embed=utils.make_embed("Best Detective role unset."))
+            await ctx.send(
+                embed=utils.make_embed("Best Truth Bullet Finder role unset.")
+            )
 
     @config.subcommand(
         sub_cmd_name="player",
