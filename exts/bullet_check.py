@@ -51,7 +51,7 @@ class BulletCheck(utils.Extension):
         ]
         str_builder.extend(f"<@{person_id}>" for person_id in most_found_people)
 
-        await bullet_chan.send(embed=utils.make_embed("\n".join(str_builder)))
+        await bullet_chan.send("\n".join(str_builder))
 
         guild_config.bullets_enabled = False
         await guild_config.save()

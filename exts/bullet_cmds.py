@@ -98,9 +98,11 @@ class BulletCMDs(utils.Extension):
                 )
             ).exists():
                 await ctx.send(
-                    "A Truth Bullet in this channel is either already called"
-                    f" `{ctx.responses['truth_bullet_name']}` or has an alias named"
-                    " that!"
+                    embed=utils.error_embed_generate(
+                        f"A Truth Bullet in <#{channel_id}> is either already called"
+                        f" `{ctx.responses['truth_bullet_name']}` or has an alias named"
+                        " that!"
+                    )
                 )
                 return
 
@@ -116,7 +118,7 @@ class BulletCMDs(utils.Extension):
 
             await ctx.send(
                 embed=utils.make_embed(
-                    f"Added Truth Bullet `{ctx.responses['truth_bullet_name']}`!"
+                    f"Added Truth Bullet `{ctx.responses['truth_bullet_name']}` to <#{channel_id}>!"
                 ),
             )
 
@@ -196,7 +198,8 @@ class BulletCMDs(utils.Extension):
             embed = pag.pages[0].to_embed()  # type: ignore
             embed.timestamp = ipy.Timestamp.utcnow()
             embed.color = ctx.bot.color
-            return await ctx.send(embeds=embed)
+            await ctx.send(embeds=embed)
+            return
 
         pag.show_callback_button = False
         pag.show_select_menu = False
@@ -282,7 +285,11 @@ class BulletCMDs(utils.Extension):
                 name__iexact=name,
             )
             if possible_bullet is None:
-                await ctx.send(f"Truth Bullet `{name}` no longer exists!")
+                await ctx.send(
+                    embed=utils.error_embed_generate(
+                        f"Truth Bullet `{name}` no longer exists!"
+                    )
+                )
                 return
 
             possible_bullet.description = ctx.responses["description"]
@@ -290,7 +297,7 @@ class BulletCMDs(utils.Extension):
 
             await ctx.send(
                 embed=utils.make_embed(
-                    f"Edited Truth Bullet `{ctx.responses['description']}`!"
+                    f"Edited Truth Bullet `{ctx.responses['description']}` in <#{channel_id}>!"
                 )
             )
 
