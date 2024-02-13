@@ -107,7 +107,6 @@ def generate_regexp(attribute: str) -> str:
     return rf"regexp_replace({attribute}, '([\%_])', '\\\1', 'g')"
 
 
-# fmt: off
 FIND_TRUTH_BULLET_STR: typing.Final[str] = (
     f"""
 SELECT
@@ -126,7 +125,6 @@ WHERE
     );
 """.strip()  # noqa: S608
 )
-# fmt: on
 
 
 async def find_truth_bullet(
