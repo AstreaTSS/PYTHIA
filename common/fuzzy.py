@@ -81,14 +81,14 @@ async def autocomplete_aliases(
     ctx: ipy.AutocompleteContext,
     alias: str,
     channel: typing.Optional[str] = None,
-    name: typing.Optional[str] = None,
+    trigger: typing.Optional[str] = None,
     **kwargs: typing.Any,  # noqa: ARG001,
 ) -> None:
-    if not channel or not name:
+    if not channel or not trigger:
         return await ctx.send([])
 
     truth_bullet = await models.TruthBullet.get_or_none(
-        channel_id=int(channel), name__iexact=name
+        channel_id=int(channel), name__iexact=trigger
     )
     if not truth_bullet:
         return await ctx.send([])
@@ -97,7 +97,7 @@ async def autocomplete_aliases(
         return await ctx.send([{"name": a, "value": a} for a in truth_bullet.aliases][:25])  # type: ignore
 
     query: list[list[str]] = extract_from_list(
-        argument=name.lower(),
+        argument=trigger.lower(),
         list_of_items=truth_bullet.aliases,
         processors=[get_alias_name],
         score_cutoff=0.6,
