@@ -174,6 +174,8 @@ class OtherCMDs(utils.Extension):
             f"Invite Bot: [Link]({self.invite_link})",
             "Support Server: [Link](https://discord.gg/NSdetwGjpK)",
             "Source Code: [Link](https://github.com/AstreaTSS/UltimateInvestigator)",
+            "Terms of Service: [Link](https://ui.astrea.cc/legal/tos.html)",
+            "Privacy Policy: [Link](https://ui.astrea.cc/legal/privacy_policy.html)",
         ]
 
         about_embed.add_field(
