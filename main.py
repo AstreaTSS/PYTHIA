@@ -128,6 +128,10 @@ class UltimateInvestigator(utils.UIBase):
     async def on_error(self, event: ipy.events.Error) -> None:
         await utils.error_handle(event.error, ctx=event.ctx)
 
+    @property
+    def guild_count(self) -> int:
+        return len(self.user._guild_ids)
+
     def create_task(self, coro: typing.Coroutine) -> asyncio.Task:
         # see the "important" note below for why we do this (to prevent early gc)
         # https://docs.python.org/3/library/asyncio-task.html#asyncio.create_task

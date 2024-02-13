@@ -259,6 +259,8 @@ if typing.TYPE_CHECKING:
         slash_perms_cache: collections.defaultdict[int, dict[int, PermissionsResolver]]
         mini_commands_per_scope: dict[int, dict[str, MiniCommand]]
 
+        @property
+        def guild_count(self) -> int: ...
         def create_task(self, coro: typing.Coroutine) -> asyncio.Task: ...
 
 else:

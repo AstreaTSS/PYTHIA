@@ -148,7 +148,7 @@ class OtherCMDs(utils.Extension):
         about_embed.add_field(
             name="Stats",
             value="\n".join((
-                f"Servers: {len(self.bot.guilds)}",
+                f"Servers: {self.bot.guild_count}",
                 f"Commands: {command_num} ",
                 (
                     "Startup Time:"

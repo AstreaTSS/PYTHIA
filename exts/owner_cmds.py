@@ -54,7 +54,7 @@ class OwnerCMDs(ipy.Extension):
 
         e.add_field("Loaded Extensions", ", ".join(self.bot.ext))
 
-        e.add_field("Guilds", str(len(self.bot.guilds)))
+        e.add_field("Guilds", str(self.bot.guild_count))
 
         await ctx.reply(embeds=[e])
 
