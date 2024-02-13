@@ -324,7 +324,11 @@ class BulletCMDs(utils.Extension):
             custom_id=f"ui:edit-bullet-{channel.id}|{trigger}",
         )
         await ctx.send_modal(modal)
-        await ctx.send(embed=utils.make_embed("Done!"))
+        await ctx.send(
+            embed=utils.make_embed(
+                f"Sent a popup to edit `{trigger}` for {channel.mention}!"
+            )
+        )
 
     @ipy.listen("modal_completion")
     async def on_modal_edit_bullet(self, event: ipy.events.ModalCompletion) -> None:
