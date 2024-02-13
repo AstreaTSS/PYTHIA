@@ -55,7 +55,7 @@ class BulletConfigCMDs(utils.Extension):
                 f" {f'<@&{guild_config.player_role}>' if guild_config.player_role else 'N/A'}"
             ),
             (
-                "Best Detective role:"
+                "Best Truth Bullet Finder role:"
                 f" {f'<@&{guild_config.ult_detective_role}>' if guild_config.ult_detective_role else 'N/A'}"
             ),
         ))
