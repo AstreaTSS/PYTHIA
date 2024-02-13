@@ -103,6 +103,11 @@ class Config(Model):
     bullets_enabled: bool = fields.BooleanField(default=False)  # type: ignore
 
 
+def generate_regexp(attribute: str) -> str:
+    return rf"regexp_replace({attribute}, '([\%_])', '\\\1', 'g')"
+
+
+# fmt: off
 FIND_TRUTH_BULLET_STR: typing.Final[str] = (
     f"""
 SELECT
@@ -111,16 +116,17 @@ FROM
     {TruthBullet.Meta.table}
 WHERE
     channel_id = $1
-    AND found = false
     AND (
-        (position(LOWER(name) in LOWER($2))) > 0
-        OR 0 < ANY(
-        SELECT
-            position(LOWER(UNNEST(aliases)) in LOWER($2))
+        $2 ILIKE CONCAT('%', {generate_regexp('name')}, '%')
+        OR EXISTS (
+            SELECT 1
+            FROM unnest(aliases) AS alias
+            WHERE $2 ILIKE CONCAT('%', {generate_regexp('alias')}, '%')
         )
-    )
-""".strip()
+    );
+""".strip()  # noqa: S608
 )
+# fmt: on
 
 
 async def find_truth_bullet(
