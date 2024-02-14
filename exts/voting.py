@@ -49,8 +49,7 @@ class Voting(ipy.Extension):
         self.bot: utils.UIBase = bot
         self.name = "Voting"
 
-        self.shard_count = 0
-        self.bot.create_task(self.re_shard_count())
+        self.shard_count = 1
 
         self.handlers: list[VoteHandler] = []
 
@@ -87,10 +86,6 @@ class Voting(ipy.Extension):
             raise ValueError("No voting handlers were configured.")
 
         self.autopost_guild_count.start()
-
-    async def re_shard_count(self) -> None:
-        await self.bot.wait_until_ready()
-        self.shard_count = len(self.bot.shards)
 
     def drop(self) -> None:
         self.autopost_guild_count.stop()
