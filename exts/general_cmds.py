@@ -9,6 +9,7 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 import asyncio
 import importlib
+import os
 import subprocess
 import time
 from importlib.metadata import version as _v
@@ -173,10 +174,16 @@ class OtherCMDs(utils.Extension):
             "Website: [Link](https://ui.astrea.cc)",
             f"Invite Bot: [Link]({self.invite_link})",
             "Support Server: [Link](https://discord.gg/NSdetwGjpK)",
+        ]
+
+        if os.environ.get("TOP_GG_TOKEN"):
+            links.append(f"Top.gg Page: [Link](https://top.gg/bot/{self.bot.user.id})")
+
+        links.extend((
             "Source Code: [Link](https://github.com/AstreaTSS/UltimateInvestigator)",
             "Terms of Service: [Link](https://ui.astrea.cc/legal/tos.html)",
             "Privacy Policy: [Link](https://ui.astrea.cc/legal/privacy_policy.html)",
-        ]
+        ))
 
         about_embed.add_field(
             name="Links",

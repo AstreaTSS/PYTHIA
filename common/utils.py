@@ -25,6 +25,8 @@ import common.models as models
 
 SENTRY_ENABLED = bool(os.environ.get("SENTRY_DSN", False))  # type: ignore
 
+VOTING_ENABLED = bool(os.environ.get("TOP_GG_TOKEN") or os.environ.get("DBL_TOKEN"))
+
 logger = logging.getLogger("uibot")
 
 

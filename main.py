@@ -187,6 +187,9 @@ async def start() -> None:
 
     ext_list = utils.get_all_extensions(os.environ["DIRECTORY_OF_FILE"])
     for ext in ext_list:
+        if "voting" in ext and not utils.VOTING_ENABLED:
+            continue
+
         try:
             bot.load_extension(ext)
         except ipy.errors.ExtensionLoadException:
