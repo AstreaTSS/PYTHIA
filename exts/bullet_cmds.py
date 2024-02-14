@@ -129,7 +129,7 @@ class BulletCMDs(utils.Extension):
                 return
 
             await models.TruthBullet.create(
-                name=ctx.responses["truth_bullet_trigger"],
+                trigger=ctx.responses["truth_bullet_trigger"],
                 aliases=set(),
                 description=ctx.responses["truth_bullet_desc"],
                 channel_id=channel_id,
