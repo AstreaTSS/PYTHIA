@@ -45,6 +45,8 @@ class VoteHandler:
 
 
 class Voting(ipy.Extension):
+    session: aiohttp.ClientSession
+
     def __init__(self, bot: utils.UIBase) -> None:
         self.bot: utils.UIBase = bot
         self.name = "Voting"
@@ -86,17 +88,25 @@ class Voting(ipy.Extension):
             raise ValueError("No voting handlers were configured.")
 
         self.autopost_guild_count.start()
+        self.bot.create_task(self.establish_session())
 
     def drop(self) -> None:
         self.autopost_guild_count.stop()
+        self.bot.create_task(self.close_session())
         super().drop()
+
+    async def establish_session(self) -> None:
+        self.session = aiohttp.ClientSession()
+
+    async def close_session(self) -> None:
+        await self.session.close()
 
     @ipy.Task.create(ipy.IntervalTrigger(minutes=30))
     async def autopost_guild_count(self) -> None:
         server_count = self.bot.guild_count
 
         for handler in self.handlers:
-            async with self.bot.session.post(
+            async with self.session.post(
                 f"{handler.base_url}{handler.data_url.format(bot_id=self.bot.user.id)}",
                 json=handler.data_callback(server_count),
                 headers=handler.headers,
