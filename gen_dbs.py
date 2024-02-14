@@ -8,17 +8,19 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """
 
 # use this to generate db if you need to
+# for docker - docker compose run bot python gen_dbs.py
 import os
 
-from dotenv import load_dotenv
 from tortoise import Tortoise, run_async
 
-load_dotenv()
+from load_env import load_env
+
+load_env()
 
 
 async def init() -> None:
     await Tortoise.init(
-        db_url=os.environ.get("DB_URL"), modules={"models": ["common.models"]}
+        db_url=os.environ["DB_URL"], modules={"models": ["common.models"]}
     )
     await Tortoise.generate_schemas()
 

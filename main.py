@@ -11,17 +11,19 @@ import asyncio
 import contextlib
 import logging
 import os
+import sys
 import typing
 from collections import defaultdict
 
 import interactions as ipy
 import sentry_sdk
-from dotenv import load_dotenv
 from interactions.ext import prefixed_commands as prefixed
 from interactions.ext.sentry import HookedTask
 from tortoise import Tortoise
 
-load_dotenv()
+from load_env import load_env
+
+load_env()
 
 import common.help_tools as help_tools
 import common.utils as utils
@@ -38,6 +40,7 @@ handler.setFormatter(
     logging.Formatter("%(asctime)s:%(levelname)s:%(name)s: %(message)s")
 )
 logger.addHandler(handler)
+logger.addHandler(logging.StreamHandler(sys.stdout))
 
 
 def default_sentry_filter(
@@ -180,7 +183,7 @@ prefixed.setup(bot)
 
 async def start() -> None:
     await Tortoise.init(
-        db_url=os.environ.get("DB_URL"), modules={"models": ["common.models"]}
+        db_url=os.environ["DB_URL"], modules={"models": ["common.models"]}
     )
 
     ext_list = utils.get_all_extensions(os.environ["DIRECTORY_OF_FILE"])

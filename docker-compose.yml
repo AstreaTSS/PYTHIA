@@ -1,0 +1,17 @@
+services:
+  db:
+    image: "postgres:16-alpine"
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+
+  bot:
+    build: .
+    volumes:
+      - ./:/app
+    depends_on:
+      - db
+    restart: always
