@@ -21,12 +21,9 @@ from interactions.ext import prefixed_commands as prefixed
 from interactions.ext.sentry import HookedTask
 from tortoise import Tortoise
 
-from load_env import load_env
-
-load_env()
-
 import common.help_tools as help_tools
 import common.utils as utils
+from db_settings import TORTOISE_ORM
 
 if typing.TYPE_CHECKING:
     import discord_typings
@@ -182,9 +179,7 @@ prefixed.setup(bot)
 
 
 async def start() -> None:
-    await Tortoise.init(
-        db_url=os.environ["DB_URL"], modules={"models": ["common.models"]}
-    )
+    await Tortoise.init(TORTOISE_ORM)
 
     ext_list = utils.get_all_extensions(os.environ["DIRECTORY_OF_FILE"])
     for ext in ext_list:
