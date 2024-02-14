@@ -1,4 +1,4 @@
-Copyright 2022-2024 AstreaTSS.
+Copyright 2021-2024 AstreaTSS.
 This file is part of Ultimate Investigator.
 
 This Source Code Form is subject to the terms of the Mozilla Public
