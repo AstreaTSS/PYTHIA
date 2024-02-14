@@ -58,8 +58,10 @@ class BulletCheck(utils.Extension):
         guild_config.bullets_enabled = False
         await guild_config.save()
 
-        if guild_config.ult_detective_role and (
-            ult_detect_role_obj := guild.get_role(guild_config.ult_detective_role)
+        if guild_config.best_bullet_finder_role and (
+            best_bullet_finder_obj := guild.get_role(
+                guild_config.best_bullet_finder_role
+            )
         ):
             for person_id in most_found_people:
                 try:
@@ -69,7 +71,7 @@ class BulletCheck(utils.Extension):
                     # but dont do this unless you're me
 
                     await self.bot.http.add_guild_member_role(
-                        guild.id, person_id, ult_detect_role_obj.id
+                        guild.id, person_id, best_bullet_finder_obj.id
                     )
                     await asyncio.sleep(1)  # we don't want to trigger ratelimits
                 except ipy.errors.HTTPException:

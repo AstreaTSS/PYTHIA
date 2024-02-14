@@ -21,6 +21,10 @@ from interactions.ext import prefixed_commands as prefixed
 from interactions.ext.sentry import HookedTask
 from tortoise import Tortoise
 
+from load_env import load_env
+
+load_env()
+
 import common.help_tools as help_tools
 import common.utils as utils
 from db_settings import TORTOISE_ORM

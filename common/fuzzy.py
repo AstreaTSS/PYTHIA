@@ -47,7 +47,7 @@ def extract_from_list(
 
 
 def get_bullet_name(bullet: models.TruthBullet) -> str:
-    return bullet.name.lower() if isinstance(bullet, models.TruthBullet) else bullet
+    return bullet.trigger.lower() if isinstance(bullet, models.TruthBullet) else bullet
 
 
 async def autocomplete_bullets(
@@ -62,7 +62,7 @@ async def autocomplete_bullets(
     channel_bullets = await models.TruthBullet.filter(channel_id=int(channel))
 
     if not trigger:
-        return await ctx.send([{"name": b.name, "value": b.name} for b in channel_bullets][:25])  # type: ignore
+        return await ctx.send([{"name": b.trigger, "value": b.trigger} for b in channel_bullets][:25])  # type: ignore
 
     query: list[list[models.TruthBullet]] = extract_from_list(
         argument=trigger.lower(),
@@ -70,7 +70,7 @@ async def autocomplete_bullets(
         processors=[get_bullet_name],
         score_cutoff=0.6,
     )
-    return await ctx.send([{"name": b[0].name, "value": b[0].name} for b in query][:25])  # type: ignore
+    return await ctx.send([{"name": b[0].trigger, "value": b[0].trigger} for b in query][:25])  # type: ignore
 
 
 def get_alias_name(alias: str) -> str:
@@ -88,7 +88,7 @@ async def autocomplete_aliases(
         return await ctx.send([])
 
     truth_bullet = await models.TruthBullet.get_or_none(
-        channel_id=int(channel), name__iexact=trigger
+        channel_id=int(channel), trigger__iexact=trigger
     )
     if not truth_bullet:
         return await ctx.send([])

@@ -49,7 +49,7 @@ class TruthBullet(Model):
         )
 
     id: int = fields.IntField(pk=True)
-    name: str = fields.CharField(max_length=100)
+    trigger: str = fields.CharField(max_length=100)
     aliases: set[str] = SetField("VARCHAR(40)")
     description: str = fields.TextField()
     channel_id: int = fields.BigIntField()
@@ -63,7 +63,7 @@ class TruthBullet(Model):
 
     def bullet_info(self) -> str:
         str_list = [
-            f"Trigger `{self.name}` - in {self.chan_mention}",
+            f"Trigger `{self.trigger}` - in {self.chan_mention}",
             f"Aliases: {', '.join(f'`{a}`' for a in self.aliases)}",
             f"Found: {yesno_friendly_str(self.found)}",
         ]
@@ -83,7 +83,7 @@ class TruthBullet(Model):
             color=int(os.environ["BOT_COLOR"]),
         )
         embed.description = (
-            f"`{self.name}` - from {self.chan_mention}\n\n{self.description}"
+            f"`{self.trigger}` - from {self.chan_mention}\n\n{self.description}"
         )
 
         footer = f"Found by {username}" if self.finder else "To be found as of"
@@ -98,7 +98,7 @@ class Config(Model):
 
     guild_id: int = fields.BigIntField(pk=True)
     bullet_chan_id: typing.Optional[int] = fields.BigIntField(null=True)
-    ult_detective_role: typing.Optional[int] = fields.BigIntField(null=True)
+    best_bullet_finder_role: typing.Optional[int] = fields.BigIntField(null=True)
     player_role: typing.Optional[int] = fields.BigIntField(null=True)
     bullets_enabled: bool = fields.BooleanField(default=False)  # type: ignore
 
@@ -116,7 +116,7 @@ FROM
 WHERE
     channel_id = $1
     AND (
-        $2 ILIKE CONCAT('%', {generate_regexp('name')}, '%')
+        $2 ILIKE CONCAT('%', {generate_regexp('trigger')}, '%')
         OR EXISTS (
             SELECT 1
             FROM unnest(aliases) AS alias

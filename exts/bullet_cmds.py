@@ -115,7 +115,7 @@ class BulletCMDs(utils.Extension):
             if await models.TruthBullet.filter(
                 Q(channel_id=channel_id)
                 & Q(
-                    Q(name__iexact=ctx.responses["truth_bullet_trigger"])
+                    Q(trigger__iexact=ctx.responses["truth_bullet_trigger"])
                     | Q(aliases__icontains=[ctx.responses["truth_bullet_trigger"]])
                 )
             ).exists():
@@ -164,7 +164,7 @@ class BulletCMDs(utils.Extension):
         ),
     ) -> None:
         num_deleted = await models.TruthBullet.filter(
-            channel_id=channel.id, name__iexact=trigger
+            channel_id=channel.id, trigger__iexact=trigger
         ).delete()
 
         if num_deleted > 0:
@@ -220,7 +220,7 @@ class BulletCMDs(utils.Extension):
             str_builder.append(f"<#{channel_id}>:")
             for bullet in bullet_dict[channel_id]:
                 str_builder.append(
-                    f"- `{bullet.name}`{' (found)' if bullet.found else ''}"
+                    f"- `{bullet.trigger}`{' (found)' if bullet.found else ''}"
                 )
 
             str_builder.append("")
@@ -259,7 +259,7 @@ class BulletCMDs(utils.Extension):
         ),
     ) -> None:
         possible_bullet = await models.TruthBullet.get_or_none(
-            channel_id=channel.id, name__iexact=trigger
+            channel_id=channel.id, trigger__iexact=trigger
         )
 
         if not possible_bullet:
@@ -297,7 +297,7 @@ class BulletCMDs(utils.Extension):
         ),
     ) -> None:
         possible_bullet = await models.TruthBullet.get_or_none(
-            channel_id=channel.id, name__iexact=trigger
+            channel_id=channel.id, trigger__iexact=trigger
         )
         if not possible_bullet:
             raise ipy.errors.BadArgument(
@@ -308,7 +308,7 @@ class BulletCMDs(utils.Extension):
             ipy.ShortText(
                 label="New trigger",
                 custom_id="truth_bullet_trigger",
-                value=possible_bullet.name,
+                value=possible_bullet.trigger,
                 max_length=60,
             ),
             ipy.ParagraphText(
@@ -318,7 +318,7 @@ class BulletCMDs(utils.Extension):
                 max_length=3900,
             ),
             title=(
-                f"Edit {name_shorten(possible_bullet.name, 10)} for"
+                f"Edit {name_shorten(possible_bullet.trigger, 10)} for"
                 f" #{name_shorten(channel.name, 14)}"
             ),
             custom_id=f"ui:edit-bullet-{channel.id}|{trigger}",
@@ -342,7 +342,7 @@ class BulletCMDs(utils.Extension):
 
             possible_bullet = await models.TruthBullet.get_or_none(
                 channel_id=channel_id,
-                name__iexact=trigger,
+                trigger__iexact=trigger,
             )
             if possible_bullet is None:
                 await ctx.send(
@@ -352,15 +352,15 @@ class BulletCMDs(utils.Extension):
                 )
                 return
 
-            possible_bullet.name = ctx.responses["truth_bullet_trigger"]
+            possible_bullet.trigger = ctx.responses["truth_bullet_trigger"]
             possible_bullet.description = ctx.responses["truth_bullet_desc"]
             await possible_bullet.save()
 
-            if possible_bullet.name != trigger:
+            if possible_bullet.trigger != trigger:
                 await ctx.send(
                     embed=utils.make_embed(
                         f"Edited Truth Bullet `{trigger}` (renamed to"
-                        f" `{possible_bullet.name}`) in <#{channel_id}>!"
+                        f" `{possible_bullet.trigger}`) in <#{channel_id}>!"
                     )
                 )
             else:
@@ -387,7 +387,7 @@ class BulletCMDs(utils.Extension):
     ) -> None:
         possible_bullet = await models.TruthBullet.get_or_none(
             channel_id=channel.id,
-            name__iexact=trigger,
+            trigger__iexact=trigger,
         )
 
         if not possible_bullet:
@@ -426,7 +426,7 @@ class BulletCMDs(utils.Extension):
     ) -> None:
         possible_bullet = await models.TruthBullet.get_or_none(
             channel_id=channel.id,
-            name__iexact=trigger,
+            trigger__iexact=trigger,
         )
         if not possible_bullet:
             raise ipy.errors.BadArgument(
@@ -465,14 +465,16 @@ class BulletCMDs(utils.Extension):
                 + "Please use something at or under 40 characters."
             )
 
-        if await models.TruthBullet.exists(channel_id=channel.id, name__iexact=alias):
+        if await models.TruthBullet.exists(
+            channel_id=channel.id, trigger__iexact=alias
+        ):
             raise ipy.errors.BadArgument(
                 f"Alias `{alias}` is used as a trigger for another Truth Bullet for"
                 " this channel!"
             )
 
         possible_bullet = await models.TruthBullet.get_or_none(
-            channel_id=channel.id, name__iexact=trigger
+            channel_id=channel.id, trigger__iexact=trigger
         )
         if not possible_bullet:
             raise ipy.errors.BadArgument(
@@ -519,7 +521,7 @@ class BulletCMDs(utils.Extension):
     ) -> None:
         possible_bullet = await models.TruthBullet.get_or_none(
             channel_id=channel.id,
-            name__iexact=trigger,
+            trigger__iexact=trigger,
         )
         if not possible_bullet:
             raise ipy.errors.BadArgument(

@@ -30,7 +30,7 @@ def load_env() -> None:
     if is_loaded():
         return
 
-    load_dotenv()
+    load_dotenv(override=True)
 
     if os.environ.get("DOCKER_MODE") in {"true", "True", "TRUE", "t", "T", "1"}:
         os.environ["DB_URL"] = (

@@ -56,7 +56,7 @@ class BulletConfigCMDs(utils.Extension):
             ),
             (
                 "Best Truth Bullet Finder role:"
-                f" {f'<@&{guild_config.ult_detective_role}>' if guild_config.ult_detective_role else 'N/A'}"
+                f" {f'<@&{guild_config.best_bullet_finder_role}>' if guild_config.best_bullet_finder_role else 'N/A'}"
             ),
         ))
         embed = utils.make_embed(
@@ -118,7 +118,7 @@ class BulletConfigCMDs(utils.Extension):
             )
 
         guild_config = await ctx.fetch_config()
-        guild_config.ult_detective_role = role.id if role else None
+        guild_config.best_bullet_finder_role = role.id if role else None
         await guild_config.save()
 
         if role:
