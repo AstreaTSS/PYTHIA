@@ -194,6 +194,11 @@ class BulletConfigCMDs(utils.Extension):
         guild_config.bullets_enabled = toggle
         await guild_config.save()
 
+        if toggle:
+            self.bot.enabled_bullets_guilds.add(int(ctx.guild.id))
+        else:
+            self.bot.enabled_bullets_guilds.discard(int(ctx.guild.id))
+
         await ctx.send(
             embed=utils.make_embed(
                 "Truth Bullets turned"

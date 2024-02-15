@@ -91,6 +91,9 @@ class BulletCheck(utils.Extension):
         ):
             return
 
+        if int(message.guild.id) not in self.bot.enabled_bullets_guilds:
+            return
+
         guild_config = await models.Config.get_or_none(guild_id=message.guild.id)
 
         if not guild_config:
@@ -101,6 +104,8 @@ class BulletCheck(utils.Extension):
             or not guild_config.player_role
             or not message.author.has_role(guild_config.player_role)
         ):
+            if not guild_config.bullets_enabled:
+                self.bot.enabled_bullets_guilds.discard(int(message.guild.id))
             return
 
         bullet_found = await models.find_truth_bullet(
@@ -114,6 +119,7 @@ class BulletCheck(utils.Extension):
         )
         if not bullet_chan:
             guild_config.bullets_enabled = False
+            self.bot.enabled_bullets_guilds.discard(int(message.guild.id))
             guild_config.bullet_chan_id = None
             await guild_config.save()
             return

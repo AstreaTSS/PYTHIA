@@ -260,6 +260,7 @@ if typing.TYPE_CHECKING:
         background_tasks: set[asyncio.Task]
         slash_perms_cache: collections.defaultdict[int, dict[int, PermissionsResolver]]
         mini_commands_per_scope: dict[int, dict[str, MiniCommand]]
+        enabled_bullets_guilds: set[int]
 
         @property
         def guild_count(self) -> int: ...
