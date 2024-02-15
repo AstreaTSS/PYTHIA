@@ -10,6 +10,7 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 import asyncio
 import importlib
 import os
+import platform
 import subprocess
 import time
 from importlib.metadata import version as _v
@@ -20,6 +21,8 @@ import tansy
 import common.utils as utils
 
 IPY_VERSION = _v("discord-py-interactions")
+PYTHON_VERSION = platform.python_version_tuple()
+PYTHON_IMPLEMENTATION = platform.python_implementation()
 
 
 class OtherCMDs(utils.Extension):
@@ -164,6 +167,10 @@ class OtherCMDs(utils.Extension):
                 (
                     "Interactions.py Version:"
                     f" [{IPY_VERSION}](https://github.com/interactions-py/interactions.py/tree/{IPY_VERSION})"
+                ),
+                (
+                    "Python Version:"
+                    f" {PYTHON_IMPLEMENTATION} {PYTHON_VERSION[0]}.{PYTHON_VERSION[1]}"
                 ),
                 "Made By: [AstreaTSS](https://astrea.cc)",
             )),
