@@ -57,6 +57,7 @@ class BulletCheck(utils.Extension):
 
         guild_config.bullets_enabled = False
         await guild_config.save()
+        self.bot.enabled_bullets_guilds.discard(int(guild.id))
 
         if guild_config.best_bullet_finder_role and (
             best_bullet_finder_obj := guild.get_role(
