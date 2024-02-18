@@ -115,6 +115,7 @@ FROM
     {TruthBullet.Meta.table}
 WHERE
     channel_id = $1
+    AND found = false
     AND (
         $2 ILIKE CONCAT('%', {generate_regexp('trigger')}, '%')
         OR EXISTS (
