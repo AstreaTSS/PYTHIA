@@ -55,9 +55,12 @@ class BulletCMDs(utils.Extension):
 
         embeds: list[ipy.Embed] = []
 
-        if not await models.TruthBullet.filter(
-            guild_id=ctx.guild_id, found=False
-        ).exists():
+        if (
+            await models.TruthBullet.filter(guild_id=ctx.guild_id).exists()
+            and not await models.TruthBullet.filter(
+                guild_id=ctx.guild_id, found=False
+            ).exists()
+        ):
             embeds.append(
                 ipy.Embed(
                     "Warning",
