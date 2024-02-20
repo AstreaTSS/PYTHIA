@@ -68,11 +68,13 @@ class TruthBullet(Model):
             f"Found: {yesno_friendly_str(self.found)}",
         ]
 
-        str_list.extend((
-            f"Finder: {f'<@{self.finder}>' if self.finder else 'N/A'}",
-            "",
-            f"Description: {self.description}",
-        ))
+        str_list.extend(
+            (
+                f"Finder: {f'<@{self.finder}>' if self.finder else 'N/A'}",
+                "",
+                f"Description: {self.description}",
+            )
+        )
 
         return "\n".join(str_list)
 

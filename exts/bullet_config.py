@@ -49,16 +49,18 @@ class BulletConfigCMDs(utils.Extension):
             "",
         ]
 
-        str_builder.extend((
+        str_builder.extend(
             (
-                "Player role:"
-                f" {f'<@&{guild_config.player_role}>' if guild_config.player_role else 'N/A'}"
-            ),
-            (
-                "Best Truth Bullet Finder role:"
-                f" {f'<@&{guild_config.best_bullet_finder_role}>' if guild_config.best_bullet_finder_role else 'N/A'}"
-            ),
-        ))
+                (
+                    "Player role:"
+                    f" {f'<@&{guild_config.player_role}>' if guild_config.player_role else 'N/A'}"
+                ),
+                (
+                    "Best Truth Bullet Finder role:"
+                    f" {f'<@&{guild_config.best_bullet_finder_role}>' if guild_config.best_bullet_finder_role else 'N/A'}"
+                ),
+            )
+        )
         embed = utils.make_embed(
             title=f"Server config for {ctx.guild.name}",
             description="\n".join(str_builder),

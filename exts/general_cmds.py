@@ -151,29 +151,31 @@ class OtherCMDs(utils.Extension):
 
         about_embed.add_field(
             name="Stats",
-            value="\n".join((
-                f"Servers: {self.bot.guild_count}",
-                f"Commands: {command_num} ",
+            value="\n".join(
                 (
-                    "Startup Time:"
-                    f" {ipy.Timestamp.fromdatetime(self.bot.start_time).format(ipy.TimestampStyles.RelativeTime)}"
-                ),
-                (
-                    "Commit Hash:"
-                    f" [{commit_hash}](https://github.com/AstreaTSS/UltimateInvestigator/commit/{commit_hash})"
-                    if commit_hash
-                    else "Commit Hash: N/A"
-                ),
-                (
-                    "Interactions.py Version:"
-                    f" [{IPY_VERSION}](https://github.com/interactions-py/interactions.py/tree/{IPY_VERSION})"
-                ),
-                (
-                    "Python Version:"
-                    f" {PYTHON_IMPLEMENTATION} {PYTHON_VERSION[0]}.{PYTHON_VERSION[1]}"
-                ),
-                "Made By: [AstreaTSS](https://astrea.cc)",
-            )),
+                    f"Servers: {self.bot.guild_count}",
+                    f"Commands: {command_num} ",
+                    (
+                        "Startup Time:"
+                        f" {ipy.Timestamp.fromdatetime(self.bot.start_time).format(ipy.TimestampStyles.RelativeTime)}"
+                    ),
+                    (
+                        "Commit Hash:"
+                        f" [{commit_hash}](https://github.com/AstreaTSS/UltimateInvestigator/commit/{commit_hash})"
+                        if commit_hash
+                        else "Commit Hash: N/A"
+                    ),
+                    (
+                        "Interactions.py Version:"
+                        f" [{IPY_VERSION}](https://github.com/interactions-py/interactions.py/tree/{IPY_VERSION})"
+                    ),
+                    (
+                        "Python Version:"
+                        f" {PYTHON_IMPLEMENTATION} {PYTHON_VERSION[0]}.{PYTHON_VERSION[1]}"
+                    ),
+                    "Made By: [AstreaTSS](https://astrea.cc)",
+                )
+            ),
             inline=True,
         )
 
@@ -186,11 +188,19 @@ class OtherCMDs(utils.Extension):
         if os.environ.get("TOP_GG_TOKEN"):
             links.append(f"Top.gg Page: [Link](https://top.gg/bot/{self.bot.user.id})")
 
-        links.extend((
-            "Source Code: [Link](https://github.com/AstreaTSS/UltimateInvestigator)",
-            "Terms of Service: [Link](https://ui.astrea.cc/legal/tos.html)",
-            "Privacy Policy: [Link](https://ui.astrea.cc/legal/privacy_policy.html)",
-        ))
+        links.extend(
+            (
+                (
+                    "Source Code:"
+                    " [Link](https://github.com/AstreaTSS/UltimateInvestigator)"
+                ),
+                "Terms of Service: [Link](https://ui.astrea.cc/legal/tos.html)",
+                (
+                    "Privacy Policy:"
+                    " [Link](https://ui.astrea.cc/legal/privacy_policy.html)"
+                ),
+            )
+        )
 
         about_embed.add_field(
             name="Links",
