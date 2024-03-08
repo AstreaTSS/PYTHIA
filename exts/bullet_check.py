@@ -12,6 +12,7 @@ import collections
 import importlib
 
 import interactions as ipy
+from interactions.client.mixins.send import SendMixin
 
 import common.models as models
 import common.utils as utils
@@ -115,10 +116,8 @@ class BulletCheck(utils.Extension):
         if not bullet_found:
             return
 
-        bullet_chan: ipy.GuildText | None = await self.bot.fetch_channel(
-            guild_config.bullet_chan_id
-        )
-        if not bullet_chan:
+        bullet_chan = await self.bot.fetch_channel(guild_config.bullet_chan_id)
+        if not bullet_chan or not isinstance(bullet_chan, SendMixin):
             guild_config.bullets_enabled = False
             self.bot.enabled_bullets_guilds.discard(int(message.guild.id))
             guild_config.bullet_chan_id = None
