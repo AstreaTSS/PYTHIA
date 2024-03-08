@@ -12,6 +12,7 @@ import typing
 
 import interactions as ipy
 import tansy
+from interactions.client.mixins.send import SendMixin
 
 import common.models as models
 import common.utils as utils
@@ -85,6 +86,9 @@ class BulletConfigCMDs(utils.Extension):
             raise ipy.errors.BadArgument(
                 "You must set a Truth Bullet channel or specify to unset it."
             )
+
+        if channel and not isinstance(channel, SendMixin):
+            raise ipy.errors.BadArgument("The channel must be a text channel.")
 
         guild_config = await ctx.fetch_config()
 
