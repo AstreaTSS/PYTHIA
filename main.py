@@ -50,7 +50,7 @@ def default_sentry_filter(
 ) -> typing.Optional[dict[str, typing.Any]]:
     if "log_record" in hint:
         record: logging.LogRecord = hint["log_record"]
-        if "interactions" in record.name or "realms_bot" in record.name:
+        if "interactions" in record.name or "uibot" in record.name:
             # there are some logging messages that are not worth sending to sentry
             if ": 403" in record.message:
                 return None
