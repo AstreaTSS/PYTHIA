@@ -9,6 +9,7 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 import asyncio
 import contextlib
+import functools
 import logging
 import os
 import sys
@@ -18,7 +19,6 @@ from collections import defaultdict
 import interactions as ipy
 import sentry_sdk
 from interactions.ext import prefixed_commands as prefixed
-from interactions.ext.sentry import HookedTask
 from tortoise import Tortoise
 
 from load_env import load_env
@@ -70,9 +70,22 @@ def default_sentry_filter(
     return event
 
 
+class MyHookedTask(ipy.Task):
+    def on_error_sentry_hook(self: ipy.Task, error: Exception) -> None:
+        scope = sentry_sdk.Scope.get_current_scope()
+
+        if isinstance(self.callback, functools.partial):
+            scope.set_tag("task", self.callback.func.__name__)
+        else:
+            scope.set_tag("task", self.callback.__name__)
+
+        scope.set_tag("iteration", self.iteration)
+        sentry_sdk.capture_exception(error)
+
+
 # im so sorry
 if utils.SENTRY_ENABLED:
-    ipy.Task.on_error_sentry_hook = HookedTask.on_error_sentry_hook
+    ipy.Task.on_error_sentry_hook = MyHookedTask.on_error_sentry_hook
     sentry_sdk.init(dsn=os.environ["SENTRY_DSN"], before_send=default_sentry_filter)
 
 
