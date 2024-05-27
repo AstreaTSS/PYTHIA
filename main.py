@@ -126,7 +126,7 @@ class UltimateInvestigator(utils.UIBase):
     async def i_like_my_events_very_raw(
         self, event: ipy.events.RawGatewayEvent
     ) -> None:
-        data: "discord_typings.GuildApplicationCommandPermissionData" = event.data  # type: ignore
+        data: discord_typings.GuildApplicationCommandPermissionData = event.data  # type: ignore
 
         guild_id = int(data["guild_id"])
 
