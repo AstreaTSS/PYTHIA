@@ -290,9 +290,8 @@ class OwnerCMDs(ipy.Extension):
             final_chunks.insert(0, f"Error on: {ctx.message.jump_url}")
 
         to_send = final_chunks
-        split = False
 
-        await utils.msg_to_owner(self.bot, to_send, split)
+        await utils.msg_to_owner(self.bot, to_send)
 
         if hasattr(ctx, "send"):
             await ctx.send("An error occured. Please check your DMs.")
