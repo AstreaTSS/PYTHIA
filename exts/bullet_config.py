@@ -53,6 +53,10 @@ class BulletConfigCMDs(utils.Extension):
         str_builder.extend(
             (
                 (
+                    "Investigation mode:"
+                    f" {guild_config.investigation_type.name.replace('_', ' ').title()}"
+                ),
+                (
                     "Player role:"
                     f" {f'<@&{guild_config.player_role}>' if guild_config.player_role else 'N/A'}"
                 ),
@@ -181,6 +185,42 @@ class BulletConfigCMDs(utils.Extension):
             )
 
     @config.subcommand(
+        sub_cmd_name="investigation_type",
+        sub_cmd_description="Change the investigation mode.",
+    )
+    async def set_investigation_mode(
+        self,
+        ctx: utils.UISlashContext,
+        mode: int = tansy.Option(
+            "The investigation mode to set.",
+            choices=[
+                ipy.SlashCommandChoice("Default", models.InvestigationType.DEFAULT),
+                ipy.SlashCommandChoice(
+                    "/investigate command only", models.InvestigationType.COMMAND_ONLY
+                ),
+            ],
+        ),
+    ) -> None:
+        try:
+            investigation_type = models.InvestigationType(mode)
+        except ValueError:
+            raise ipy.errors.BadArgument("Invalid investigation mode.") from None
+
+        guild_config = await ctx.fetch_config()
+        guild_config.investigation_type = investigation_type
+        await guild_config.save()
+
+        if investigation_type == models.InvestigationType.COMMAND_ONLY:
+            self.bot.msg_enabled_bullets_guilds.discard(int(ctx.guild.id))
+
+        await ctx.send(
+            embed=utils.make_embed(
+                "Investigation mode set to"
+                f" {guild_config.investigation_type.name.replace('_', ' ').title()}."
+            )
+        )
+
+    @config.subcommand(
         sub_cmd_name="toggle",
         sub_cmd_description="Turns on or off the Truth Bullets.",
     )
@@ -200,10 +240,11 @@ class BulletConfigCMDs(utils.Extension):
         guild_config.bullets_enabled = toggle
         await guild_config.save()
 
-        if toggle:
-            self.bot.enabled_bullets_guilds.add(int(ctx.guild.id))
-        else:
-            self.bot.enabled_bullets_guilds.discard(int(ctx.guild.id))
+        if guild_config.investigation_type != models.InvestigationType.COMMAND_ONLY:
+            if toggle:
+                self.bot.msg_enabled_bullets_guilds.add(int(ctx.guild.id))
+            else:
+                self.bot.msg_enabled_bullets_guilds.discard(int(ctx.guild.id))
 
         await ctx.send(
             embed=utils.make_embed(

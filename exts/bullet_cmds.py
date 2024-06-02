@@ -24,6 +24,15 @@ def name_shorten(name: str, shorten_amount: int = 16) -> str:
     return f"{name[:shorten_amount].strip()}..." if len(name) > shorten_amount else name
 
 
+def convert_to_bool(argument: str) -> bool:
+    lowered = argument.lower()
+    if lowered in {"yes", "y", "true", "t", "1", "enable", "on"}:
+        return True
+    if lowered in {"no", "n", "false", "f", "0", "disable", "off"}:
+        return False
+    raise ipy.errors.BadArgument(f"{argument} is not a recognised boolean option.")
+
+
 class BulletCMDs(utils.Extension):
     """Commands for using and modifying Truth Bullets."""
 
@@ -94,6 +103,12 @@ class BulletCMDs(utils.Extension):
                     custom_id="truth_bullet_trigger",
                     max_length=60,
                 ),
+                ipy.ShortText(
+                    label="Hide this Truth Bullet only to the finder?",
+                    custom_id="truth_bullet_hidden",
+                    value="no",
+                    max_length=10,
+                ),
                 ipy.ParagraphText(
                     label="What's the description for this Truth Bullet?",
                     custom_id="truth_bullet_desc",
@@ -115,7 +130,7 @@ class BulletCMDs(utils.Extension):
                 Q(channel_id=channel_id)
                 & Q(
                     Q(trigger__iexact=ctx.responses["truth_bullet_trigger"])
-                    | Q(aliases__icontains=[ctx.responses["truth_bullet_trigger"]])
+                    | Q(aliases__icontains=ctx.responses["truth_bullet_trigger"])
                 )
             ).exists():
                 await ctx.send(
@@ -123,6 +138,17 @@ class BulletCMDs(utils.Extension):
                         f"A Truth Bullet in <#{channel_id}> already has the trigger"
                         f" `{ctx.responses['truth_bullet_trigger']}` or has an alias"
                         " named that!"
+                    )
+                )
+                return
+
+            try:
+                hidden = convert_to_bool(ctx.responses["truth_bullet_hidden"])
+            except ipy.errors.BadArgument:
+                await ctx.send(
+                    embed=utils.error_embed_generate(
+                        "Invalid value for hiding the Truth Bullet! Giving a simple"
+                        " 'yes' or 'no' will work."
                     )
                 )
                 return
@@ -135,6 +161,7 @@ class BulletCMDs(utils.Extension):
                 guild_id=ctx.guild.id,
                 found=False,
                 finder=None,
+                hidden=hidden,
             )
 
             await ctx.send(
@@ -298,6 +325,12 @@ class BulletCMDs(utils.Extension):
                 value=possible_bullet.trigger,
                 max_length=60,
             ),
+            ipy.ShortText(
+                label="Hide this Truth Bullet only to the finder?",
+                custom_id="truth_bullet_hidden",
+                value=utils.yesno_friendly_str(possible_bullet.hidden),
+                max_length=10,
+            ),
             ipy.ParagraphText(
                 label="New description",
                 custom_id="truth_bullet_desc",
@@ -339,8 +372,20 @@ class BulletCMDs(utils.Extension):
                 )
                 return
 
+            try:
+                hidden = convert_to_bool(ctx.responses["truth_bullet_hidden"])
+            except ipy.errors.BadArgument:
+                await ctx.send(
+                    embed=utils.error_embed_generate(
+                        "Invalid value for hiding the Truth Bullet! Giving a simple"
+                        " 'yes' or 'no' will work."
+                    )
+                )
+                return
+
             possible_bullet.trigger = ctx.responses["truth_bullet_trigger"]
             possible_bullet.description = ctx.responses["truth_bullet_desc"]
+            possible_bullet.hidden = hidden
             await possible_bullet.save()
 
             if possible_bullet.trigger != trigger:

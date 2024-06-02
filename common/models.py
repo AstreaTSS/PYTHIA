@@ -9,6 +9,7 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 import os
 import typing
+from enum import IntEnum
 
 import interactions as ipy
 from tortoise import fields
@@ -56,6 +57,7 @@ class TruthBullet(Model):
     guild_id: int = fields.BigIntField()
     found: bool = fields.BooleanField()  # type: ignore
     finder: typing.Optional[int] = fields.BigIntField(null=True)
+    hidden: bool = fields.BooleanField(default=False)
 
     @property
     def chan_mention(self) -> str:
@@ -65,6 +67,7 @@ class TruthBullet(Model):
         str_list = [
             f"Trigger `{self.trigger}` - in {self.chan_mention}",
             f"Aliases: {', '.join(f'`{a}`' for a in self.aliases)}",
+            f"Hidden: {yesno_friendly_str(self.hidden)}",
             f"Found: {yesno_friendly_str(self.found)}",
         ]
 
@@ -94,6 +97,11 @@ class TruthBullet(Model):
         return embed
 
 
+class InvestigationType(IntEnum):
+    DEFAULT = 1
+    COMMAND_ONLY = 2
+
+
 class Config(Model):
     class Meta:
         table = "uinewconfig"
@@ -103,6 +111,9 @@ class Config(Model):
     best_bullet_finder_role: typing.Optional[int] = fields.BigIntField(null=True)
     player_role: typing.Optional[int] = fields.BigIntField(null=True)
     bullets_enabled: bool = fields.BooleanField(default=False)  # type: ignore
+    investigation_type: InvestigationType = fields.IntEnumField(
+        InvestigationType, default=InvestigationType.DEFAULT
+    )
 
 
 def generate_regexp(attribute: str) -> str:

@@ -192,7 +192,7 @@ bot.init_load = True
 bot.slash_perms_cache = defaultdict(dict)
 bot.mini_commands_per_scope = {}
 bot.background_tasks = set()
-bot.enabled_bullets_guilds = set()
+bot.msg_enabled_bullets_guilds = set()
 bot.color = ipy.Color(int(os.environ["BOT_COLOR"]))  # #D92C43 or 14232643
 prefixed.setup(bot)
 
@@ -200,8 +200,11 @@ prefixed.setup(bot)
 async def start() -> None:
     await Tortoise.init(TORTOISE_ORM)
 
-    async for model in models.Config.filter(bullets_enabled=True):
-        bot.enabled_bullets_guilds.add(model.guild_id)
+    async for model in models.Config.filter(
+        bullets_enabled=True,
+        investigation_type__not=models.InvestigationType.COMMAND_ONLY,
+    ):
+        bot.msg_enabled_bullets_guilds.add(model.guild_id)
 
     ext_list = utils.get_all_extensions(os.environ["DIRECTORY_OF_FILE"])
     for ext in ext_list:
