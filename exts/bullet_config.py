@@ -185,7 +185,7 @@ class BulletConfigCMDs(utils.Extension):
             )
 
     @config.subcommand(
-        sub_cmd_name="investigation_type",
+        sub_cmd_name="investigation-mode",
         sub_cmd_description="Change the investigation mode.",
     )
     async def set_investigation_mode(

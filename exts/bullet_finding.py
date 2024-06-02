@@ -47,7 +47,7 @@ class BulletFinding(utils.Extension):
         # the next is just fancy code to check for ties and make a list for the top people
         most_found_people = tuple(p[0] for p in most_found if p[1] == most_found_num)
 
-        plural = " " if len(most_found_people) == 1 else "s"
+        plural = "" if len(most_found_people) == 1 else "s"
 
         str_builder: list[str] = [
             "**All Truth Bullets have been found.**",
@@ -132,6 +132,9 @@ class BulletFinding(utils.Extension):
         if not bullet_found:
             return
 
+        bullet_found.found = True
+        bullet_found.finder = message.author.id
+
         bullet_chan: ipy.GuildText | None = None
         embed = bullet_found.found_embed(str(message.author))
 
@@ -170,9 +173,6 @@ class BulletFinding(utils.Extension):
                     delete_after=5,
                 )
                 return
-
-        bullet_found.found = True
-        bullet_found.finder = message.author.id
 
         await bullet_found.save(force_update=True)
         await self.check_for_finish(message.guild, bullet_chan, guild_config)
@@ -215,6 +215,9 @@ class BulletFinding(utils.Extension):
 
         await ctx.defer(ephemeral=truth_bullet.hidden)
 
+        truth_bullet.found = True
+        truth_bullet.finder = ctx.author.id
+
         bullet_chan: ipy.GuildText | None = None
         embed = truth_bullet.found_embed(str(ctx.author))
 
@@ -237,9 +240,6 @@ class BulletFinding(utils.Extension):
                     url=message.jump_url,
                 ),
             )
-
-        truth_bullet.found = True
-        truth_bullet.finder = ctx.author.id
 
         await truth_bullet.save(force_update=True)
         await self.check_for_finish(ctx.guild, bullet_chan, guild_config)
