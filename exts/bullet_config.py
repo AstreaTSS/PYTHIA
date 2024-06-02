@@ -153,7 +153,6 @@ class BulletConfigCMDs(utils.Extension):
         ctx: utils.UIInteractionContext,
         role: typing.Optional[ipy.Role] = tansy.Option(
             "The Player role to use.",
-            converter=utils.ValidRoleConverter,
             default=None,
         ),
         unset: bool = tansy.Option("Should the role be unset?", default=False),
