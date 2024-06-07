@@ -10,7 +10,10 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 import asyncio
 import collections
 import importlib
+import time
+import typing
 
+import cachetools
 import interactions as ipy
 import tansy
 from interactions.client.mixins.send import SendMixin
@@ -20,11 +23,111 @@ import common.models as models
 import common.utils as utils
 
 
+class BulletMsgCache(typing.NamedTuple):
+    jump_url: str
+    msg: ipy.Message | None = None
+
+
+T = typing.TypeVar("T")
+KT = typing.TypeVar("KT")
+VT = typing.TypeVar("VT")
+
+
+class LockedTTLDict(cachetools.TTLCache[KT, VT]):
+    def __init__(
+        self,
+        maxsize: float,
+        ttl: float,
+        timer: typing.Callable[[], float] = time.monotonic,
+        getsizeof: None = None,
+    ) -> None:
+        self.locks: collections.defaultdict[KT, asyncio.Lock] = collections.defaultdict(
+            lambda: asyncio.Lock()
+        )
+        super().__init__(maxsize, ttl, timer, getsizeof)
+
+    async def async_getitem(self, key: KT) -> VT:
+        async with self.locks[key]:
+            return self.__getitem__(key)
+
+    @typing.overload
+    async def async_get(self, key: KT) -> VT | None: ...
+
+    @typing.overload
+    async def async_get(self, key: KT, default: T) -> VT | T: ...
+
+    async def async_get(self, key: KT, default: T | None = None) -> VT | T | None:
+        async with self.locks[key]:
+            return self.get(key, default)
+
+    async def async_set(self, key: KT, value: VT) -> None:
+        async with self.locks[key]:
+            self.__setitem__(key, value)
+
+    @typing.overload
+    async def async_pop(self, key: KT) -> VT: ...
+
+    @typing.overload
+    async def async_pop(self, key: KT, default: T) -> VT | T: ...
+
+    async def async_pop(self, key: KT, default: T | None = None) -> VT | T | None:
+        async with self.locks[key]:
+            data = self.pop(key, default)
+
+        self.locks.pop(key, None)
+        return data
+    
+    def expire(self, time: float | None = None) -> None:
+        if time is None:
+            time = self.timer()
+        root = self._TTLCache__root  # type: ignore
+        curr = root.next
+        links = self._TTLCache__links  # type: ignore
+        cache_delitem = cachetools.Cache.__delitem__
+        while curr is not root and not (time < curr.expires):
+            cache_delitem(self, curr.key)
+            self.locks.pop(curr.key, None)
+            del links[curr.key]
+            our_next = curr.next
+            curr.unlink()
+            curr = our_next
+
 class BulletFinding(utils.Extension):
     """The cog that deals with finding Truth Bullets."""
 
     def __init__(self, bot: utils.UIBase) -> None:
         self.bot: utils.UIBase = bot
+        self.msg_cache: LockedTTLDict[ipy.Snowflake_Type, BulletMsgCache] = LockedTTLDict(50, 60)
+    
+    async def check_for_proxy(
+        self,
+        message: ipy.Message,
+    ) -> None:
+        def check(event: ipy.events.MessageCreate) -> bool:
+            return event.message.content == message.content and bool(event.message.webhook_id)
+
+        try:
+            msg_event: ipy.events.MessageCreate = self.bot.wait_for(ipy.events.MessageCreate, checks=check, timeout=5)
+
+            data = await self.msg_cache.async_get(message)
+            if not data:
+                return
+            
+            if data.msg:
+                await data.msg.edit(
+                    components=ipy.Button(
+                        style=ipy.ButtonStyle.LINK,
+                        label="Triggering Message",
+                        url=msg_event.message.jump_url,
+                    )
+                )
+                await self.msg_cache.async_pop(message)
+                return
+            
+            await self.msg_cache.async_set(message, data._replace(jump_url=msg_event.message.jump_url))
+
+        except TimeoutError:
+            await self.msg_cache.async_pop(message)
 
     async def check_for_finish(
         self,
@@ -126,11 +229,15 @@ class BulletFinding(utils.Extension):
                 self.bot.msg_enabled_bullets_guilds.discard(int(message.guild.id))
             return
 
+        self.bot.create_task(self.check_for_proxy(message))
+
         bullet_found = await models.find_truth_bullet(
             message.channel.id, message.content
         )
         if not bullet_found:
             return
+        
+        await self.msg_cache.async_set(message, BulletMsgCache(message.jump_url))
 
         bullet_found.found = True
         bullet_found.finder = message.author.id
@@ -148,24 +255,29 @@ class BulletFinding(utils.Extension):
                 return
 
             await message.reply(embed=embed)
-            await bullet_chan.send(
+
+            data = await self.msg_cache.async_getitem(message)
+            new_msg = await bullet_chan.send(
                 embed=embed,
                 components=ipy.Button(
                     style=ipy.ButtonStyle.LINK,
                     label="Triggering Message",
-                    url=message.jump_url,
+                    url=data.jump_url,
                 ),
             )
+            await self.msg_cache.async_set(message, data._replace(msg=new_msg))
         else:
             try:
-                await message.author.send(
+                data = await self.msg_cache.async_getitem(message)
+                new_msg = await message.author.send(
                     embed=embed,
                     components=ipy.Button(
                         style=ipy.ButtonStyle.LINK,
                         label="Triggering Message",
-                        url=message.jump_url,
+                        url=data.jump_url,
                     ),
                 )
+                await self.msg_cache.async_set(message, data._replace(msg=new_msg))
             except ipy.errors.HTTPException:
                 await message.channel.send(
                     f"{message.author.mention}, I couldn't DM you a Truth Bullet."
