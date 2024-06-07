@@ -76,7 +76,7 @@ class LockedTTLDict(cachetools.TTLCache[KT, VT]):
 
         self.locks.pop(key, None)
         return data
-    
+
     def expire(self, time: float | None = None) -> None:
         if time is None:
             time = self.timer()
@@ -92,27 +92,34 @@ class LockedTTLDict(cachetools.TTLCache[KT, VT]):
             curr.unlink()
             curr = our_next
 
+
 class BulletFinding(utils.Extension):
     """The cog that deals with finding Truth Bullets."""
 
     def __init__(self, bot: utils.UIBase) -> None:
         self.bot: utils.UIBase = bot
-        self.msg_cache: LockedTTLDict[ipy.Snowflake_Type, BulletMsgCache] = LockedTTLDict(50, 60)
-    
+        self.msg_cache: LockedTTLDict[ipy.Snowflake_Type, BulletMsgCache] = (
+            LockedTTLDict(50, 60)
+        )
+
     async def check_for_proxy(
         self,
         message: ipy.Message,
     ) -> None:
         def check(event: ipy.events.MessageCreate) -> bool:
-            return event.message.content == message.content and bool(event.message.webhook_id)
+            return event.message.content == message.content and bool(
+                event.message.webhook_id
+            )
 
         try:
-            msg_event: ipy.events.MessageCreate = self.bot.wait_for(ipy.events.MessageCreate, checks=check, timeout=5)
+            msg_event: ipy.events.MessageCreate = self.bot.wait_for(
+                ipy.events.MessageCreate, checks=check, timeout=5
+            )
 
             data = await self.msg_cache.async_get(message)
             if not data:
                 return
-            
+
             if data.msg:
                 await data.msg.edit(
                     components=ipy.Button(
@@ -123,8 +130,10 @@ class BulletFinding(utils.Extension):
                 )
                 await self.msg_cache.async_pop(message)
                 return
-            
-            await self.msg_cache.async_set(message, data._replace(jump_url=msg_event.message.jump_url))
+
+            await self.msg_cache.async_set(
+                message, data._replace(jump_url=msg_event.message.jump_url)
+            )
 
         except TimeoutError:
             await self.msg_cache.async_pop(message)
@@ -236,7 +245,7 @@ class BulletFinding(utils.Extension):
         )
         if not bullet_found:
             return
-        
+
         await self.msg_cache.async_set(message, BulletMsgCache(message.jump_url))
 
         bullet_found.found = True
