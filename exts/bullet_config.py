@@ -211,6 +211,8 @@ class BulletConfigCMDs(utils.Extension):
 
         if investigation_type == models.InvestigationType.COMMAND_ONLY:
             self.bot.msg_enabled_bullets_guilds.discard(int(ctx.guild.id))
+        elif guild_config.bullets_enabled:
+            self.bot.msg_enabled_bullets_guilds.add(int(ctx.guild.id))
 
         await ctx.send(
             embed=utils.make_embed(
