@@ -46,7 +46,7 @@ class TruthBullet(PrismaTruthBullet):
 
     @field_serializer("aliases", when_used="always")
     def _transform_aliases_into_list(self, value: set[str]) -> list[str]:
-        return list(value)
+        return sorted(value)
 
     @property
     def chan_mention(self) -> str:
