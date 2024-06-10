@@ -19,6 +19,8 @@ model PrismaNames {
   best_bullet_finder           String @default("Best {{bullet_finder}}")
 
   config PrismaConfig?
+
+  @@map("uinames")
 }
 
 model PrismaConfig {
