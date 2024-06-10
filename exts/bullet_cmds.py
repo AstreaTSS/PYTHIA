@@ -70,10 +70,10 @@ class BulletCMDs(utils.Extension):
             embeds.append(
                 ipy.Embed(
                     "Warning",
-                    "This server has no Truth Bullets that have not been found yet. If"
-                    " you want to start fresh with completely new Truth Bullets, you"
-                    " can clear the current ones with"
-                    f" {self.bot.mention_command('clear-bullets')}.",
+                    "This server has Truth Bullets that all have been found, likely"
+                    " from a previous investigation. If you want to start fresh with"
+                    " completely new Truth Bullets, you can clear the current ones"
+                    f" with {self.bot.mention_command('clear-bullets')}.",
                     color=ipy.RoleColors.YELLOW,
                 )
             )
