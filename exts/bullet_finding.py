@@ -58,7 +58,6 @@ class BulletFinding(utils.Extension):
             if most_found_num
             else config.names.plural_bullet
         )
-
         truth_bullet_finder = (
             config.names.singular_truth_bullet_finder
             if len(most_found_people) == 1
@@ -190,7 +189,7 @@ class BulletFinding(utils.Extension):
                 )
             except ipy.errors.HTTPException:
                 await message.channel.send(
-                    f"{message.author.mention}, I couldn't DM you a"
+                    f"{message.author.mention}, I couldn't DM you a(n)"
                     f" {guild_config.names.singular_bullet}. Please enable DMs for this"
                     " server and this bot and try again.",
                     delete_after=5,
