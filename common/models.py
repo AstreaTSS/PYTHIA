@@ -36,6 +36,13 @@ def escape_ilike(value: str) -> str:
     return ILIKE_ESCAPE.sub(r"\\\1", value)
 
 
+TEMPLATE_MARKDOWN = re.compile(r"({{(.*)}})")
+
+
+def code_template(value: str) -> str:
+    return TEMPLATE_MARKDOWN.sub(r"`\1`", value)
+
+
 class TruthBullet(PrismaTruthBullet):
     aliases: set[str]
 
@@ -128,8 +135,8 @@ class TruthBullet(PrismaTruthBullet):
 
 class Names(PrismaNames):
     async def save(self) -> None:
-        data = self.model_dump()
-        await self.prisma().update(where={"guild_id": self.guild_id}, data=data)  # type: ignore
+        data = self.model_dump(exclude={"config"})
+        await self.prisma().update(where={"id": self.id}, data=data)  # type: ignore
 
 
 class InvestigationType(IntEnum):
@@ -142,6 +149,8 @@ class Config(PrismaConfig):
 
     if typing.TYPE_CHECKING:
         names: Names
+    else:
+        names: typing.Optional[Names] = None
 
     @field_validator("investigation_type", mode="after")
     @classmethod
@@ -160,7 +169,9 @@ class Config(PrismaConfig):
 
         if not config.names:
             config = await cls.prisma().update(
-                where={"guild_id": config.guild_id}, data={"names": {"create": {}}}
+                where={"guild_id": config.guild_id},
+                data={"names": {"create": {}}},
+                include={"names": True},
             )
             if typing.TYPE_CHECKING:
                 assert config is not None
@@ -175,13 +186,15 @@ class Config(PrismaConfig):
 
         if config and not config.names:
             config = await cls.prisma().update(
-                where={"guild_id": config.guild_id}, data={"names": {"create": {}}}
+                where={"guild_id": config.guild_id},
+                data={"names": {"create": {}}},
+                include={"names": True},
             )
 
         return config
 
     async def save(self) -> None:
-        data = self.model_dump()
+        data = self.model_dump(exclude={"names", "names_id"})
         await self.prisma().update(where={"guild_id": self.guild_id}, data=data)  # type: ignore
 
 

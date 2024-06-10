@@ -76,14 +76,16 @@ class BulletConfigCMDs(utils.Extension):
 
         names_builder: list[str] = [
             (
-                f"Singular Truth Bullet: {config.names.singular_bullet}Plural Truth"
-                f" Bullet: {config.names.plural_bullet}Singular Truth Bullet Finder:"
-                f" {config.names.singular_truth_bullet_finder}Plural Truth Bullet"
-                f" Finder: {config.names.plural_truth_bullet_finder}Best Truth Bullet"
-                f" Finder: {config.names.best_bullet_finder}"
+                f"Singular Truth Bullet: {config.names.singular_bullet}\nPlural Truth"
+                f" Bullet: {config.names.plural_bullet}\nSingular Truth Bullet Finder:"
+                f" {models.code_template(config.names.singular_truth_bullet_finder)}\nPlural"
+                " Truth Bullet Finder:"
+                f" {models.code_template(config.names.plural_truth_bullet_finder)}\nBest"
+                " Truth Bullet Finder:"
+                f" {models.code_template(config.names.best_bullet_finder)}"
             ),
             (
-                "*Note: anything in {{}} is a field to be replaced dynamically by the"
+                "*Note: anything in `{{}}` is a field to be replaced dynamically by the"
                 " appropriate value.*"
             ),
         ]
@@ -318,9 +320,11 @@ class BulletConfigCMDs(utils.Extension):
         await names.save()
 
         await ctx.send(
-            "Updated! Please note this will only affect public-facing aspects - IE"
-            f" finding items.\nSingular: {names.singular_bullet}\nPlural:"
-            f" {names.plural_bullet}"
+            embed=utils.make_embed(
+                "Updated! Please note this will only affect public-facing aspects - IE"
+                f" finding items.\nSingular: {names.singular_bullet}\nPlural:"
+                f" {names.plural_bullet}"
+            )
         )
 
     @ipy.modal_callback("bullet_finders")
@@ -328,17 +332,52 @@ class BulletConfigCMDs(utils.Extension):
         config = await ctx.fetch_config()
         names = config.names
 
+        if (
+            var_name := models.TEMPLATE_MARKDOWN.search(
+                ctx.kwargs["singular_truth_bullet_finder"]
+            )
+        ) and var_name.group(2) != "bullet_name":
+            raise ipy.errors.BadArgument(
+                "Invalid variable name in Singular Truth Bullet Finder. Only"
+                " `{{bullet_name}}`, the Truth Bullet name, is allowed."
+            )
+
+        if (
+            var_name := models.TEMPLATE_MARKDOWN.search(
+                ctx.kwargs["plural_truth_bullet_finder"]
+            )
+        ) and var_name.group(2) != "bullet_name":
+            raise ipy.errors.BadArgument(
+                "Invalid variable name in Plural Truth Bullet Finder. Only"
+                " `{{bullet_name}}`, the Truth Bullet name, is allowed."
+            )
+
+        if (
+            var_name := models.TEMPLATE_MARKDOWN.search(
+                ctx.kwargs["best_bullet_finder"]
+            )
+        ) and var_name.group(2) != "bullet_finder":
+            raise ipy.errors.BadArgument(
+                "Invalid variable name in Best Truth Bullet Finder. Only"
+                " `{{bullet_finder}}`, the Truth Bullet Finder name, is allowed."
+            )
+
         names.singular_truth_bullet_finder = ctx.kwargs["singular_truth_bullet_finder"]
         names.plural_truth_bullet_finder = ctx.kwargs["plural_truth_bullet_finder"]
         names.best_bullet_finder = ctx.kwargs["best_bullet_finder"]
         await names.save()
 
         await ctx.send(
-            "Updated! Please note this will only affect public-facing aspects - IE"
-            " finding all items.\nSingular Finder:"
-            f" {names.singular_truth_bullet_finder}\nPlural Finders:"
-            f" {names.plural_truth_bullet_finder}\nBest Finder:"
-            f" {names.best_bullet_finder}",
+            embed=utils.make_embed(
+                "Updated! Please note this will only affect public-facing aspects - IE"
+                " finding all items.\nSingular Finder:"
+                f" {models.code_template(names.singular_truth_bullet_finder)}\nPlural"
+                " Finders:"
+                f" {models.code_template(names.plural_truth_bullet_finder)}\nBest"
+                f" Finder: {models.code_template(names.best_bullet_finder)}\n\n*Note:"
+                " anything in `{}` is a field to be replaced dynamically by the"
+                " appropriate value.*",
+            )
         )
 
     @config.subcommand(
