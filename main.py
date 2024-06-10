@@ -19,7 +19,7 @@ from collections import defaultdict
 import interactions as ipy
 import sentry_sdk
 from interactions.ext import prefixed_commands as prefixed
-from tortoise import Tortoise
+from prisma import Prisma
 
 from load_env import load_env
 
@@ -28,7 +28,6 @@ load_env()
 import common.help_tools as help_tools
 import common.models as models
 import common.utils as utils
-from db_settings import TORTOISE_ORM
 
 if typing.TYPE_CHECKING:
     import discord_typings
@@ -159,7 +158,7 @@ class UltimateInvestigator(utils.UIBase):
         return task
 
     async def stop(self) -> None:
-        await Tortoise.close_connections()
+        await self.db.disconnect()
         await super().stop()
 
 
@@ -198,11 +197,19 @@ prefixed.setup(bot)
 
 
 async def start() -> None:
-    await Tortoise.init(TORTOISE_ORM)
+    db = Prisma(
+        auto_register=True,
+        datasource={"url": os.environ["DB_URL"]},
+        http={"http2": True},
+    )
+    await db.connect()
+    bot.db = db
 
-    async for model in models.Config.filter(
-        bullets_enabled=True,
-        investigation_type__not=models.InvestigationType.COMMAND_ONLY,
+    for model in await models.Config.prisma().find_many(
+        where={
+            "bullets_enabled": True,
+            "investigation_type": {"not": models.InvestigationType.COMMAND_ONLY},
+        }
     ):
         bot.msg_enabled_bullets_guilds.add(model.guild_id)
 

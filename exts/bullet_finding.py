@@ -14,7 +14,6 @@ import importlib
 import interactions as ipy
 import tansy
 from interactions.client.mixins.send import SendMixin
-from tortoise.expressions import Q
 
 import common.models as models
 import common.utils as utils
@@ -32,12 +31,19 @@ class BulletFinding(utils.Extension):
         bullet_chan: ipy.GuildText | None,
         guild_config: models.Config,
     ) -> None:
-        if await models.TruthBullet.filter(guild_id=guild.id, found=False).exists():
+        if (
+            await models.TruthBullet.prisma().count(
+                where={"guild_id": guild.id, "found": False}
+            )
+            > 0
+        ):
             return
 
         counter: collections.Counter[int] = collections.Counter()
 
-        async for bullet in models.TruthBullet.filter(guild_id=guild.id):
+        for bullet in await models.TruthBullet.prisma().find_many(
+            where={"guild_id": guild.id}
+        ):
             counter[bullet.finder] += 1  # type: ignore
 
         most_found = counter.most_common(None)
@@ -126,7 +132,7 @@ class BulletFinding(utils.Extension):
                 self.bot.msg_enabled_bullets_guilds.discard(int(message.guild.id))
             return
 
-        bullet_found = await models.find_truth_bullet(
+        bullet_found = await models.TruthBullet.find(
             message.channel.id, message.content
         )
         if not bullet_found:
@@ -174,7 +180,7 @@ class BulletFinding(utils.Extension):
                 )
                 return
 
-        await bullet_found.save(force_update=True)
+        await bullet_found.save()
         await self.check_for_finish(message.guild, bullet_chan, guild_config)
 
     @tansy.slash_command(
@@ -206,10 +212,7 @@ class BulletFinding(utils.Extension):
                 "Cannot investigate without the Player role."
             )
 
-        truth_bullet = await models.TruthBullet.get_or_none(
-            Q(channel_id=ctx.channel_id)
-            & Q(Q(trigger__iexact=trigger) | Q(aliases__icontains=trigger))
-        )
+        truth_bullet = await models.TruthBullet.find_exact(ctx.channel_id, trigger)
         if not truth_bullet:
             raise utils.CustomCheckFailure("No Truth Bullet found with this trigger.")
 
@@ -241,7 +244,7 @@ class BulletFinding(utils.Extension):
                 ),
             )
 
-        await truth_bullet.save(force_update=True)
+        await truth_bullet.save()
         await self.check_for_finish(ctx.guild, bullet_chan, guild_config)
 
 

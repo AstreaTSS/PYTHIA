@@ -77,8 +77,3 @@ ignore = [
 
 per-file-ignores = {}
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
-
-[tool.aerich]
-tortoise_orm = "db_settings.TORTOISE_ORM"
-location = "./migrations"
-src_folder = "./."

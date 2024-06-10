@@ -1,8 +1,9 @@
 discord-py-interactions[speedup]==5.12.0
 tansy==0.9.1
 asyncpg==0.29.0
-tortoise-orm[accel]==0.21.3
-aerich==0.7.2
+prisma==0.13.1
+pydantic==2.7.2
+httpx[http2]==0.27.0
 aiodns==3.2.0
 Brotli==1.1.0
 humanize==4.9.0

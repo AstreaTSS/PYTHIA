@@ -59,7 +59,9 @@ async def autocomplete_bullets(
     if not channel:
         return await ctx.send([])
 
-    channel_bullets = await models.TruthBullet.filter(channel_id=int(channel))
+    channel_bullets = await models.TruthBullet.prisma().find_many(
+        where={"channel_id": int(channel)}
+    )
 
     if not trigger:
         return await ctx.send([{"name": b.trigger, "value": b.trigger} for b in channel_bullets][:25])  # type: ignore
@@ -87,9 +89,7 @@ async def autocomplete_aliases(
     if not channel or not trigger:
         return await ctx.send([])
 
-    truth_bullet = await models.TruthBullet.get_or_none(
-        channel_id=int(channel), trigger__iexact=trigger
-    )
+    truth_bullet = await models.TruthBullet.find_possible_bullet(channel, trigger)
     if not truth_bullet:
         return await ctx.send([])
 

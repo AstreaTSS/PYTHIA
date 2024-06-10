@@ -251,10 +251,12 @@ if typing.TYPE_CHECKING:
     import asyncio
 
     from interactions.ext.prefixed_commands import PrefixedInjectedClient
+    from prisma import Prisma
 
     from .help_tools import MiniCommand, PermissionsResolver
 
     class UIBase(PrefixedInjectedClient):
+        db: Prisma
         owner: ipy.User
         color: ipy.Color
         background_tasks: set[asyncio.Task]
@@ -299,7 +301,9 @@ class UIContextMixin:
         if self.guild_config:
             return self.guild_config
 
-        config, _ = await models.Config.get_or_create(guild_id=self.guild_id)
+        config = await models.Config.get_or_none(
+            guild_id=self.guild_id
+        ) or await models.Config.prisma().create(data={"guild_id": self.guild_id})
 
         self.guild_config = config
         return config

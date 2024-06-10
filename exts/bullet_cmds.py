@@ -12,7 +12,6 @@ import importlib
 
 import interactions as ipy
 import tansy
-from tortoise.expressions import Q
 
 import common.fuzzy as fuzzy
 import common.help_tools as help_tools
@@ -61,18 +60,20 @@ class BulletCMDs(utils.Extension):
         embeds: list[ipy.Embed] = []
 
         if (
-            await models.TruthBullet.filter(guild_id=ctx.guild_id).exists()
-            and not await models.TruthBullet.filter(
-                guild_id=ctx.guild_id, found=False
-            ).exists()
+            await models.TruthBullet.prisma().count(where={"guild_id": ctx.guild_id})
+            > 0
+            and await models.TruthBullet.prisma().count(
+                where={"guild_id": ctx.guild_id, "found": False}
+            )
+            == 0
         ):
             embeds.append(
                 ipy.Embed(
                     "Warning",
-                    "This server has Truth Bullets that all have been found, likely"
-                    " from a previous investigation. If you want to start fresh with"
-                    " completely new Truth Bullets, you can clear the current ones"
-                    f" with {self.bot.mention_command('clear-bullets')}.",
+                    "This server has no Truth Bullets that have not been found yet. If"
+                    " you want to start fresh with completely new Truth Bullets, you"
+                    " can clear the current ones with"
+                    f" {self.bot.mention_command('clear-bullets')}.",
                     color=ipy.RoleColors.YELLOW,
                 )
             )
@@ -126,13 +127,9 @@ class BulletCMDs(utils.Extension):
         if ctx.custom_id.startswith("ui-modal:add_bullets-"):
             channel_id = int(ctx.custom_id.removeprefix("ui-modal:add_bullets-"))
 
-            if await models.TruthBullet.filter(
-                Q(channel_id=channel_id)
-                & Q(
-                    Q(trigger__iexact=ctx.responses["truth_bullet_trigger"])
-                    | Q(aliases__icontains=ctx.responses["truth_bullet_trigger"])
-                )
-            ).exists():
+            if await models.TruthBullet.validate(
+                channel_id, ctx.responses["truth_bullet_trigger"]
+            ):
                 await ctx.send(
                     embed=utils.error_embed_generate(
                         f"A Truth Bullet in <#{channel_id}> already has the trigger"
@@ -153,15 +150,17 @@ class BulletCMDs(utils.Extension):
                 )
                 return
 
-            await models.TruthBullet.create(
-                trigger=ctx.responses["truth_bullet_trigger"],
-                aliases=set(),
-                description=ctx.responses["truth_bullet_desc"],
-                channel_id=channel_id,
-                guild_id=ctx.guild.id,
-                found=False,
-                finder=None,
-                hidden=hidden,
+            await models.TruthBullet.prisma().create(
+                data={
+                    "trigger": ctx.responses["truth_bullet_trigger"],
+                    "aliases": [],
+                    "description": ctx.responses["truth_bullet_desc"],
+                    "channel_id": channel_id,
+                    "guild_id": ctx.guild_id,
+                    "found": False,
+                    "finder": None,
+                    "hidden": hidden,
+                }
             )
 
             await ctx.send(
@@ -185,9 +184,15 @@ class BulletCMDs(utils.Extension):
             "The trigger of the Truth Bullet to be removed.", autocomplete=True
         ),
     ) -> None:
-        num_deleted = await models.TruthBullet.filter(
-            channel_id=channel.id, trigger__iexact=trigger
-        ).delete()
+        num_deleted = await models.TruthBullet.prisma().delete_many(
+            where={
+                "channel_id": channel.id,
+                "trigger": {
+                    "equals": models.escape_ilike(trigger),
+                    "mode": "insensitive",
+                },
+            }
+        )
 
         if num_deleted > 0:
             await ctx.send(
@@ -209,7 +214,9 @@ class BulletCMDs(utils.Extension):
         ),
     )
     async def clear_bullets(self, ctx: utils.UISlashContext) -> None:
-        num_deleted = await models.TruthBullet.filter(guild_id=ctx.guild.id).delete()
+        num_deleted = await models.TruthBullet.prisma().delete_many(
+            where={"guild_id": ctx.guild_id}
+        )
 
         # just to give a more clear indication to users
         # technically everything's fine without this
@@ -226,7 +233,9 @@ class BulletCMDs(utils.Extension):
         "list-bullets", "Lists all Truth Bullets in the server this is run in."
     )
     async def list_bullets(self, ctx: utils.UIInteractionContext) -> None:
-        guild_bullets = await models.TruthBullet.filter(guild_id=ctx.guild.id)
+        guild_bullets = await models.TruthBullet.prisma().find_many(
+            where={"guild_id": ctx.guild_id}
+        )
         if not guild_bullets:
             raise utils.CustomCheckFailure("There's no Truth Bullets for this server!")
 
@@ -276,10 +285,9 @@ class BulletCMDs(utils.Extension):
             "The trigger of the Truth Bullet.", autocomplete=True
         ),
     ) -> None:
-        possible_bullet = await models.TruthBullet.get_or_none(
-            channel_id=channel.id, trigger__iexact=trigger
+        possible_bullet = await models.TruthBullet.find_possible_bullet(
+            channel.id, trigger
         )
-
         if not possible_bullet:
             raise ipy.errors.BadArgument(
                 f"Truth Bullet with trigger `{trigger}` does not exist in"
@@ -310,8 +318,8 @@ class BulletCMDs(utils.Extension):
             "The trigger of the Truth Bullet to edit.", autocomplete=True
         ),
     ) -> None:
-        possible_bullet = await models.TruthBullet.get_or_none(
-            channel_id=channel.id, trigger__iexact=trigger
+        possible_bullet = await models.TruthBullet.find_possible_bullet(
+            channel.id, trigger
         )
         if not possible_bullet:
             raise ipy.errors.BadArgument(
@@ -360,9 +368,8 @@ class BulletCMDs(utils.Extension):
             )
             channel_id = int(channel_id)
 
-            possible_bullet = await models.TruthBullet.get_or_none(
-                channel_id=channel_id,
-                trigger__iexact=trigger,
+            possible_bullet = await models.TruthBullet.find_possible_bullet(
+                channel_id, trigger
             )
             if possible_bullet is None:
                 await ctx.send(
@@ -413,9 +420,8 @@ class BulletCMDs(utils.Extension):
             "The trigger of the Truth Bullet to unfind.", autocomplete=True
         ),
     ) -> None:
-        possible_bullet = await models.TruthBullet.get_or_none(
-            channel_id=channel.id,
-            trigger__iexact=trigger,
+        possible_bullet = await models.TruthBullet.find_possible_bullet(
+            channel.id, trigger
         )
 
         if not possible_bullet:
@@ -448,9 +454,8 @@ class BulletCMDs(utils.Extension):
         ),
         user: ipy.Member = tansy.Option("The user who will find the Truth Bullet."),
     ) -> None:
-        possible_bullet = await models.TruthBullet.get_or_none(
-            channel_id=channel.id,
-            trigger__iexact=trigger,
+        possible_bullet = await models.TruthBullet.find_possible_bullet(
+            channel.id, trigger
         )
         if not possible_bullet:
             raise ipy.errors.BadArgument(
@@ -485,16 +490,25 @@ class BulletCMDs(utils.Extension):
                 + "Please use something at or under 40 characters."
             )
 
-        if await models.TruthBullet.exists(
-            channel_id=channel.id, trigger__iexact=alias
+        if (
+            await models.TruthBullet.prisma().count(
+                where={
+                    "channel_id": channel.id,
+                    "trigger": {
+                        "equals": models.escape_ilike(alias),
+                        "mode": "insensitive",
+                    },
+                }
+            )
+            > 0
         ):
             raise ipy.errors.BadArgument(
                 f"Alias `{alias}` is used as a trigger for another Truth Bullet for"
                 " this channel!"
             )
 
-        possible_bullet = await models.TruthBullet.get_or_none(
-            channel_id=channel.id, trigger__iexact=trigger
+        possible_bullet = await models.TruthBullet.find_possible_bullet(
+            channel.id, trigger
         )
         if not possible_bullet:
             raise ipy.errors.BadArgument(
@@ -535,9 +549,8 @@ class BulletCMDs(utils.Extension):
         ),
         alias: str = tansy.Option("The alias to remove.", autocomplete=True),
     ) -> None:
-        possible_bullet = await models.TruthBullet.get_or_none(
-            channel_id=channel.id,
-            trigger__iexact=trigger,
+        possible_bullet = await models.TruthBullet.find_possible_bullet(
+            channel.id, trigger
         )
         if not possible_bullet:
             raise ipy.errors.BadArgument(

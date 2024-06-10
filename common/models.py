@@ -8,14 +8,15 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """
 
 import os
+import re
 import typing
 from enum import IntEnum
 
 import interactions as ipy
-from tortoise import fields
-from tortoise.connection import connections
-from tortoise.contrib.postgres.fields import ArrayField
-from tortoise.models import Model
+import orjson
+from prisma._async_http import Response
+from prisma.models import PrismaConfig, PrismaTruthBullet
+from pydantic import field_serializer, field_validator
 
 
 # yes, this is a copy from common.utils
@@ -24,40 +25,28 @@ def yesno_friendly_str(bool_to_convert: bool) -> str:
     return "yes" if bool_to_convert else "no"
 
 
-class SetField(ArrayField, set):
-    """A somewhat exploity way of using an array field to store a set."""
-
-    def to_python_value(self, value: typing.Any) -> typing.Optional[set]:
-        value = None if value is None else set(value)
-        self.validate(value)
-        return value
-
-    def to_db_value(
-        self, value: typing.Optional[set], _: typing.Any
-    ) -> typing.Optional[list]:
-        self.validate(value)
-        return None if value is None else list(value)
+def generate_regexp(attribute: str) -> str:
+    return rf"regexp_replace({attribute}, '([\%_])', '\\\1', 'g')"
 
 
-class TruthBullet(Model):
-    class Meta:
-        table = "uinewtruthbullets"
-        indexes = (
-            "name",
-            "channel_id",
-            "guild_id",
-            "found",
-        )
+ILIKE_ESCAPE = re.compile(r"([\%_])")
 
-    id: int = fields.IntField(pk=True)
-    trigger: str = fields.CharField(max_length=100)
-    aliases: set[str] = SetField("VARCHAR(40)")
-    description: str = fields.TextField()
-    channel_id: int = fields.BigIntField()
-    guild_id: int = fields.BigIntField()
-    found: bool = fields.BooleanField()  # type: ignore
-    finder: typing.Optional[int] = fields.BigIntField(null=True)
-    hidden: bool = fields.BooleanField(default=False)
+
+def escape_ilike(value: str) -> str:
+    return ILIKE_ESCAPE.sub(r"\\\1", value)
+
+
+class TruthBullet(PrismaTruthBullet):
+    aliases: set[str]
+
+    @field_validator("aliases", mode="after")
+    @classmethod
+    def _transform_aliases_into_set(cls, value: list[str]) -> set[str]:
+        return set(value)
+
+    @field_serializer("aliases", when_used="always")
+    def _transform_aliases_into_list(self, value: set[str]) -> list[str]:
+        return list(value)
 
     @property
     def chan_mention(self) -> str:
@@ -96,36 +85,87 @@ class TruthBullet(Model):
 
         return embed
 
+    @classmethod
+    async def find(
+        cls, channel_id: ipy.Snowflake_Type, content: str
+    ) -> typing.Self | None:
+        return await cls.prisma().query_first(
+            FIND_TRUTH_BULLET_STR, int(channel_id), content
+        )
+
+    @classmethod
+    async def find_exact(
+        cls, channel_id: ipy.Snowflake_Type, content: str
+    ) -> typing.Self | None:
+        return await cls.prisma().query_first(
+            FIND_TRUTH_BULLET_EXACT_STR, int(channel_id), content
+        )
+
+    @classmethod
+    async def find_possible_bullet(
+        cls, channel_id: ipy.Snowflake_Type, trigger: str
+    ) -> typing.Self | None:
+        return await cls.prisma().find_first(
+            where={
+                "channel_id": int(channel_id),
+                "trigger": {"equals": escape_ilike(trigger), "mode": "insensitive"},
+            }
+        )
+
+    @classmethod
+    async def validate(cls, channel_id: ipy.Snowflake_Type, trigger: str) -> bool:
+        return (
+            await cls.prisma()._client.query_first(
+                VALIDATE_TRUTH_BULLET_STR, int(channel_id), trigger
+            )
+            is not None
+        )
+
+    async def save(self) -> None:
+        data = self.model_dump()
+        await self.prisma().update(where={"id": self.id}, data=data)  # type: ignore
+
 
 class InvestigationType(IntEnum):
     DEFAULT = 1
     COMMAND_ONLY = 2
 
 
-class Config(Model):
-    class Meta:
-        table = "uinewconfig"
+class Config(PrismaConfig):
+    investigation_type: InvestigationType
 
-    guild_id: int = fields.BigIntField(pk=True)
-    bullet_chan_id: typing.Optional[int] = fields.BigIntField(null=True)
-    best_bullet_finder_role: typing.Optional[int] = fields.BigIntField(null=True)
-    player_role: typing.Optional[int] = fields.BigIntField(null=True)
-    bullets_enabled: bool = fields.BooleanField(default=False)  # type: ignore
-    investigation_type: InvestigationType = fields.IntEnumField(
-        InvestigationType, default=InvestigationType.DEFAULT
-    )
+    @field_validator("investigation_type", mode="after")
+    @classmethod
+    def _transform_int_into_investigation_type(cls, value: int) -> InvestigationType:
+        return InvestigationType(value)
 
+    @field_serializer("investigation_type", when_used="always")
+    def _transform_investigation_type_into_int(self, value: InvestigationType) -> int:
+        return value.value
 
-def generate_regexp(attribute: str) -> str:
-    return rf"regexp_replace({attribute}, '([\%_])', '\\\1', 'g')"
+    @classmethod
+    async def get(cls, guild_id: int) -> typing.Self:
+        return await cls.prisma().find_unique_or_raise(
+            where={"guild_id": guild_id},
+        )
+
+    @classmethod
+    async def get_or_none(cls, guild_id: int) -> typing.Optional[typing.Self]:
+        return await cls.prisma().find_unique(
+            where={"guild_id": guild_id},
+        )
+
+    async def save(self) -> None:
+        data = self.model_dump()
+        await self.prisma().update(where={"guild_id": self.guild_id}, data=data)  # type: ignore
 
 
 FIND_TRUTH_BULLET_STR: typing.Final[str] = (
     f"""
 SELECT
-    {', '.join(TruthBullet._meta.fields)}
+    {', '.join(TruthBullet.model_fields)}
 FROM
-    {TruthBullet.Meta.table}
+    uinewtruthbullets
 WHERE
     channel_id = $1
     AND found = false
@@ -140,18 +180,48 @@ WHERE
 """.strip()  # noqa: S608
 )
 
+VALIDATE_TRUTH_BULLET_STR: typing.Final[str] = (
+    """
+SELECT
+    1
+FROM
+    uinewtruthbullets
+WHERE
+    channel_id = $1
+    AND (
+        UPPER($2) = UPPER(trigger)
+        OR EXISTS (
+            SELECT 1
+            FROM unnest(aliases) AS alias
+            WHERE UPPER($2) = UPPER(alias)
+        )
+    );
+""".strip()
+)
 
-async def find_truth_bullet(
-    channel_id: ipy.Snowflake_Type, content: str
-) -> typing.Optional[TruthBullet]:
-    conn = connections.get("default")
+FIND_TRUTH_BULLET_EXACT_STR: typing.Final[str] = (
+    f"""
+SELECT
+    {', '.join(TruthBullet.model_fields)}
+FROM
+    uinewtruthbullets
+WHERE
+    channel_id = $1
+    AND (
+        UPPER($2) = UPPER(trigger)
+        OR EXISTS (
+            SELECT 1
+            FROM unnest(aliases) AS alias
+            WHERE UPPER($2) = UPPER(alias)
+        )
+    );
+""".strip()  # noqa: S608
+)
 
-    result = await conn.execute_query(
-        FIND_TRUTH_BULLET_STR,
-        [int(channel_id), content],
-    )
 
-    try:
-        return None if result[0] <= 0 else TruthBullet(**dict(result[1][0]))
-    except (KeyError, IndexError, ValueError):
-        return None
+class FastResponse(Response):
+    async def json(self, **kwargs: typing.Any) -> typing.Any:
+        return orjson.loads(await self.original.aread(), **kwargs)
+
+
+Response.json = FastResponse.json  # type: ignore
