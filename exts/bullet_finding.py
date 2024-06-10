@@ -107,12 +107,12 @@ class BulletFinding(utils.Extension):
         message: ipy.Message,
     ) -> None:
         def check(event: ipy.events.MessageCreate) -> bool:
-            return event.message.content == message.content and bool(
+            return event.message.content in message.content and bool(
                 event.message.webhook_id
             )
 
         try:
-            msg_event: ipy.events.MessageCreate = self.bot.wait_for(
+            msg_event: ipy.events.MessageCreate = await self.bot.wait_for(
                 ipy.events.MessageCreate, checks=check, timeout=5
             )
 
