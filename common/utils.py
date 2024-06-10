@@ -305,11 +305,24 @@ class UIContextMixin:
             guild_id=self.guild_id
         ) or await models.Config.prisma().create(data={"guild_id": self.guild_id})
 
+        if not config.names:
+            config = await models.Config.prisma().update(
+                where={"guild_id": config.guild_id},
+                data={"names": {"create": {}}},
+                include={"names": True},
+            )
+            if typing.TYPE_CHECKING:
+                assert config is not None
+
         self.guild_config = config
         return config
 
 
 class UIBaseContext(UIContextMixin, ipy.BaseContext):
+    pass
+
+
+class UIModalContext(UIContextMixin, ipy.ModalContext):
     pass
 
 

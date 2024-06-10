@@ -184,6 +184,7 @@ bot = UltimateInvestigator(
     intents=intents,
     interaction_context=utils.UIInteractionContext,
     slash_context=utils.UISlashContext,
+    modal_context=utils.UIModalContext,
     auto_defer=ipy.AutoDefer(enabled=True, time_until_defer=0),
     logger=logger,
 )
