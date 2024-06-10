@@ -11,6 +11,5 @@ RUN git config --global --add safe.directory /app
 
 RUN pip install --no-cache-dir -r requirements.txt
 RUN python -m prisma generate
-RUN python -m prisma migrate deploy
 
 CMD [ "python", "main.py" ]
