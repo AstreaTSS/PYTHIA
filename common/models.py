@@ -15,7 +15,7 @@ from enum import IntEnum
 import interactions as ipy
 import orjson
 from prisma._async_http import Response
-from prisma.models import PrismaConfig, PrismaTruthBullet
+from prisma.models import PrismaConfig, PrismaNames, PrismaTruthBullet
 from pydantic import field_serializer, field_validator
 
 
@@ -70,9 +70,9 @@ class TruthBullet(PrismaTruthBullet):
 
         return "\n".join(str_list)
 
-    def found_embed(self, username: str) -> ipy.Embed:
+    def found_embed(self, username: str, singular_bullet: str) -> ipy.Embed:
         embed = ipy.Embed(
-            title="Truth Bullet Discovered",
+            title=f"{singular_bullet} Discovered",
             timestamp=ipy.Timestamp.utcnow(),
             color=int(os.environ["BOT_COLOR"]),
         )
@@ -126,6 +126,12 @@ class TruthBullet(PrismaTruthBullet):
         await self.prisma().update(where={"id": self.id}, data=data)  # type: ignore
 
 
+class Names(PrismaNames):
+    async def save(self) -> None:
+        data = self.model_dump()
+        await self.prisma().update(where={"guild_id": self.guild_id}, data=data)  # type: ignore
+
+
 class InvestigationType(IntEnum):
     DEFAULT = 1
     COMMAND_ONLY = 2
@@ -133,6 +139,9 @@ class InvestigationType(IntEnum):
 
 class Config(PrismaConfig):
     investigation_type: InvestigationType
+
+    if typing.TYPE_CHECKING:
+        names: Names
 
     @field_validator("investigation_type", mode="after")
     @classmethod
@@ -145,15 +154,31 @@ class Config(PrismaConfig):
 
     @classmethod
     async def get(cls, guild_id: int) -> typing.Self:
-        return await cls.prisma().find_unique_or_raise(
-            where={"guild_id": guild_id},
+        config = await cls.prisma().find_unique_or_raise(
+            where={"guild_id": guild_id}, include={"names": True}
         )
+
+        if not config.names:
+            config = await cls.prisma().update(
+                where={"guild_id": config.guild_id}, data={"names": {"create": {}}}
+            )
+            if typing.TYPE_CHECKING:
+                assert config is not None
+
+        return config
 
     @classmethod
     async def get_or_none(cls, guild_id: int) -> typing.Optional[typing.Self]:
-        return await cls.prisma().find_unique(
-            where={"guild_id": guild_id},
+        config = await cls.prisma().find_unique(
+            where={"guild_id": guild_id}, include={"names": True}
         )
+
+        if config and not config.names:
+            config = await cls.prisma().update(
+                where={"guild_id": config.guild_id}, data={"names": {"create": {}}}
+            )
+
+        return config
 
     async def save(self) -> None:
         data = self.model_dump()

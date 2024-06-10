@@ -303,13 +303,19 @@ class UIContextMixin:
 
         config = await models.Config.get_or_none(
             guild_id=self.guild_id
-        ) or await models.Config.prisma().create(data={"guild_id": self.guild_id})
+        ) or await models.Config.prisma().create(
+            data={"guild_id": self.guild_id}, include={"names": True}
+        )
 
         self.guild_config = config
         return config
 
 
 class UIBaseContext(UIContextMixin, ipy.BaseContext):
+    pass
+
+
+class UIModalContext(UIContextMixin, ipy.ModalContext):
     pass
 
 

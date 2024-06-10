@@ -4,20 +4,32 @@ datasource db {
 }
 
 generator client {
-  provider               = "prisma-client-py"
-  previewFeatures        = ["nativeDistinct", "relationJoins"]
-  interface              = "asyncio"
-  recursive_type_depth   = -1
+  provider             = "prisma-client-py"
+  previewFeatures      = ["nativeDistinct", "relationJoins"]
+  interface            = "asyncio"
+  recursive_type_depth = -1
 }
 
+model PrismaNames {
+  id                           Int    @id @default(autoincrement())
+  singular_bullet              String @default("Truth Bullet")
+  plural_bullet                String @default("Truth Bullets")
+  singular_truth_bullet_finder String @default("{{bullet_name}} Finder")
+  plural_truth_bullet_finder   String @default("{{bullet_name}} Finders")
+  best_bullet_finder           String @default("Best {{bullet_finder}}")
+
+  config PrismaConfig?
+}
 
 model PrismaConfig {
-  guild_id                BigInt  @id @default(autoincrement())
+  guild_id                BigInt      @id @default(autoincrement())
   bullet_chan_id          BigInt?
   best_bullet_finder_role BigInt?
   player_role             BigInt?
-  bullets_enabled         Boolean @default(false)
-  investigation_type      Int     @default(1) @db.SmallInt
+  bullets_enabled         Boolean     @default(false)
+  investigation_type      Int         @default(1) @db.SmallInt
+  names                   PrismaNames @relation(fields: [names_id], references: [id])
+  names_id                Int         @unique
 
   @@map("uinewconfig")
 }

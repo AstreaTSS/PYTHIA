@@ -39,13 +39,13 @@ class BulletConfigCMDs(utils.Extension):
         ),
     )
     async def bullet_config(self, ctx: utils.UIInteractionContext) -> None:
-        guild_config = await ctx.fetch_config()
+        config = await ctx.fetch_config()
 
         str_builder = [
-            f"Truth Bullets: {utils.toggle_friendly_str(guild_config.bullets_enabled)}",
+            f"Truth Bullets: {utils.toggle_friendly_str(config.bullets_enabled)}",
             (
                 "Truth Bullet channel:"
-                f" {f'<#{guild_config.bullet_chan_id}>' if guild_config.bullet_chan_id else 'N/A'}"
+                f" {f'<#{config.bullet_chan_id}>' if config.bullet_chan_id else 'N/A'}"
             ),
             "",
         ]
@@ -54,22 +54,40 @@ class BulletConfigCMDs(utils.Extension):
             (
                 (
                     "Investigation mode:"
-                    f" {guild_config.investigation_type.name.replace('_', ' ').title()}"
+                    f" {config.investigation_type.name.replace('_', ' ').title()}"
                 ),
                 (
                     "Player role:"
-                    f" {f'<@&{guild_config.player_role}>' if guild_config.player_role else 'N/A'}"
+                    f" {f'<@&{config.player_role}>' if config.player_role else 'N/A'}"
                 ),
                 (
                     "Best Truth Bullet Finder role:"
-                    f" {f'<@&{guild_config.best_bullet_finder_role}>' if guild_config.best_bullet_finder_role else 'N/A'}"
+                    f" {f'<@&{config.best_bullet_finder_role}>' if config.best_bullet_finder_role else 'N/A'}"
                 ),
             )
         )
-        embed = utils.make_embed(
+
+        embed = ipy.Embed(
             title=f"Server config for {ctx.guild.name}",
             description="\n".join(str_builder),
+            color=utils._bot_color,
+            timestamp=ipy.Timestamp.utcnow(),
         )
+
+        names_builder: list[str] = [
+            (
+                f"Singular Truth Bullet: {config.names.singular_bullet}Plural Truth"
+                f" Bullet: {config.names.plural_bullet}Singular Truth Bullet Finder:"
+                f" {config.names.singular_truth_bullet_finder}Plural Truth Bullet"
+                f" Finder: {config.names.plural_truth_bullet_finder}Best Truth Bullet"
+                f" Finder: {config.names.best_bullet_finder}"
+            ),
+            (
+                "*Note: anything in {{}} is a field to be replaced dynamically by the"
+                " appropriate value.*"
+            ),
+        ]
+        embed.add_field("Names", "\n".join(names_builder), inline=True)
         await ctx.send(embed=embed)
 
     @config.subcommand(
@@ -219,6 +237,108 @@ class BulletConfigCMDs(utils.Extension):
                 "Investigation mode set to"
                 f" {guild_config.investigation_type.name.replace('_', ' ').title()}."
             )
+        )
+
+    @config.subcommand(
+        sub_cmd_name="names",
+        sub_cmd_description="Edit the names used for various parts of the bot.",
+    )
+    @ipy.auto_defer(enabled=False)
+    async def edit_names(
+        self,
+        ctx: utils.UISlashContext,
+        to_change: str = tansy.Option(
+            "The names to change.",
+            choices=[
+                ipy.SlashCommandChoice("Truth Bullet Names", "bullet_names"),
+                ipy.SlashCommandChoice("Truth Bullet Finders", "bullet_finders"),
+            ],
+        ),
+    ) -> None:
+        if to_change not in {"bullet_names", "bullet_finders"}:
+            raise ipy.errors.BadArgument("Invalid change requested!")
+
+        config = await ctx.fetch_config()
+
+        if to_change == "bullet_names":
+            modal = ipy.Modal(
+                ipy.InputText(
+                    label="Singular Bullet Name",
+                    style=ipy.TextStyles.SHORT,
+                    custom_id="singular_name",
+                    value=config.names.singular_bullet,
+                    max_length=40,
+                ),
+                ipy.InputText(
+                    label="Plural Bullet Name",
+                    style=ipy.TextStyles.SHORT,
+                    custom_id="plural_name",
+                    value=config.names.plural_bullet,
+                    max_length=40,
+                ),
+                title="Edit Truth Bullet Names",
+                custom_id="bullet_names",
+            )
+        else:
+            modal = ipy.Modal(
+                ipy.InputText(
+                    label="Singular Truth Bullet Finder",
+                    style=ipy.TextStyles.SHORT,
+                    custom_id="singular_truth_bullet_finder",
+                    value=config.names.singular_truth_bullet_finder,
+                    max_length=70,
+                ),
+                ipy.InputText(
+                    label="Plural Truth Bullet Finder",
+                    style=ipy.TextStyles.SHORT,
+                    custom_id="plural_truth_bullet_finder",
+                    value=config.names.plural_truth_bullet_finder,
+                    max_length=70,
+                ),
+                ipy.InputText(
+                    label="Best Bullet Finder Name",
+                    style=ipy.TextStyles.SHORT,
+                    custom_id="best_bullet_finder",
+                    value=config.names.best_bullet_finder,
+                    max_length=70,
+                ),
+                title="Edit Truth Bullet Finder Names",
+                custom_id="bullet_finders",
+            )
+
+        await ctx.send_modal(modal)
+
+    @ipy.modal_callback("bullet_names")
+    async def bullet_names_edit(self, ctx: utils.UIModalContext) -> None:
+        config = await ctx.fetch_config()
+        names = config.names
+
+        names.singular_bullet = ctx.kwargs["singular_name"]
+        names.plural_bullet = ctx.kwargs["plural_name"]
+        await names.save()
+
+        await ctx.send(
+            "Updated! Please note this will only affect public-facing aspects - IE"
+            f" finding items.\nSingular: {names.singular_bullet}\nPlural:"
+            f" {names.plural_bullet}"
+        )
+
+    @ipy.modal_callback("bullet_finders")
+    async def bullet_finders_edit(self, ctx: utils.UIModalContext) -> None:
+        config = await ctx.fetch_config()
+        names = config.names
+
+        names.singular_truth_bullet_finder = ctx.kwargs["singular_truth_bullet_finder"]
+        names.plural_truth_bullet_finder = ctx.kwargs["plural_truth_bullet_finder"]
+        names.best_bullet_finder = ctx.kwargs["best_bullet_finder"]
+        await names.save()
+
+        await ctx.send(
+            "Updated! Please note this will only affect public-facing aspects - IE"
+            " finding all items.\nSingular Finder:"
+            f" {names.singular_truth_bullet_finder}\nPlural Finders:"
+            f" {names.plural_truth_bullet_finder}\nBest Finder:"
+            f" {names.best_bullet_finder}",
         )
 
     @config.subcommand(
