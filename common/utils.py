@@ -16,6 +16,7 @@ import typing
 from pathlib import Path
 
 import aiohttp
+import dictdatabase as ddb
 import interactions as ipy
 import sentry_sdk
 import tansy
@@ -47,6 +48,15 @@ def error_embed_generate(error_msg: str) -> ipy.Embed:
         title="Error",
         description=error_msg,
         color=ipy.MaterialColors.ORANGE,
+        timestamp=ipy.Timestamp.utcnow(),
+    )
+
+
+def warning_embed_generate(warning_msg: str) -> ipy.Embed:
+    return ipy.Embed(
+        title="Warning",
+        description=warning_msg,
+        color=ipy.MaterialColors.YELLOW,
         timestamp=ipy.Timestamp.utcnow(),
     )
 
@@ -232,6 +242,27 @@ class ValidChannelConverter(ipy.Converter):
         self, ctx: ipy.InteractionContext, argument: ipy.GuildText
     ) -> GuildMessageable:
         return valid_channel_check(argument, ctx.app_permissions)
+
+
+async def rebrand_check(ctx: ipy.BaseContext, **kwargs: typing.Any) -> None:
+    if ddb.at("guilds", key=str(ctx.guild_id)).exists():
+        return
+
+    await ctx.send(
+        embed=warning_embed_generate(
+            "**A rebrand will happen on July 6th, 2024 that will both rename the bot"
+            " and many commands**. Please take a look at the rebrand announcement for"
+            " more information: https://sh.astrea.cc/uirebrand"
+        ),
+        **kwargs,
+    )
+
+    if not ddb.at("guilds").exists():
+        ddb.at("guilds").create()
+
+    with ddb.at("guilds").session() as (session, guilds):
+        guilds[str(ctx.guild_id)] = True
+        session.write()
 
 
 async def _global_checks(ctx: ipy.BaseContext) -> bool:

@@ -16,12 +16,16 @@ import sys
 import typing
 from collections import defaultdict
 
+import dictdatabase as ddb
 import interactions as ipy
 import sentry_sdk
 from interactions.ext import prefixed_commands as prefixed
 from prisma import Prisma
 
 from load_env import load_env
+
+ddb.config.use_compression = True
+ddb.config.indent = None
 
 load_env()
 
@@ -107,7 +111,7 @@ class UltimateInvestigator(utils.UIBase):
         activity = ipy.Activity(
             name="Splash Text",
             type=ipy.ActivityType.CUSTOM,
-            state="Watching for Truth Bullets!",
+            state="Rebrand soon! Check bio for important info",
         )
         await self.change_presence(activity=activity)
 
@@ -116,7 +120,7 @@ class UltimateInvestigator(utils.UIBase):
         activity = ipy.Activity(
             name="Splash Text",
             type=ipy.ActivityType.CUSTOM,
-            state="Watching for Truth Bullets!",
+            state="Rebrand soon! Check bio for important info",
         )
         await self.change_presence(activity=activity)
 

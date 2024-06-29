@@ -39,6 +39,8 @@ class BulletConfigCMDs(utils.Extension):
         ),
     )
     async def bullet_config(self, ctx: utils.UIInteractionContext) -> None:
+        await utils.rebrand_check(ctx)
+
         config = await ctx.fetch_config()
 
         str_builder = [
@@ -114,6 +116,8 @@ class BulletConfigCMDs(utils.Extension):
         if channel and not isinstance(channel, SendMixin):
             raise ipy.errors.BadArgument("The channel must be a text channel.")
 
+        await utils.rebrand_check(ctx)
+
         guild_config = await ctx.fetch_config()
 
         guild_config.bullet_chan_id = channel.id if channel else None
@@ -146,6 +150,8 @@ class BulletConfigCMDs(utils.Extension):
             raise ipy.errors.BadArgument(
                 "You must either specify a role or specify to unset the role."
             )
+
+        await utils.rebrand_check(ctx)
 
         guild_config = await ctx.fetch_config()
         guild_config.best_bullet_finder_role = role.id if role else None
@@ -181,6 +187,8 @@ class BulletConfigCMDs(utils.Extension):
             raise ipy.errors.BadArgument(
                 "You must either specify a role or specify to unset the role."
             )
+
+        await utils.rebrand_check(ctx)
 
         guild_config = await ctx.fetch_config()
         guild_config.player_role = role.id if role else None
@@ -224,6 +232,8 @@ class BulletConfigCMDs(utils.Extension):
             investigation_type = models.InvestigationType(mode)
         except ValueError:
             raise ipy.errors.BadArgument("Invalid investigation mode.") from None
+
+        await utils.rebrand_check(ctx)
 
         guild_config = await ctx.fetch_config()
         guild_config.investigation_type = investigation_type
@@ -312,6 +322,8 @@ class BulletConfigCMDs(utils.Extension):
 
     @ipy.modal_callback("bullet_names")
     async def bullet_names_edit(self, ctx: utils.UIModalContext) -> None:
+        await utils.rebrand_check(ctx)
+
         config = await ctx.fetch_config()
         names = config.names
 
@@ -329,6 +341,8 @@ class BulletConfigCMDs(utils.Extension):
 
     @ipy.modal_callback("bullet_finders")
     async def bullet_finders_edit(self, ctx: utils.UIModalContext) -> None:
+        await utils.rebrand_check(ctx)
+
         config = await ctx.fetch_config()
         names = config.names
 
@@ -391,6 +405,8 @@ class BulletConfigCMDs(utils.Extension):
             "Should the Truth Bullets be on (true) or off (false)?"
         ),
     ) -> None:
+        await utils.rebrand_check(ctx)
+
         guild_config = await ctx.fetch_config()
         if (
             not guild_config.bullets_enabled and toggle
@@ -421,6 +437,8 @@ class BulletConfigCMDs(utils.Extension):
         self,
         ctx: utils.UISlashContext,
     ) -> None:
+        await utils.rebrand_check(ctx)
+
         embed = utils.make_embed(
             "To set up this bot, follow the Server Setup Guide below.",
             title="Setup Bot",
