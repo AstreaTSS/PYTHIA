@@ -51,8 +51,6 @@ class BulletCMDs(utils.Extension):
             converter=utils.ValidChannelConverter,
         ),
     ) -> None:
-        await utils.rebrand_check(ctx)
-
         button = ipy.Button(
             style=ipy.ButtonStyle.GREEN,
             label=f"Add Truth Bullets for #{channel.name}",
@@ -152,8 +150,6 @@ class BulletCMDs(utils.Extension):
                 )
                 return
 
-            await utils.rebrand_check(ctx)
-
             await models.TruthBullet.prisma().create(
                 data={
                     "trigger": ctx.responses["truth_bullet_trigger"],
@@ -188,8 +184,6 @@ class BulletCMDs(utils.Extension):
             "The trigger of the Truth Bullet to be removed.", autocomplete=True
         ),
     ) -> None:
-        await utils.rebrand_check(ctx)
-
         num_deleted = await models.TruthBullet.prisma().delete_many(
             where={
                 "channel_id": channel.id,
@@ -220,8 +214,6 @@ class BulletCMDs(utils.Extension):
         ),
     )
     async def clear_bullets(self, ctx: utils.UISlashContext) -> None:
-        await utils.rebrand_check(ctx)
-
         num_deleted = await models.TruthBullet.prisma().delete_many(
             where={"guild_id": ctx.guild_id}
         )
@@ -246,8 +238,6 @@ class BulletCMDs(utils.Extension):
         )
         if not guild_bullets:
             raise utils.CustomCheckFailure("There's no Truth Bullets for this server!")
-
-        await utils.rebrand_check(ctx)
 
         bullet_dict: collections.defaultdict[int, list[models.TruthBullet]] = (
             collections.defaultdict(list)
@@ -303,8 +293,6 @@ class BulletCMDs(utils.Extension):
                 f"Truth Bullet with trigger `{trigger}` does not exist in"
                 f" {channel.mention}!"
             )
-
-        await utils.rebrand_check(ctx)
 
         bullet_info = possible_bullet.bullet_info()
         embed = ipy.Embed(
@@ -402,8 +390,6 @@ class BulletCMDs(utils.Extension):
                 )
                 return
 
-            await utils.rebrand_check(ctx)
-
             possible_bullet.trigger = ctx.responses["truth_bullet_trigger"]
             possible_bullet.description = ctx.responses["truth_bullet_desc"]
             possible_bullet.hidden = hidden
@@ -447,8 +433,6 @@ class BulletCMDs(utils.Extension):
                 f"Truth Bullet with trigger `{trigger}` has not been found!"
             )
 
-        await utils.rebrand_check(ctx)
-
         possible_bullet.found = False
         possible_bullet.finder = None
         await possible_bullet.save()
@@ -477,8 +461,6 @@ class BulletCMDs(utils.Extension):
             raise ipy.errors.BadArgument(
                 f"Truth Bullet with `{trigger}` does not exist!"
             )
-
-        await utils.rebrand_check(ctx)
 
         possible_bullet.found = True
         possible_bullet.finder = user.id
@@ -543,8 +525,6 @@ class BulletCMDs(utils.Extension):
                 f"Alias `{alias}` already exists for this Truth Bullet!"
             )
 
-        await utils.rebrand_check(ctx)
-
         possible_bullet.aliases.add(alias)
         await possible_bullet.save()
 
@@ -583,8 +563,6 @@ class BulletCMDs(utils.Extension):
             raise ipy.errors.BadArgument(
                 f"Alias `{alias}` does not exists for this Truth Bullet!"
             ) from None
-
-        await utils.rebrand_check(ctx)
 
         await possible_bullet.save()
 
