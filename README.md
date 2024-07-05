@@ -16,13 +16,16 @@
 
 > "Hello. I am PYTHIA, the Ultimate Robotic Assistant. I look forward to assisting you in whatever tasks you may have."
 
-PYTHIA is a Discord bot meant to assist with Danganronpa/Killing Game RPs. Currently, it automates parts of investigating that would otherwise take time and energy to make it easier to run RPs. More specifically, it allows for staff to define 'key phrases'/triggers that players can later activate through the bot.
+PYTHIA is a Discord bot meant to assist with various parts of running Danganronpa/Killing Game RPs. Currently, it assists with:
+- The process of creating and running investigations through an intuitive investigation system
+- A gacha system, allowing staff to make their own system with unique items and rules.
 
-The bot is planned to increase in scope, adding featues like a gacha system in the future.
+<p align="center">
+  <i>For more information, please <a href="https://pythia.astrea.cc">check the official website.</a></i>
+</p>
 
-Links:
-* [Website](https://pythia.astrea.cc)
-* [Join Support Server](https://discord.gg/NSdetwGjpK)
-* [Invite Bot](https://discord.com/api/oauth2/authorize?client_id=843994199187914753&permissions=532576332864&scope=bot%20applications.commands)
+### Copyright and License Notice
 
 Copyright 2021-2024 AstreaTSS.
+
+Unless otherwise stated, all files in this repository are licensed under the Mozilla Public License v2.0. A copy of the license is available in the [LICENSE](LICENSE) file.
