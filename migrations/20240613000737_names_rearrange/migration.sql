@@ -24,7 +24,7 @@ DROP SEQUENCE "PrismaNames_id_seq";
 
 -- InsertTable
 UPDATE thianames SET guild_id = g.guild_id FROM thiaguildconfig g WHERE thianames.guild_id = g.names_id;
-DELETE FROM thianames WHERE guild_id < 100;  -- this just happens?
+DELETE FROM thianames WHERE guild_id < 10000;  -- this just happens?
 
 -- AlterTable
 ALTER TABLE "thiaguildconfig" DROP COLUMN "names_id";
