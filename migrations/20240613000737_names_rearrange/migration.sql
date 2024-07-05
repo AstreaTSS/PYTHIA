@@ -24,12 +24,10 @@ DROP SEQUENCE "PrismaNames_id_seq";
 
 -- InsertTable
 UPDATE thianames SET guild_id = g.guild_id FROM thiaguildconfig g WHERE thianames.guild_id = g.names_id;
+DELETE FROM thianames WHERE guild_id < 100;  -- this just happens?
 
 -- AlterTable
 ALTER TABLE "thiaguildconfig" DROP COLUMN "names_id";
 
 -- RenameForeignKey
 ALTER TABLE "thiaguildconfig" RENAME CONSTRAINT "thiaguildconfig_guild_id_fkey" TO "thiaguildconfig_guild_id_bullets_fkey";
-
--- AddForeignKey
-ALTER TABLE "thiaguildconfig" ADD CONSTRAINT "thiaguildconfig_guild_id_names_fkey" FOREIGN KEY ("guild_id") REFERENCES "thianames"("guild_id") ON DELETE CASCADE ON UPDATE CASCADE;
