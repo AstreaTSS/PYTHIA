@@ -397,7 +397,9 @@ class GuildConfigMixin:
         return await config._fill_in_include(include)
 
     async def save(self) -> None:
-        data = self.model_dump(exclude={"names", "names_id", "bullets", "guild_id"})
+        data = self.model_dump(
+            exclude={"names", "names_id", "bullets", "guild_id", "gacha"}
+        )
         await self.prisma().update(where={"guild_id": self.guild_id}, data=data)  # type: ignore
 
 
