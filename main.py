@@ -236,7 +236,7 @@ if __name__ == "__main__":
     uvloop = None
 
     with contextlib.suppress(ImportError):
-        import uvloop  # type: ignore
+        import uvloop  # noqa: F811 type: ignore
 
         loop_factory = uvloop.new_event_loop
 
