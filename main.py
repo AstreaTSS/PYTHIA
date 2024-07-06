@@ -107,7 +107,7 @@ class PYTHIA(utils.THIABase):
         activity = ipy.Activity(
             name="Status",
             type=ipy.ActivityType.CUSTOM,
-            state="Ultimate Investigator is now (somewhat) PYTHIA! Check bio for info",
+            state="Ult. Investigator is now (somewhat) PYTHIA! Check bio for info",
         )
         await self.change_presence(activity=activity)
 
@@ -116,7 +116,7 @@ class PYTHIA(utils.THIABase):
         activity = ipy.Activity(
             name="Status",
             type=ipy.ActivityType.CUSTOM,
-            state="Ultimate Investigator is now (somewhat) PYTHIA! Check bio for info",
+            state="Ult. Investigator is now (somewhat) PYTHIA! Check bio for info",
         )
         await self.change_presence(activity=activity)
 
