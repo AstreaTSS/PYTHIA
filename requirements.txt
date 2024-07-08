@@ -1,4 +1,4 @@
-discord-py-interactions==5.12.0
+discord-py-interactions==5.13.1
 tansy==0.9.1
 prisma==0.13.1
 pydantic==2.8.2
