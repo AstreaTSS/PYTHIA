@@ -43,7 +43,7 @@
 	"initializeCommand": "cp .devcontainer/.containerenv .env",
 
 	// Uncomment the next line to run commands after the container is created.
-	"postCreateCommand": "git config --global --add safe.directory /workspaces/UltimateInvestigator;pip install pre-commit;pre-commit install"
+	"postCreateCommand": "git config --global --add safe.directory /workspaces/PYTHIA;pip install pre-commit;pre-commit install"
 
 	// Configure tool-specific properties.
 	// "customizations": {},
