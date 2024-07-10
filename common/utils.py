@@ -7,7 +7,6 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """
 
-import collections
 import functools
 import logging
 import os
@@ -144,11 +143,11 @@ def file_to_ext(str_path: str, base_path: str) -> str:
     return str_path.replace(".py", "")
 
 
-def get_all_extensions(str_path: str, folder: str = "exts") -> collections.deque[str]:
+def get_all_extensions(str_path: str, folder: str = "exts") -> list[str]:
     # gets all extensions in a folder
-    ext_files = collections.deque()
-    loc_split = str_path.split(folder)
-    base_path = loc_split[0]
+    ext_files: list[str] = []
+    location_split = str_path.split(folder)
+    base_path = location_split[0]
 
     if base_path == str_path:
         base_path = base_path.replace("main.py", "")
@@ -161,9 +160,7 @@ def get_all_extensions(str_path: str, folder: str = "exts") -> collections.deque
     for path in pathlist:
         str_path = str(path.as_posix())
         str_path = file_to_ext(str_path, base_path)
-
-        if str_path != "exts.db_handler":
-            ext_files.append(str_path)
+        ext_files.append(str_path)
 
     return ext_files
 
@@ -250,6 +247,7 @@ class Extension(ipy.Extension):
 
 if typing.TYPE_CHECKING:
     import asyncio
+    import collections
 
     from interactions.ext.prefixed_commands import PrefixedInjectedClient
     from prisma import Prisma
