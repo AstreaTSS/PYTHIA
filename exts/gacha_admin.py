@@ -204,6 +204,21 @@ class GachaManagement(utils.Extension):
             )
         )
 
+    @config.subcommand(
+        "help", sub_cmd_description="Tells you how to set up the gacha system."
+    )
+    async def gacha_help(self, ctx: utils.THIASlashContext) -> None:
+        embed = utils.make_embed(
+            "To set up the gacha system, follow the gacha setup guide below.",
+            title="Setup Bot",
+        )
+        button = ipy.Button(
+            style=ipy.ButtonStyle.LINK,
+            label="Gacha Setup Guide",
+            url="https://pythia.astrea.cc/setup/gacha_setup",
+        )
+        await ctx.send(embeds=embed, components=button)
+
     manage = tansy.SlashCommand(
         name="gacha-manage",
         description="Handles management of gacha mechanics.",

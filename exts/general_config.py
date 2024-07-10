@@ -90,8 +90,8 @@ class ConfigCMDs(utils.Extension):
         )
         button = ipy.Button(
             style=ipy.ButtonStyle.LINK,
-            label="Server Setup Guide",
-            url="https://pythia.astrea.cc/setup/index.html",
+            label="Server Setup Guides",
+            url="https://pythia.astrea.cc/setup",
         )
         await ctx.send(embeds=embed, components=button)
 

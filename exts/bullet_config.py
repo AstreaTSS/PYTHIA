@@ -391,6 +391,22 @@ class BulletConfigCMDs(utils.Extension):
             )
         )
 
+    @config.subcommand(
+        "help", sub_cmd_description="Tells you how to set up the investigation system."
+    )
+    async def bullets_help(self, ctx: utils.THIASlashContext) -> None:
+        embed = utils.make_embed(
+            "To set up the investigation system, follow the investigations setup guide"
+            " below.",
+            title="Setup Bot",
+        )
+        button = ipy.Button(
+            style=ipy.ButtonStyle.LINK,
+            label="Investigations Setup Guide",
+            url="https://pythia.astrea.cc/setup/investigations_setup",
+        )
+        await ctx.send(embeds=embed, components=button)
+
 
 def setup(bot: utils.THIABase) -> None:
     importlib.reload(utils)
