@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://pythia.astrea.cc/setup/index.html">
+  <a href="https://pythia.astrea.cc/setup">
     <img src="https://img.shields.io/badge/Server_Setup_Guides-Link-874bd1?style=for-the-badge&logo=bookstack&logoColor=874bd1" alt="Server Setup Guides">
   </a>
   <a href="https://discord.gg/NSdetwGjpK">
