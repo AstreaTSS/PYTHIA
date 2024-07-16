@@ -232,18 +232,12 @@ async def start() -> None:
 
 
 if __name__ == "__main__":
-    loop_factory = None
-    uvloop = None
+    run_method = asyncio.run
 
+    # use uvloop if possible
     with contextlib.suppress(ImportError):
-        import uvloop  # noqa: F811 type: ignore
+        import uvloop  # type: ignore
 
-        loop_factory = uvloop.new_event_loop
+        run_method = uvloop.run
 
-    if sys.version_info >= (3, 11):
-        with asyncio.Runner(loop_factory=loop_factory) as runner:
-            runner.run(start())
-    else:
-        if uvloop:
-            uvloop.install()
-        asyncio.run(start())
+    run_method(start())
