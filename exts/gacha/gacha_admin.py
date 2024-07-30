@@ -237,7 +237,7 @@ class GachaManagement(utils.Extension):
         amount: int = tansy.Option("The amount of currency to add."),
     ) -> None:
         names = await models.Names.get_or_create(ctx.guild_id)
-
+        await models.GachaConfig.get_or_create(ctx.guild_id)
         player = await models.GachaPlayer.get_or_create(ctx.guild_id, user.id)
         player.currency_amount += amount
         await player.save()
@@ -262,7 +262,7 @@ class GachaManagement(utils.Extension):
         amount: int = tansy.Option("The amount of currency to remove."),
     ) -> None:
         names = await models.Names.get_or_create(ctx.guild_id)
-
+        await models.GachaConfig.get_or_create(ctx.guild_id)
         player = await models.GachaPlayer.get_or_create(ctx.guild_id, user.id)
         player.currency_amount -= amount
         await player.save()
@@ -386,7 +386,7 @@ class GachaManagement(utils.Extension):
         ctx: utils.THIASlashContext,
         amount: int = tansy.Option("The amount of currency to add."),
     ) -> None:
-        config = await ctx.fetch_config({"names": True})
+        config = await ctx.fetch_config({"names": True, "gacha": True})
         if typing.TYPE_CHECKING:
             assert config.names is not None
 
@@ -560,6 +560,9 @@ class GachaManagement(utils.Extension):
 
         if image and not HTTP_URL_REGEX.fullmatch(image):
             raise ipy.errors.BadArgument("The image given must be a valid URL.")
+
+        # GachaConfig needs to exist, lets make sure it does
+        await models.GachaConfig.get_or_create(ctx.guild_id)
 
         await models.GachaItem.prisma().create(
             data={
