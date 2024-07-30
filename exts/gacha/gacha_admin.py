@@ -347,6 +347,34 @@ class GachaManagement(utils.Extension):
         )
 
     @manage.subcommand(
+        "clear-items",
+        sub_cmd_description=(
+            "Clears/removes all items for this server. Use with caution!"
+        ),
+    )
+    async def gacha_clear_items(
+        self,
+        ctx: utils.THIASlashContext,
+        confirm: bool = tansy.Option(
+            "Actually clear? Set this to true if you're sure.", default=False
+        ),
+    ) -> None:
+        if not confirm:
+            raise ipy.errors.BadArgument(
+                "Confirm option not set to true. Please set the option `confirm` to"
+                " true to continue."
+            )
+
+        items_amount = await models.GachaItem.prisma().delete_many(
+            where={"guild_id": ctx.guild_id}
+        )
+
+        if items_amount <= 0:
+            raise utils.CustomCheckFailure("There's no gacha item data to clear!")
+
+        await ctx.send(embed=utils.make_embed("All gacha items data cleared."))
+
+    @manage.subcommand(
         "clear-everything",
         sub_cmd_description="Clears ALL gacha user and items data. Use with caution!",
     )
