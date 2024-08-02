@@ -31,7 +31,6 @@ class GachaCommands(utils.Extension):
     gacha = tansy.SlashCommand(
         name="gacha",
         description="Hosts public-facing gacha commands.",
-        default_member_permissions=ipy.Permissions.MANAGE_GUILD,
         dm_permission=False,
     )
 
