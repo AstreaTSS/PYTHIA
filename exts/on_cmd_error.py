@@ -12,9 +12,12 @@ import importlib
 
 import humanize
 import interactions as ipy
+from interactions.ext import hybrid_commands as hybrid
 from interactions.ext import prefixed_commands as prefixed
 
 import common.utils as utils
+
+ValidContexts = prefixed.PrefixedContext | ipy.InteractionContext | hybrid.HybridContext
 
 
 class OnCMDError(utils.Extension):
@@ -22,9 +25,7 @@ class OnCMDError(utils.Extension):
         self.bot: utils.THIABase = bot
 
     @staticmethod
-    async def handle_send(
-        ctx: prefixed.PrefixedContext | ipy.InteractionContext, content: str
-    ) -> None:
+    async def handle_send(ctx: ValidContexts, content: str) -> None:
         embed = utils.error_embed_generate(content)
         if isinstance(ctx, prefixed.PrefixedContext):
             await ctx.reply(embeds=embed)
@@ -39,7 +40,7 @@ class OnCMDError(utils.Extension):
         self,
         event: ipy.events.CommandError,
     ) -> None:
-        if not isinstance(event.ctx, prefixed.PrefixedContext | ipy.InteractionContext):
+        if not isinstance(event.ctx, ValidContexts):
             return await utils.error_handle(event.error)
 
         if isinstance(event.error, ipy.errors.CommandOnCooldown):
