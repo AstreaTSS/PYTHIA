@@ -22,6 +22,8 @@ from prisma.models import (
     PrismaGachaPlayer,
     PrismaGuildConfig,
     PrismaItemToPlayer,
+    PrismaMessageConfig,
+    PrismaMessageLink,
     PrismaNames,
     PrismaTruthBullet,
 )
@@ -331,6 +333,19 @@ class GachaConfig(GetMethodsMixin, PrismaGachaConfig):
         await self.prisma().update(where={"guild_id": self.guild_id}, data=data)  # type: ignore
 
 
+class MessageLink(PrismaMessageLink):
+    message_config: typing.Optional["MessageConfig"] = None
+
+
+class MessageConfig(PrismaMessageConfig):
+    links: typing.Optional[list["MessageLink"]] = None
+    main_config: typing.Optional["GuildConfig"] = None
+
+    async def save(self) -> None:
+        data = self.model_dump(exclude={"main_config", "links"})
+        await self.prisma().update(where={"guild_id": self.guild_id}, data=data)  # type: ignore
+
+
 class GuildConfigMixin:
     guild_id: ipy.Snowflake
 
@@ -359,6 +374,11 @@ class GuildConfigMixin:
                 )
             if entry == "gacha" and not getattr(self, "gacha", True):
                 self.gacha = await GachaConfig.prisma().create(
+                    data={"guild_id": self.guild_id}
+                )
+
+            if entry == "messages" and not getattr(self, "messages", True):
+                self.messages = await MessageConfig.prisma().create(
                     data={"guild_id": self.guild_id}
                 )
 
@@ -398,7 +418,7 @@ class GuildConfigMixin:
 
     async def save(self) -> None:
         data = self.model_dump(
-            exclude={"names", "names_id", "bullets", "guild_id", "gacha"}
+            exclude={"names", "names_id", "bullets", "guild_id", "gacha", "messages"}
         )
         await self.prisma().update(where={"guild_id": self.guild_id}, data=data)  # type: ignore
 
@@ -484,3 +504,5 @@ GachaItem.model_rebuild()
 GachaConfig.model_rebuild()
 GachaPlayer.model_rebuild()
 ItemToPlayer.model_rebuild()
+MessageLink.model_rebuild()
+MessageConfig.model_rebuild()

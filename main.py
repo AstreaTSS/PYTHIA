@@ -18,6 +18,7 @@ from collections import defaultdict
 import interactions as ipy
 import sentry_sdk
 import typing_extensions as typing
+from interactions.ext import hybrid_commands as hybrid
 from interactions.ext import prefixed_commands as prefixed
 from prisma import Prisma
 
@@ -199,6 +200,7 @@ bot.background_tasks = set()
 bot.msg_enabled_bullets_guilds = set()
 bot.color = ipy.Color(int(os.environ["BOT_COLOR"]))  # #723fb0 or 7487408
 prefixed.setup(bot, prefixed_context=utils.THIAPrefixedContext)
+hybrid.setup(bot, hybrid_context=utils.THIAHybridContext)
 
 
 async def start() -> None:

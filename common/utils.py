@@ -18,6 +18,7 @@ import interactions as ipy
 import sentry_sdk
 import tansy
 import typing_extensions as typing
+from interactions.ext import hybrid_commands as hybrid
 from interactions.ext import prefixed_commands as prefixed
 from prisma.types import PrismaGuildConfigInclude
 from typing_extensions import TypeVar
@@ -173,6 +174,12 @@ def yesno_friendly_str(bool_to_convert: bool) -> str:
     return "yes" if bool_to_convert else "no"
 
 
+def partial_channel(bot: "THIABase", channel_id: ipy.Snowflake_Type) -> ipy.GuildText:
+    return ipy.GuildText(
+        client=bot, id=ipy.to_snowflake(channel_id), type=ipy.ChannelType.GUILD_TEXT
+    )  # type: ignore
+
+
 def role_check(ctx: ipy.BaseContext, role: ipy.Role) -> ipy.Role:
     top_role = ctx.guild.me.top_role
 
@@ -255,6 +262,7 @@ if typing.TYPE_CHECKING:
     from .help_tools import MiniCommand, PermissionsResolver
 
     class THIABase(PrefixedInjectedClient):
+        hybrid: hybrid.HybridManager
         db: Prisma
         owner: ipy.User
         color: ipy.Color
@@ -325,6 +333,10 @@ class THIAInteractionContext(THIAContextMixin[ConfigT], ipy.InteractionContext):
 
 
 class THIASlashContext(THIAContextMixin[ConfigT], ipy.SlashContext):
+    pass
+
+
+class THIAHybridContext(THIAContextMixin[ConfigT], hybrid.HybridContext):
     pass
 
 
