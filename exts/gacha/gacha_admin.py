@@ -91,15 +91,13 @@ class GachaManagement(utils.Extension):
         ),
     ) -> None:
         toggle = _toggle == "on"
+        config = await models.GuildConfig.get_or_create(ctx.guild_id)
 
-        if toggle:
-            config = await models.GuildConfig.get_or_create(ctx.guild_id)
-
-            if not config.player_role:
-                raise utils.CustomCheckFailure(
-                    "Player role not set. Please set it with"
-                    f" {self.bot.mention_command('config player')} first."
-                )
+        if toggle and not config.player_role:
+            raise utils.CustomCheckFailure(
+                "Player role not set. Please set it with"
+                f" {self.bot.mention_command('config player')} first."
+            )
 
         await models.GachaConfig.prisma().update(
             data={"enabled": toggle}, where={"guild_id": ctx.guild_id}
