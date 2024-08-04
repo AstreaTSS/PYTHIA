@@ -46,6 +46,8 @@ class MessageManagement(utils.Extension):
             ),
             f"Messaging enabled: {utils.toggle_friendly_str(config.messages.enabled)}",
             f"Anonymous messaging enabled: {config.messages.anon_enabled}",
+            "",
+            f"-# Links can be found at {self.message_view_links.mention()}.",
         ]
 
         embed = utils.make_embed(
