@@ -130,7 +130,8 @@ class OtherCMDs(utils.Extension):
                 " Danganronpa/Killing Game RPs. Currently, it assists with:\n- The"
                 " process of creating and running investigations through an intuitive"
                 " investigation system.\n- A gacha system, allowing staff to make their"
-                " own system with unique items and rules."
+                " own system with unique items and rules.\n- A messaging system,"
+                " allowing for simple messaging between players."
             ),
             (
                 "To learn more, feel free to take a look at the [PYTHIA"
