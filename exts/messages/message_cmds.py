@@ -30,11 +30,11 @@ class MessageCMDs(utils.Extension):
     )
 
     @message.subcommand(
-        "whisper",
+        "send",
         sub_cmd_description=(
             "Non-anonymously message another player's designated channel."
         ),
-        aliases=["send"],
+        aliases=["whisper"],
     )
     @ipy.auto_defer(enabled=False)
     async def message_whisper(
