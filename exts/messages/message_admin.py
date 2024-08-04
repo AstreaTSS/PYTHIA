@@ -157,7 +157,9 @@ class MessageManagement(utils.Extension):
         self,
         ctx: utils.THIASlashContext,
         user: ipy.Member = tansy.Option("The user to link."),
-        channel: ipy.GuildText = tansy.Option("The channel to link for this user."),
+        channel: ipy.GuildText = tansy.Option(
+            "The channel to link for this user.", converter=utils.ValidChannelConverter
+        ),
     ) -> None:
         await ctx.fetch_config({"messages": True})
 
