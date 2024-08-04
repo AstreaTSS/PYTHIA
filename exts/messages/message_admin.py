@@ -157,7 +157,7 @@ class MessageManagement(utils.Extension):
         self,
         ctx: utils.THIASlashContext,
         user: ipy.Member = tansy.Option("The user to link."),
-        channel: ipy.GuildText = tansy.Option(
+        channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
             "The channel to link for this user.", converter=utils.ValidChannelConverter
         ),
     ) -> None:
