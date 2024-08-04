@@ -1,4 +1,7 @@
-FROM pypy:3.10
+FROM python:3.12-alpine
+
+RUN apk add gcc bash musl-dev git libffi-dev npm curl
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
 WORKDIR /app
 
@@ -7,7 +10,7 @@ COPY . /app
 # allows git to work with the directory, making commands like /about better
 RUN git config --global --add safe.directory /app
 
-RUN pip install -r requirements.txt
-RUN pypy3 -m prisma generate
+RUN /root/.cargo/bin/uv pip install --system -r requirements.txt
+RUN python -m prisma generate
 
-CMD [ "pypy3", "main.py" ]
+CMD [ "python", "main.py" ]

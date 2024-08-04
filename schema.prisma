@@ -100,13 +100,38 @@ model PrismaGachaConfig {
   @@map("thiagachaconfig")
 }
 
+model PrismaMessageLink {
+  id         Int    @id @default(autoincrement())
+  guild_id   BigInt
+  user_id    BigInt
+  channel_id BigInt
+
+  message_config PrismaMessageConfig? @relation(fields: [guild_id], references: [guild_id], onDelete: Cascade)
+
+  @@index([guild_id])
+  @@index([guild_id, user_id])
+  @@map("thiamessagelink")
+}
+
+model PrismaMessageConfig {
+  guild_id     BigInt  @id
+  enabled      Boolean @default(false)
+  anon_enabled Boolean @default(false)
+
+  links       PrismaMessageLink[]
+  main_config PrismaGuildConfig?  @relation(fields: [guild_id], references: [guild_id], onDelete: Cascade)
+
+  @@map("thiamessageconfig")
+}
+
 model PrismaGuildConfig {
   guild_id    BigInt  @id
   player_role BigInt?
 
-  names   PrismaNames?
-  bullets PrismaBulletConfig?
-  gacha   PrismaGachaConfig?
+  names    PrismaNames?
+  bullets  PrismaBulletConfig?
+  gacha    PrismaGachaConfig?
+  messages PrismaMessageConfig?
 
   @@map("thiaguildconfig")
 }
