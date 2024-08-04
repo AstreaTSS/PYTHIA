@@ -108,7 +108,7 @@ class PYTHIA(utils.THIABase):
         activity = ipy.Activity(
             name="Status",
             type=ipy.ActivityType.CUSTOM,
-            state="New: messaging system! Check bio for more info",
+            state="New messaging system! Check bio for more info",
         )
         await self.change_presence(activity=activity)
 
@@ -117,7 +117,7 @@ class PYTHIA(utils.THIABase):
         activity = ipy.Activity(
             name="Status",
             type=ipy.ActivityType.CUSTOM,
-            state="New: messaging system! Check bio for more info",
+            state="New messaging system! Check bio for more info",
         )
         await self.change_presence(activity=activity)
 
