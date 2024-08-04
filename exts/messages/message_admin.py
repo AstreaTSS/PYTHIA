@@ -70,15 +70,13 @@ class MessageManagement(utils.Extension):
         ),
     ) -> None:
         toggle = _toggle == "on"
+        config = await ctx.fetch_config({"messages": True})
 
-        if toggle:
-            config = await models.GuildConfig.get_or_create(ctx.guild_id)
-
-            if not config.player_role:
-                raise utils.CustomCheckFailure(
-                    "Player role not set. Please set it with"
-                    f" {self.bot.mention_command('config player')} first."
-                )
+        if toggle and not config.player_role:
+            raise utils.CustomCheckFailure(
+                "Player role not set. Please set it with"
+                f" {self.bot.mention_command('config player')} first."
+            )
 
         await models.MessageConfig.prisma().update(
             data={"enabled": toggle}, where={"guild_id": ctx.guild_id}
@@ -107,7 +105,7 @@ class MessageManagement(utils.Extension):
         ),
     ) -> None:
         toggle = _toggle == "on"
-        config = await models.GuildConfig.get_or_create(ctx.guild_id)
+        config = await ctx.fetch_config({"messages": True})
 
         if toggle and not config.player_role:
             raise utils.CustomCheckFailure(
@@ -182,8 +180,8 @@ class MessageManagement(utils.Extension):
             )
         )
 
-    @config.subcommand(
-        "view-links", sub_cmd_description="Views all messaging links for this server."
+    @manage.subcommand(
+        "list-links", sub_cmd_description="Lists all messaging links for this server."
     )
     async def message_view_links(self, ctx: utils.THIASlashContext) -> None:
         links = await models.MessageLink.prisma().find_many(
@@ -192,7 +190,7 @@ class MessageManagement(utils.Extension):
 
         if not links:
             raise utils.CustomCheckFailure(
-                "This server has no messaging links to show."
+                "This server has no messaging links to list."
             )
 
         links_list = [f"<@{link.user_id}> -> <#{link.channel_id}>" for link in links]
@@ -219,7 +217,7 @@ class MessageManagement(utils.Extension):
                 )
             )
 
-    @config.subcommand(
+    @manage.subcommand(
         "remove-link", sub_cmd_description="Removes a messaging link for a user."
     )
     async def message_remove_link(
@@ -240,7 +238,7 @@ class MessageManagement(utils.Extension):
             )
         )
 
-    @config.subcommand(
+    @manage.subcommand(
         "clear-links", sub_cmd_description="Removes all messaging links for the server."
     )
     async def message_clear_links(

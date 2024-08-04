@@ -26,6 +26,7 @@ class MessageCMDs(utils.Extension):
         name="message",
         description="Hosts public-facing messaging commands.",
         dm_permission=False,
+        aliases=["msg"],
     )
 
     @message.subcommand(
@@ -33,6 +34,7 @@ class MessageCMDs(utils.Extension):
         sub_cmd_description=(
             "Non-anonymously message another player's designated channel."
         ),
+        aliases=["send"],
     )
     @ipy.auto_defer(enabled=False)
     async def message_whisper(
