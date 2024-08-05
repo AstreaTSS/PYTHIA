@@ -25,58 +25,12 @@ class HelpCMD(utils.Extension):
         self.name = "Help Category"
         self.bot: utils.THIABase = bot
 
-    async def _check_wrapper(
-        self, ctx: ipy.BaseContext, check: typing.Callable
-    ) -> bool:
-        """A wrapper to ignore errors by checks."""
-        try:
-            return await check(ctx)
-        except Exception:
-            return False
-
-    async def _custom_can_run(
-        self, ctx: ipy.BaseInteractionContext, cmd: help_tools.MiniCommand
-    ) -> bool:
-        """
-        Determines if this command can be run, but ignores cooldowns and concurrency.
-        """
-
-        slash_cmd = cmd.slash_command
-
-        if not slash_cmd.get_cmd_id(int(ctx.guild_id)):
-            return False
-
-        if not self.bot.slash_perms_cache.get(int(ctx.guild_id)):
-            return False
-
-        if not self.bot.slash_perms_cache[int(ctx.guild_id)][
-            int(slash_cmd.get_cmd_id(int(ctx.guild_id)))
-        ].has_permission_ctx(ctx):
-            return False
-
-        if cmd.subcommands:
-            return True
-
-        if not slash_cmd.enabled:
-            return False
-
-        for check in slash_cmd.checks:
-            if not await self._check_wrapper(ctx, check):
-                return False
-
-        if slash_cmd.extension and slash_cmd.extension.extension_checks:
-            for check in slash_cmd.extension.extension_checks:
-                if not await self._check_wrapper(ctx, check):
-                    return False
-
-        return True
-
     async def extract_commands(
         self, ctx: ipy.AutocompleteContext, argument: typing.Optional[str]
     ) -> tuple[str, ...]:
         cmds = help_tools.get_mini_commands_for_scope(self.bot, int(ctx.guild_id))
 
-        runnable_cmds = [v for v in cmds.values() if await self._custom_can_run(ctx, v)]
+        runnable_cmds = [v for v in cmds.values() if await help_tools.can_run(ctx, v)]
         resolved_names = {
             c.resolved_name.lower(): c.resolved_name
             for c in sorted(runnable_cmds, key=lambda c: c.resolved_name)
@@ -102,7 +56,7 @@ class HelpCMD(utils.Extension):
     ) -> list[ipy.Embed]:
         embeds: list[ipy.Embed] = []
 
-        commands = [c for c in commands if await self._custom_can_run(ctx, c)]
+        commands = [c for c in commands if await help_tools.can_run(ctx, c)]
         if not commands:
             return []
 
@@ -202,7 +156,7 @@ class HelpCMD(utils.Extension):
 
         if not query:
             embeds = await self.get_all_cmd_embeds(ctx, cmds, self.bot)
-        elif (command := cmds.get(query.lower())) and await self._custom_can_run(
+        elif (command := cmds.get(query.lower())) and await help_tools.can_run(
             ctx, command
         ):
             embeds = await self.get_command_embeds(ctx, command)

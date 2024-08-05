@@ -13,8 +13,21 @@ import typing
 import interactions as ipy
 import tansy
 
+import common.help_tools as help_tools
 import common.models as models
 import common.utils as utils
+
+
+async def prefixed_check(ctx: utils.THIAHybridContext) -> bool:
+    if isinstance(ctx.inner_context, ipy.SlashContext):
+        return True
+
+    if not ctx.bot.slash_perms_cache[int(ctx.guild_id)]:
+        await help_tools.process_bulk_slash_perms(ctx.bot, int(ctx.guild_id))
+
+    cmds = help_tools.get_mini_commands_for_scope(ctx.bot, int(ctx.guild_id))
+
+    return await help_tools.can_run(ctx, cmds[ctx.command.resolved_name])
 
 
 class MessageCMDs(utils.Extension):
@@ -45,6 +58,11 @@ class MessageCMDs(utils.Extension):
     ) -> None:
         ctx.ephemeral = True
         async with ctx.typing:
+            if not await prefixed_check(ctx):
+                raise utils.CustomCheckFailure(
+                    "You do not have the proper permissions to use that command."
+                )
+
             config = await ctx.fetch_config({"messages": True})
             if typing.TYPE_CHECKING:
                 assert config.messages is not None
@@ -106,6 +124,11 @@ class MessageCMDs(utils.Extension):
     ) -> None:
         ctx.ephemeral = True
         async with ctx.typing:
+            if not await prefixed_check(ctx):
+                raise utils.CustomCheckFailure(
+                    "You do not have the proper permissions to use that command."
+                )
+
             config = await ctx.fetch_config({"messages": True})
             if typing.TYPE_CHECKING:
                 assert config.messages is not None
@@ -161,4 +184,5 @@ class MessageCMDs(utils.Extension):
 
 def setup(bot: utils.THIABase) -> None:
     importlib.reload(utils)
+    importlib.reload(help_tools)
     MessageCMDs(bot)

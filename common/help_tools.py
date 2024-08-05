@@ -16,6 +16,7 @@ import attrs
 import discord_typings
 import interactions as ipy
 import typing_extensions as typing
+from interactions.ext import hybrid_commands as hybrid
 from interactions.ext import paginators
 from interactions.ext import prefixed_commands as prefixed
 from interactions.models.discord.emoji import process_emoji
@@ -367,8 +368,15 @@ class PermissionsResolver:
             else True
         )
 
-    def has_permission_ctx(self, ctx: ipy.BaseInteractionContext) -> bool:
-        return self.has_permission(ctx.channel, ctx.author, ctx.author_permissions)  # type: ignore
+    def has_permission_ctx(
+        self, ctx: ipy.BaseInteractionContext | hybrid.HybridContext
+    ) -> bool:
+        if isinstance(ctx, hybrid.HybridContext):
+            permission = ctx.author.channel_permissions(ctx.channel)
+        else:
+            permission = ctx.author_permissions
+
+        return self.has_permission(ctx.channel, ctx.author, permission)
 
 
 class GuildApplicationCommandPermissionData(typing.TypedDict):
@@ -577,3 +585,53 @@ def get_mini_commands_for_scope(
 
     bot.mini_commands_per_scope[guild_id] = commands_dict
     return commands_dict
+
+
+async def _check_wrapper(ctx: ipy.BaseContext, check: typing.Callable) -> bool:
+    """A wrapper to ignore errors by checks."""
+    try:
+        return await check(ctx)
+    except Exception:
+        return False
+
+
+async def can_run(
+    ctx: (
+        ipy.BaseInteractionContext[utils.THIABase]
+        | hybrid.HybridContext[utils.THIABase]
+    ),
+    cmd: MiniCommand,
+) -> bool:
+    """
+    Determines if this command can be run, but ignores cooldowns and concurrency.
+    """
+
+    slash_cmd = cmd.slash_command
+
+    if not slash_cmd.get_cmd_id(int(ctx.guild_id)):
+        return False
+
+    if not ctx.bot.slash_perms_cache.get(int(ctx.guild_id)):
+        return False
+
+    if not ctx.bot.slash_perms_cache[int(ctx.guild_id)][
+        int(slash_cmd.get_cmd_id(int(ctx.guild_id)))
+    ].has_permission_ctx(ctx):
+        return False
+
+    if cmd.subcommands:
+        return True
+
+    if not slash_cmd.enabled:
+        return False
+
+    for check in slash_cmd.checks:
+        if not await _check_wrapper(ctx, check):
+            return False
+
+    if slash_cmd.extension and slash_cmd.extension.extension_checks:
+        for check in slash_cmd.extension.extension_checks:
+            if not await _check_wrapper(ctx, check):
+                return False
+
+    return True
