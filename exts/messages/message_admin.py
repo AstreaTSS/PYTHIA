@@ -40,10 +40,6 @@ class MessageManagement(utils.Extension):
             assert config.messages is not None
 
         str_builder = [
-            (
-                "Player role:"
-                f" {f'<@&{config.player_role}>' if config.player_role else 'N/A'}"
-            ),
             f"Messaging enabled: {utils.toggle_friendly_str(config.messages.enabled)}",
             f"Anonymous messaging enabled: {config.messages.anon_enabled}",
             "",
@@ -72,13 +68,7 @@ class MessageManagement(utils.Extension):
         ),
     ) -> None:
         toggle = _toggle == "on"
-        config = await ctx.fetch_config({"messages": True})
-
-        if toggle and not config.player_role:
-            raise utils.CustomCheckFailure(
-                "Player role not set. Please set it with"
-                f" {self.bot.mention_command('config player')} first."
-            )
+        await ctx.fetch_config({"messages": True})
 
         await models.MessageConfig.prisma().update(
             data={"enabled": toggle}, where={"guild_id": ctx.guild_id}
@@ -107,13 +97,7 @@ class MessageManagement(utils.Extension):
         ),
     ) -> None:
         toggle = _toggle == "on"
-        config = await ctx.fetch_config({"messages": True})
-
-        if toggle and not config.player_role:
-            raise utils.CustomCheckFailure(
-                "Player role not set. Please set it with"
-                f" {self.bot.mention_command('config player')} first."
-            )
+        await ctx.fetch_config({"messages": True})
 
         await models.MessageConfig.prisma().update(
             data={"anon_enabled": toggle}, where={"guild_id": ctx.guild_id}
