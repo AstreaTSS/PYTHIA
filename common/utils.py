@@ -25,9 +25,13 @@ from typing_extensions import TypeVar
 
 import common.models as models
 
+OS_TRUE_VALUES = frozenset({"true", "True", "TRUE", "t", "T", "1"})
+
 SENTRY_ENABLED = bool(os.environ.get("SENTRY_DSN", False))  # type: ignore
 
 VOTING_ENABLED = bool(os.environ.get("TOP_GG_TOKEN") or os.environ.get("DBL_TOKEN"))
+
+DOCKER_ENABLED = os.environ.get("DOCKER_MODE") in OS_TRUE_VALUES
 
 BOT_COLOR = ipy.Color(int(os.environ["BOT_COLOR"]))
 

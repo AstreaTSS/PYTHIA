@@ -12,6 +12,7 @@ import contextlib
 import functools
 import logging
 import os
+import subprocess
 import sys
 from collections import defaultdict
 
@@ -284,5 +285,17 @@ if __name__ == "__main__":
         import uvloop  # type: ignore
 
         run_method = uvloop.run
+
+    if (
+        utils.DOCKER_ENABLED
+        and os.environ.get("DO_NOT_MIGRATE") not in utils.OS_TRUE_VALUES
+    ):
+        import sys
+
+        subprocess.run(
+            [sys.executable, "-m", "prisma", "migrate", "deploy"],
+            check=True,
+            env={"DB_URL": os.environ["DB_URL"]},
+        )
 
     run_method(start())
