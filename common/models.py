@@ -14,6 +14,8 @@ from enum import IntEnum
 
 import interactions as ipy
 import typing_extensions as typing
+from httpcore._backends import anyio
+from httpcore._backends.asyncio import AsyncioBackend
 from prisma._async_http import Response
 from prisma.models import (
     PrismaBulletConfig,
@@ -486,6 +488,8 @@ WHERE
     );
 """.strip()  # noqa: S608
 )
+
+anyio.AnyIOBackend = AsyncioBackend
 
 
 with contextlib.suppress(ImportError):
