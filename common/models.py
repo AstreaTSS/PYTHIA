@@ -8,6 +8,7 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """
 
 import contextlib
+import datetime
 import os
 import re
 from enum import IntEnum
@@ -16,7 +17,7 @@ import interactions as ipy
 import typing_extensions as typing
 from httpcore._backends import anyio
 from httpcore._backends.asyncio import AsyncioBackend
-from prisma import _raw_query
+from prisma import Base64, Json, _builder, _raw_query
 from prisma._async_http import Response
 from prisma.models import (
     PrismaBulletConfig,
@@ -517,6 +518,28 @@ with contextlib.suppress(ImportError):
             return orjson.loads(await self.original.aread(), **kwargs)
 
     Response.json = FastResponse.json  # type: ignore
+
+    def orjson_default(obj: typing.Any) -> typing.Any:
+        if isinstance(obj, Base64):
+            return str(obj)
+        if isinstance(obj, Json):
+            return orjson_dumps(obj.data)
+        if isinstance(obj, ipy.Timestamp):
+            if obj.tzinfo != datetime.timezone.utc:
+                obj = obj.astimezone(datetime.timezone.utc)
+
+            obj = obj.replace(microsecond=int(obj.microsecond / 1000) * 1000)
+            return obj.isoformat()
+        if isinstance(obj, ipy.Snowflake):
+            return int(obj)
+
+        raise NotImplementedError(f"Objects of type {type(obj)} are not supported")
+
+    def orjson_dumps(obj: typing.Any, **_: typing.Any) -> str:
+        return orjson.dumps(obj, default=orjson_default).decode()
+
+    if _builder.dumps != orjson_dumps:
+        _builder.dumps = orjson_dumps
 
 
 Names.model_rebuild()
