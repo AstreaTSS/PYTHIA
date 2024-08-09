@@ -93,7 +93,7 @@ class BulletFinding(utils.Extension):
         str_builder.extend(f"<@{person_id}>" for person_id in most_found_people)
 
         if not bullet_chan:
-            bullet_chan = await self.bot.fetch_channel(config.bullet_chan_id)
+            bullet_chan = await self.bot.fetch_channel(config.bullets.bullet_chan_id)
             if not bullet_chan or not isinstance(bullet_chan, SendMixin):
                 config.bullets.bullets_enabled = False
                 self.bot.msg_enabled_bullets_guilds.discard(int(guild.id))
