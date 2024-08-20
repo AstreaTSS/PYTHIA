@@ -17,7 +17,7 @@ import interactions as ipy
 import typing_extensions as typing
 from httpcore._backends import anyio
 from httpcore._backends.asyncio import AsyncioBackend
-from prisma import Base64, Json, _builder, _raw_query
+from prisma import Base64, Json, _builder
 from prisma._async_http import Response
 from prisma.models import (
     PrismaBulletConfig,
@@ -492,23 +492,6 @@ WHERE
 )
 
 anyio.AnyIOBackend = AsyncioBackend
-
-
-# workaround for https://github.com/RobertCraigie/prisma-client-py/issues/998
-def _patched_deserialize_bigint(
-    value: typing.Optional[str], _for_model: bool
-) -> int | None:
-    return int(value) if value is not None else None
-
-
-DESERIALIZERS: dict = {
-    "bigint": _patched_deserialize_bigint,
-    "decimal": _raw_query._deserialize_decimal,  # this and json is tecnically broken
-    "json": _raw_query._deserialize_json,  # but we never use these two
-}
-
-if DESERIALIZERS != _raw_query.DESERIALIZERS:
-    _raw_query.DESERIALIZERS = DESERIALIZERS
 
 with contextlib.suppress(ImportError):
     import orjson  # type: ignore
