@@ -19,6 +19,7 @@ from collections import defaultdict
 import interactions as ipy
 import sentry_sdk
 import typing_extensions as typing
+from interactions.ext import hybrid_commands as hybrid
 from interactions.ext import prefixed_commands as prefixed
 from prisma import Prisma
 
@@ -26,7 +27,6 @@ from load_env import load_env
 
 load_env()
 
-import common.classes as cclasses
 import common.help_tools as help_tools
 import common.models as models
 import common.utils as utils
@@ -244,7 +244,7 @@ bot.background_tasks = set()
 bot.msg_enabled_bullets_guilds = set()
 bot.color = ipy.Color(int(os.environ["BOT_COLOR"]))  # #723fb0 or 7487408
 prefixed.setup(bot, prefixed_context=utils.THIAPrefixedContext)
-cclasses.PatchedHybridManager(bot, hybrid_context=utils.THIAHybridContext)
+hybrid.setup(bot, hybrid_context=utils.THIAHybridContext)
 
 
 async def start() -> None:
