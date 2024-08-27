@@ -91,49 +91,6 @@ if utils.SENTRY_ENABLED:
 
 
 class PYTHIA(utils.THIABase):
-    def add_command(self, func: typing.Callable) -> None:
-        """
-        Add a command to the client.
-
-        Args:
-            func: The command to add
-
-        """
-        if isinstance(func, ipy.ModalCommand):
-            self.add_modal_callback(func)
-        elif isinstance(func, ipy.ComponentCommand):
-            self.add_component_callback(func)
-        elif isinstance(func, ipy.InteractionCommand):
-            self.add_interaction(func)
-        elif isinstance(func, ipy.Listener):
-            self.add_listener(func)
-        elif isinstance(func, ipy.GlobalAutoComplete):
-            self.add_global_autocomplete(func)
-        elif not isinstance(func, ipy.BaseCommand):
-            raise TypeError("Invalid command type")
-
-        for hook in self._add_command_hook:
-            hook(func)
-
-        if not func.callback:
-            # for group = SlashCommand(...) usage
-            return
-
-        if isinstance(func.callback, functools.partial):
-            ext = getattr(func, "extension", None)
-            self.logger.debug(
-                f"Added callback: {f'{ext.name}.' if ext else ''}{func.callback.func.__name__}"  # noqa: G004
-            )
-        else:
-            self.logger.debug(f"Added callback: {func.callback.__name__}")  # noqa: G004
-
-        self.dispatch(
-            ipy.events.CallbackAdded(
-                callback=func,
-                extension=func.extension if hasattr(func, "extension") else None,
-            )
-        )
-
     @ipy.listen("ready")
     async def on_ready(self) -> None:
         utcnow = ipy.Timestamp.utcnow()
