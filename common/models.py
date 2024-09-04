@@ -11,6 +11,7 @@ import contextlib
 import datetime
 import os
 import re
+from collections import Counter
 from enum import IntEnum
 
 import interactions as ipy
@@ -245,6 +246,18 @@ class GachaItem(PrismaGachaItem):
         await self.prisma().update(where={"id": self.id}, data=data)  # type: ignore
 
 
+class _GachaHash:
+    def __init__(self, item: "GachaItem") -> None:
+        self.item = item
+        self.id = item.id
+
+    def __hash__(self) -> int:
+        return hash(self.id)
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, _GachaHash) and self.id == other.id
+
+
 class GachaPlayer(PrismaGachaPlayer):
     items: "typing.Optional[list[ItemToPlayer]]" = None
     gacha_config: "typing.Optional[GachaConfig]" = None
@@ -294,9 +307,19 @@ class GachaPlayer(PrismaGachaPlayer):
         ]
 
         if self.items and all(entry.item for entry in self.items):
+            counter: Counter[_GachaHash] = Counter()
+            for item in self.items:
+                counter[_GachaHash(item.item)] += 1
+
+            counter_data = sorted(
+                ((name, count) for name, count in counter.items()),
+                key=lambda x: x[0].item.name.lower(),
+            )
+
             str_builder.extend(
-                f"**{entry.item.name}** - {short_desc(entry.item.description)}"
-                for entry in sorted(self.items, key=lambda x: x.item.name.lower())
+                f"**{entry.item.name}**{f' (x{count})' if count > 1 else ''} -"
+                f" {short_desc(entry.item.description)}"
+                for entry, count in counter_data
             )
         else:
             str_builder.append("*No items.*")
