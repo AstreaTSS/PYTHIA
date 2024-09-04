@@ -259,7 +259,9 @@ class BulletCMDs(utils.Extension):
 
         for channel_id in bullet_dict.keys():
             str_builder.append(f"<#{channel_id}>:")
-            for bullet in bullet_dict[channel_id]:
+            for bullet in sorted(
+                bullet_dict[channel_id], key=lambda x: x.trigger.lower()
+            ):
                 str_builder.append(
                     f"- `{bullet.trigger}`{' (found)' if bullet.found else ''}"
                 )
