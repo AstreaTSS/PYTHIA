@@ -30,6 +30,38 @@ class GachaManagement(utils.Extension):
         self.name = "Gacha Management"
         self.bot: utils.THIABase = bot
 
+        self.gacha_item_create_modal = ipy.Modal(
+            ipy.InputText(
+                label="Item Name",
+                style=ipy.TextStyles.SHORT,
+                custom_id="item_name",
+                max_length=64,
+            ),
+            ipy.InputText(
+                label="Item Description",
+                style=ipy.TextStyles.PARAGRAPH,
+                custom_id="item_description",
+                max_length=1024,
+            ),
+            ipy.InputText(
+                label="Item Quantity",
+                style=ipy.TextStyles.SHORT,
+                custom_id="item_amount",
+                max_length=10,
+                placeholder="Defaults to being unlimited.",
+                required=False,
+            ),
+            ipy.InputText(
+                label="Item Image",
+                style=ipy.TextStyles.SHORT,
+                custom_id="item_image",
+                placeholder="The image URL of the item.",
+                required=False,
+            ),
+            title="Add Gacha Item",
+            custom_id="add_gacha_item",
+        )
+
     config = tansy.SlashCommand(
         name="gacha-config",
         description="Handles configuration of gacha mechanics.",
@@ -526,39 +558,34 @@ class GachaManagement(utils.Extension):
     async def gacha_item_add(
         self,
         ctx: utils.THIASlashContext,
+        _send_button: str = tansy.Option(
+            "Should a button be sent that allows for repeatedly adding items?",
+            name="send_button",
+            choices=[
+                ipy.SlashCommandChoice("yes", "yes"),
+                ipy.SlashCommandChoice("no", "no"),
+            ],
+            default="no",
+        ),
     ) -> None:
-        modal = ipy.Modal(
-            ipy.InputText(
-                label="Item Name",
-                style=ipy.TextStyles.SHORT,
-                custom_id="item_name",
-                max_length=64,
-            ),
-            ipy.InputText(
-                label="Item Description",
-                style=ipy.TextStyles.PARAGRAPH,
-                custom_id="item_description",
-                max_length=1024,
-            ),
-            ipy.InputText(
-                label="Item Quantity",
-                style=ipy.TextStyles.SHORT,
-                custom_id="item_amount",
-                max_length=10,
-                placeholder="Defaults to being unlimited.",
-                required=False,
-            ),
-            ipy.InputText(
-                label="Item Image",
-                style=ipy.TextStyles.SHORT,
-                custom_id="item_image",
-                placeholder="The image URL of the item.",
-                required=False,
-            ),
-            title="Add Gacha Item",
-            custom_id="add_gacha_item",
-        )
-        await ctx.send_modal(modal)
+        send_button = _send_button == "yes"
+
+        if send_button:
+            await ctx.defer()
+            await ctx.send(
+                embed=utils.make_embed("Add gacha items via the button below!"),
+                components=ipy.Button(
+                    style=ipy.ButtonStyle.PRIMARY,
+                    label="Add Gacha Item",
+                    custom_id="thia-button:add_gacha_item",
+                ),
+            )
+            return
+        await ctx.send_modal(self.gacha_item_create_modal)
+
+    @ipy.component_callback("thia-button:add_gacha_item")
+    async def add_gacha_item_button(self, ctx: ipy.ComponentContext) -> None:
+        await ctx.send_modal(self.gacha_item_create_modal)
 
     @ipy.modal_callback("add_gacha_item")
     async def add_gacha_item_modal(self, ctx: utils.THIAModalContext) -> None:
