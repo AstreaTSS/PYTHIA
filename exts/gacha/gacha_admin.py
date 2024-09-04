@@ -768,14 +768,143 @@ class GachaManagement(utils.Extension):
                 )
             )
 
+    @manage.subcommand(
+        "remove-item-from", sub_cmd_description="Removes an item from a user."
+    )
+    async def gacha_remove_item_from(
+        self,
+        ctx: utils.THIASlashContext,
+        user: ipy.Member = tansy.Option("The user to remove an item from."),
+        name: str = tansy.Option("The name of the item to remove.", autocomplete=True),
+        amount: typing.Optional[int] = tansy.Option(
+            "The amount to remove. Defaults to the amount of that item they have."
+        ),
+        _replenish_gacha: str = tansy.Option(
+            "Should said amount of the item be added back into the gacha pool? Defaults"
+            " to no.",
+            name="replenish_gacha",
+            choices=[
+                ipy.SlashCommandChoice("yes", "yes"),
+                ipy.SlashCommandChoice("no", "no"),
+            ],
+            default="no",
+        ),
+    ) -> None:
+        replenish_gacha = _replenish_gacha == "yes"
+
+        item = await models.GachaItem.prisma().find_first(
+            where={"guild_id": ctx.guild_id, "name": name}
+        )
+        if item is None:
+            raise ipy.errors.BadArgument("No item with that name exists.")
+
+        item_to_players = await models.ItemToPlayer.prisma().find_many(
+            where={"player": {"is": {"user_id": user.id}}, "item_id": item.id},
+        )
+        if not item_to_players:
+            raise ipy.errors.BadArgument("The user does not have that item.")
+
+        if amount is None:
+            amount = len(item_to_players)
+
+        if len(item_to_players) < amount:
+            raise ipy.errors.BadArgument(
+                "The user does not have that many items to remove."
+            )
+
+        async with self.bot.db.batch_() as batch:
+            for i in range(amount):
+                item_to_player = item_to_players[i]
+                batch.prismaitemtoplayer.delete(
+                    where={"id": item_to_player.id},
+                )
+
+            if replenish_gacha and item.amount != -1:
+                batch.prismagachaitem.update(
+                    data={"amount": {"increment": amount}},
+                    where={"id": item.id},
+                )
+
+        reply_str = f"Removed {amount} amount of {item.name} from {user.mention}."
+        if replenish_gacha and item.amount != -1:
+            reply_str += f" Added {amount} back into the gacha pool."
+
+        await ctx.send(embed=utils.make_embed(reply_str))
+
+    @manage.subcommand("add-item-to", sub_cmd_description="Adds an item to a user.")
+    async def gacha_add_item_to(
+        self,
+        ctx: utils.THIASlashContext,
+        user: ipy.Member = tansy.Option("The user to add an item to."),
+        name: str = tansy.Option("The name of the item to add.", autocomplete=True),
+        amount: typing.Optional[int] = tansy.Option(
+            "The amount to add. Defaults to 1."
+        ),
+        _remove_amount_from_gacha: str = tansy.Option(
+            "Should said amount of the item be removed from the gacha pool? Defaults"
+            " to no.",
+            name="remove_amount_from_gacha",
+            choices=[
+                ipy.SlashCommandChoice("yes", "yes"),
+                ipy.SlashCommandChoice("no", "no"),
+            ],
+            default="no",
+        ),
+    ) -> None:
+        remove_amount_from_gacha = _remove_amount_from_gacha == "yes"
+
+        item = await models.GachaItem.prisma().find_first(
+            where={"guild_id": ctx.guild_id, "name": name}
+        )
+        if item is None:
+            raise ipy.errors.BadArgument("No item with that name exists.")
+
+        if amount is None:
+            amount = 1
+
+        if remove_amount_from_gacha and item.amount != -1 and item.amount < amount:
+            raise ipy.errors.BadArgument(
+                "The item does not have enough quantity to give."
+            )
+
+        player_gacha = await models.GachaPlayer.get_or_create(ctx.guild_id, user.id)
+        async with self.bot.db.batch_() as batch:
+            for _ in range(amount):
+                batch.prismaitemtoplayer.create(
+                    data={
+                        "item": {"connect": {"id": item.id}},
+                        "player": {"connect": {"id": player_gacha.id}},
+                    }
+                )
+
+            if remove_amount_from_gacha:
+                batch.prismagachaitem.update(
+                    data={"amount": {"decrement": amount}},
+                    where={"id": item.id},
+                )
+
+        reply_str = f"Added {amount} amount of {item.name} to {user.mention}."
+        if remove_amount_from_gacha:
+            reply_str += f" Removed {amount} from the gacha pool."
+
+        await ctx.send(embed=utils.make_embed(reply_str))
+
     @gacha_item_edit.autocomplete("name")
     @gacha_item_remove.autocomplete("name")
     @gacha_view_single_item.autocomplete("name")
+    @gacha_add_item_to.autocomplete("name")
     async def _autocomplete_gacha_items(
         self,
         ctx: ipy.AutocompleteContext,
     ) -> None:
         return await fuzzy.autocomplete_gacha_item(ctx, **ctx.kwargs)
+
+    @gacha_remove_item_from.autocomplete("name")
+    async def _autocomplete_gacha_user_item(
+        self,
+        ctx: ipy.AutocompleteContext,
+    ) -> None:
+        return await fuzzy.autocomplete_gacha_optional_user_item(ctx, **ctx.kwargs)
 
 
 def setup(bot: utils.THIABase) -> None:

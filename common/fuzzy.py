@@ -178,3 +178,39 @@ async def autocomplete_gacha_user_item(
         score_cutoff=0.6,
     )
     return await ctx.send([{"name": g[0].name, "value": g[0].name} for g in query][:25])  # type: ignore
+
+
+async def autocomplete_gacha_optional_user_item(
+    ctx: ipy.AutocompleteContext,
+    name: str,
+    user: typing.Optional[ipy.Snowflake_Type],
+    **kwargs: typing.Any,  # noqa: ARG001
+) -> None:
+    if not ctx.guild_id or not user:
+        return await ctx.send([])
+
+    gacha_items = await models.GachaItem.prisma().find_many(
+        where={
+            "guild_id": ctx.guild_id,
+            "players": {
+                "some": {
+                    "player": {"is": {"guild_id": ctx.guild_id, "user_id": int(user)}}
+                }
+            },
+        }
+    )
+    if not gacha_items:
+        return await ctx.send([])
+
+    if not name:
+        return await ctx.send(
+            [{"name": g.name, "value": g.name} for g in gacha_items][:25]
+        )
+
+    query: list[list[models.GachaItem]] = extract_from_list(
+        argument=name.lower(),
+        list_of_items=gacha_items,
+        processors=[get_gacha_item_name],
+        score_cutoff=0.6,
+    )
+    return await ctx.send([{"name": g[0].name, "value": g[0].name} for g in query][:25])  # type: ignore
