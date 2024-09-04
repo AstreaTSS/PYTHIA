@@ -743,7 +743,7 @@ class GachaManagement(utils.Extension):
         items_list = [
             f"**{i.name}**{f' ({i.amount} remaining)' if i.amount != -1 else ''}:"
             f" {models.short_desc(i.description)}"
-            for i in items
+            for i in sorted(items, key=lambda i: i.name.lower())
         ]
         if len(items_list) > 30:
             chunks = [items_list[x : x + 30] for x in range(0, len(items_list), 30)]

@@ -296,7 +296,7 @@ class GachaPlayer(PrismaGachaPlayer):
         if self.items and all(entry.item for entry in self.items):
             str_builder.extend(
                 f"**{entry.item.name}** - {short_desc(entry.item.description)}"
-                for entry in self.items
+                for entry in sorted(self.items, key=lambda x: x.item.name.lower())
             )
         else:
             str_builder.append("*No items.*")
