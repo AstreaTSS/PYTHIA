@@ -852,7 +852,7 @@ class GachaManagement(utils.Extension):
                     where={"id": item.id},
                 )
 
-        reply_str = f"Removed {amount} amount of {item.name} from {user.mention}."
+        reply_str = f"Removed {amount} of {item.name} from {user.mention}."
         if replenish_gacha and item.amount != -1:
             reply_str += f" Added {amount} back into the gacha pool."
 
@@ -910,7 +910,7 @@ class GachaManagement(utils.Extension):
                     where={"id": item.id},
                 )
 
-        reply_str = f"Added {amount} amount of {item.name} to {user.mention}."
+        reply_str = f"Added {amount} of {item.name} to {user.mention}."
         if remove_amount_from_gacha:
             reply_str += f" Removed {amount} from the gacha pool."
 
