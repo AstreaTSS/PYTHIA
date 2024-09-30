@@ -214,3 +214,64 @@ async def autocomplete_gacha_optional_user_item(
         score_cutoff=0.6,
     )
     return await ctx.send([{"name": g[0].name, "value": g[0].name} for g in query][:25])  # type: ignore
+
+
+def get_dice_name(entry: models.DiceEntry) -> str:
+    return entry.name.lower() if isinstance(entry, models.DiceEntry) else entry
+
+
+async def autocomplete_dice_entries_admin(
+    ctx: ipy.AutocompleteContext,
+    user: typing.Optional[ipy.Snowflake_Type],
+    name: str,
+    **kwargs: typing.Any,  # noqa: ARG001
+) -> None:
+    if not ctx.guild_id or not user:
+        return await ctx.send([])
+
+    dice_entries = await models.DiceEntry.prisma().find_many(
+        where={"guild_id": ctx.guild_id, "user_id": int(user)}
+    )
+    if not dice_entries:
+        return await ctx.send([])
+
+    if not name:
+        return await ctx.send(
+            [{"name": d.name, "value": d.name} for d in dice_entries][:25]
+        )
+
+    query: list[list[models.DiceEntry]] = extract_from_list(
+        argument=name.lower(),
+        list_of_items=dice_entries,
+        processors=[get_dice_name],
+        score_cutoff=0.6,
+    )
+    return await ctx.send([{"name": g[0].name, "value": g[0].name} for g in query][:25])  # type: ignore
+
+
+async def autocomplete_dice_entries_user(
+    ctx: ipy.AutocompleteContext,
+    name: str,
+    **kwargs: typing.Any,  # noqa: ARG001
+) -> None:
+    if not ctx.guild_id:
+        return await ctx.send([])
+
+    dice_entries = await models.DiceEntry.prisma().find_many(
+        where={"guild_id": ctx.guild_id, "user_id": ctx.author.id}
+    )
+    if not dice_entries:
+        return await ctx.send([])
+
+    if not name:
+        return await ctx.send(
+            [{"name": d.name, "value": d.name} for d in dice_entries][:25]
+        )
+
+    query: list[list[models.DiceEntry]] = extract_from_list(
+        argument=name.lower(),
+        list_of_items=dice_entries,
+        processors=[get_dice_name],
+        score_cutoff=0.6,
+    )
+    return await ctx.send([{"name": g[0].name, "value": g[0].name} for g in query][:25])  # type: ignore

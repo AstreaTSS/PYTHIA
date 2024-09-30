@@ -21,7 +21,9 @@ from httpcore._backends.asyncio import AsyncioBackend
 from prisma import Base64, Json, _builder
 from prisma._async_http import Response
 from prisma.models import (
+    PrimsaDiceConfig,
     PrismaBulletConfig,
+    PrismaDiceEntry,
     PrismaGachaConfig,
     PrismaGachaItem,
     PrismaGachaPlayer,
@@ -373,6 +375,19 @@ class MessageConfig(PrismaMessageConfig):
         await self.prisma().update(where={"guild_id": self.guild_id}, data=data)  # type: ignore
 
 
+class DiceEntry(PrismaDiceEntry):
+    dice_config: typing.Optional["DiceConfig"] = None
+
+
+class DiceConfig(GetMethodsMixin, PrimsaDiceConfig):
+    entries: typing.Optional[list[DiceEntry]] = None
+    main_config: typing.Optional["GuildConfig"] = None
+
+    async def save(self) -> None:
+        data = self.model_dump(exclude={"entries", "main_config"})
+        await self.prisma().update(where={"guild_id": self.guild_id}, data=data)  # type: ignore
+
+
 class GuildConfigMixin:
     guild_id: ipy.Snowflake
 
@@ -403,9 +418,12 @@ class GuildConfigMixin:
                 self.gacha = await GachaConfig.prisma().create(
                     data={"guild_id": self.guild_id}
                 )
-
             if entry == "messages" and not getattr(self, "messages", True):
                 self.messages = await MessageConfig.prisma().create(
+                    data={"guild_id": self.guild_id}
+                )
+            if entry == "dice" and not getattr(self, "dice", True):
+                self.dice = await DiceConfig.prisma().create(
                     data={"guild_id": self.guild_id}
                 )
 
@@ -445,7 +463,15 @@ class GuildConfigMixin:
 
     async def save(self) -> None:
         data = self.model_dump(
-            exclude={"names", "names_id", "bullets", "guild_id", "gacha", "messages"}
+            exclude={
+                "names",
+                "names_id",
+                "bullets",
+                "guild_id",
+                "gacha",
+                "messages",
+                "dice",
+            }
         )
         await self.prisma().update(where={"guild_id": self.guild_id}, data=data)  # type: ignore
 
@@ -454,6 +480,7 @@ class GuildConfig(GuildConfigMixin, PrismaGuildConfig):
     bullets: typing.Optional[BulletConfig] = None
     gacha: typing.Optional[GachaConfig] = None
     names: typing.Optional[Names] = None
+    dice: typing.Optional[DiceConfig] = None
 
 
 FIND_TRUTH_BULLET_STR: typing.Final[str] = (
@@ -556,3 +583,5 @@ GachaPlayer.model_rebuild()
 ItemToPlayer.model_rebuild()
 MessageLink.model_rebuild()
 MessageConfig.model_rebuild()
+DiceConfig.model_rebuild()
+DiceEntry.model_rebuild()

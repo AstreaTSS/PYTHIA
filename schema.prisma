@@ -124,6 +124,30 @@ model PrismaMessageConfig {
   @@map("thiamessageconfig")
 }
 
+model PrismaDiceEntry {
+  id         Int    @id @default(autoincrement())
+  guild_id   BigInt
+  user_id    BigInt
+  name       String
+  value      String
+
+  dice_config PrimsaDiceConfig? @relation(fields: [guild_id], references: [guild_id], onDelete: Cascade)
+
+  @@index([guild_id])
+  @@index([guild_id, user_id])
+  @@map("thiadicenetry")
+}
+
+model PrimsaDiceConfig {
+  guild_id BigInt @id
+  visible  Boolean @default(false)
+
+  entries     PrismaDiceEntry[]
+  main_config PrismaGuildConfig?  @relation(fields: [guild_id], references: [guild_id], onDelete: Cascade)
+
+  @@map("thiadiceconfig")
+}
+
 model PrismaGuildConfig {
   guild_id    BigInt  @id
   player_role BigInt?
@@ -132,6 +156,7 @@ model PrismaGuildConfig {
   bullets  PrismaBulletConfig?
   gacha    PrismaGachaConfig?
   messages PrismaMessageConfig?
+  dice     PrimsaDiceConfig?
 
   @@map("thiaguildconfig")
 }
