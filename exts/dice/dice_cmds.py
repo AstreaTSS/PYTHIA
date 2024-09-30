@@ -220,6 +220,22 @@ class DiceCMDs(utils.Extension):
             raise ipy.errors.BadArgument("No registered dice found with that name.")
         await ctx.send(embed=utils.make_embed(f"Removed dice {name}."), ephemeral=True)
 
+    @dice.subcommand(
+        "help",
+        sub_cmd_description="Shows how to use the dice system.",
+    )
+    async def dice_help(self, ctx: utils.THIASlashContext) -> None:
+        embed = utils.make_embed(
+            "To see to use the dice system, follow the dice usage guide below.",
+            title="Setup Bot",
+        )
+        button = ipy.Button(
+            style=ipy.ButtonStyle.LINK,
+            label="Dice Usage Guide",
+            url="https://pythia.astrea.cc/usage/dice",
+        )
+        await ctx.send(embeds=embed, components=button)
+
     @dice_remove.autocomplete("name")
     @dice_roll_registered.autocomplete("name")
     async def dice_name_autocomplete(
