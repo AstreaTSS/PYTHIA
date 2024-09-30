@@ -70,9 +70,7 @@ class DiceManagement(utils.Extension):
                 "Visibility must be either public or hidden."
             )
 
-        config = await models.GuildConfig.get_or_create(
-            ctx.guild.id, include={"dice": True}
-        )
+        config = await ctx.fetch_config({"dice": True})
         if typing.TYPE_CHECKING:
             assert config.dice is not None
 
@@ -178,6 +176,8 @@ class DiceManagement(utils.Extension):
             raise ipy.errors.BadArgument(
                 "A dice with that name already exists for that user."
             )
+
+        await ctx.fetch_config({"dice": True})
 
         try:
             d20.roll(dice)

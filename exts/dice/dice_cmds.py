@@ -46,9 +46,7 @@ class DiceCMDs(utils.Extension):
             max_length=100,
         ),
     ) -> None:
-        config = await models.GuildConfig.get_or_create(
-            ctx.guild_id, include={"dice": True}
-        )
+        config = await ctx.fetch_config({"dice": True})
         if typing.TYPE_CHECKING:
             assert config.dice is not None
 
@@ -81,9 +79,7 @@ class DiceCMDs(utils.Extension):
             "The name of the dice to roll.", max_length=100, autocomplete=True
         ),
     ) -> None:
-        config = await models.GuildConfig.get_or_create(
-            ctx.guild_id, include={"dice": True}
-        )
+        config = await ctx.fetch_config({"dice": True})
         if typing.TYPE_CHECKING:
             assert config.dice is not None
 
@@ -139,6 +135,8 @@ class DiceCMDs(utils.Extension):
             where={"guild_id": ctx.guild_id, "user_id": ctx.author.id, "name": name}
         ):
             raise ipy.errors.BadArgument("A dice with that name already exists.")
+
+        await ctx.fetch_config({"dice": True})
 
         try:
             d20.roll(dice)
