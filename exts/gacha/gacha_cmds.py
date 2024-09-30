@@ -38,7 +38,7 @@ class GachaCommands(utils.Extension):
         "roll",
         sub_cmd_description="Rolls for an item in the gacha.",
     )
-    async def gacha_draw(self, ctx: utils.THIASlashContext) -> None:
+    async def gacha_roll(self, ctx: utils.THIASlashContext) -> None:
         config = await ctx.fetch_config({"gacha": True, "names": True})
         if typing.TYPE_CHECKING:
             assert config.gacha is not None
@@ -103,6 +103,20 @@ class GachaCommands(utils.Extension):
             )
 
         await ctx.send(embed=item.embed())
+
+    @gacha.subcommand(
+        "pull",
+        sub_cmd_description="Pulls for an item in the gacha. Alias of /gacha roll.",
+    )
+    async def gacha_pull(self, ctx: utils.THIASlashContext) -> None:
+        await self.gacha_roll.call_with_binding(self.gacha_roll.callback, ctx)
+
+    @gacha.subcommand(
+        "draw",
+        sub_cmd_description="Draws for an item in the gacha. Alias of /gacha draw.",
+    )
+    async def gacha_draw(self, ctx: utils.THIASlashContext) -> None:
+        await self.gacha_roll.call_with_binding(self.gacha_roll.callback, ctx)
 
     @gacha.subcommand(
         "profile",
