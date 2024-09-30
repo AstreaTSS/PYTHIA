@@ -31,7 +31,7 @@ async def player_check(ctx: utils.THIASlashContext) -> bool:
 
 
 class BulletFinding(utils.Extension):
-    """The cog that deals with finding Truth Bullets."""
+    """The extension that deals with finding Truth Bullets."""
 
     def __init__(self, bot: utils.THIABase) -> None:
         self.bot: utils.THIABase = bot
@@ -226,7 +226,7 @@ class BulletFinding(utils.Extension):
     @tansy.slash_command(
         name="investigate",
         description=(
-            "Investigate for items in the current channel. An alternative to"
+            "Investigate for items in the current channel for a BDA. An alternative to"
             " sending a message."
         ),
     )

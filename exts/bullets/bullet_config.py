@@ -19,15 +19,15 @@ import common.utils as utils
 
 
 class BulletConfigCMDs(utils.Extension):
-    """Commands for using and modifying investigation server settings."""
+    """Commands for using and modifying BDA investigation server settings."""
 
     def __init__(self, bot: utils.THIABase) -> None:
-        self.name = "Investigation Config"
+        self.name = "BDA Investigation Config"
         self.bot: utils.THIABase = bot
 
     config = tansy.SlashCommand(
         name="bullet-config",
-        description="Handles configuration of investigations.",  # type: ignore
+        description="Handles configuration of BDA investigation.",  # type: ignore
         default_member_permissions=ipy.Permissions.MANAGE_GUILD,
         dm_permission=False,
     )
@@ -35,7 +35,7 @@ class BulletConfigCMDs(utils.Extension):
     @config.subcommand(
         sub_cmd_name="info",
         sub_cmd_description=(
-            "Lists out the investigation configuration settings for the server."
+            "Lists out the BDA investigation configuration settings for the server."
         ),
     )
     async def bullet_config(self, ctx: utils.THIASlashContext) -> None:
@@ -50,15 +50,15 @@ class BulletConfigCMDs(utils.Extension):
                 f" {f'<@&{config.player_role}>' if config.player_role else 'N/A'}"
             ),
             (
-                "Truth Bullets status:"
-                f" {utils.toggle_friendly_str(config.bullets.bullets_enabled)}"
+                "Truth Bullets active:"
+                f" {utils.yesno_friendly_str(config.bullets.bullets_enabled)}"
             ),
             (
-                "Investigation channel:"
+                "Truth Bullet channel:"
                 f" {f'<#{config.bullets.bullet_chan_id}>' if config.bullets.bullet_chan_id else 'N/A'}"
             ),
             (
-                "Investigation mode:"
+                "BDA Investigation mode:"
                 f" {config.bullets.investigation_type.name.replace('_', ' ').title()}"
             ),
             (
@@ -68,7 +68,7 @@ class BulletConfigCMDs(utils.Extension):
         ]
 
         embed = ipy.Embed(
-            title=f"Investigation config for {ctx.guild.name}",
+            title=f"BDA investigation config for {ctx.guild.name}",
             description="\n".join(str_builder),
             color=utils.BOT_COLOR,
             timestamp=ipy.Timestamp.utcnow(),
@@ -121,11 +121,11 @@ class BulletConfigCMDs(utils.Extension):
         if channel:
             await ctx.send(
                 embed=utils.make_embed(
-                    f"Investigation channel set to {channel.mention}!"
+                    f"Truth Bullet channel set to {channel.mention}!"
                 )
             )
         else:
-            await ctx.send(embed=utils.make_embed("Investigation channel unset."))
+            await ctx.send(embed=utils.make_embed("Truth Bullet channel unset."))
 
     @config.subcommand(
         sub_cmd_name="best-finder",
@@ -163,7 +163,7 @@ class BulletConfigCMDs(utils.Extension):
 
     @config.subcommand(
         sub_cmd_name="mode",
-        sub_cmd_description="Change the investigation mode.",
+        sub_cmd_description="Change the BDA investigation mode.",
     )
     async def set_investigation_mode(
         self,
@@ -194,7 +194,7 @@ class BulletConfigCMDs(utils.Extension):
 
         await ctx.send(
             embed=utils.make_embed(
-                "Investigation mode set to"
+                "BDA investigation mode now set to"
                 f" {bullet_config.investigation_type.name.replace('_', ' ').title()}."
             )
         )
@@ -202,7 +202,7 @@ class BulletConfigCMDs(utils.Extension):
     @config.subcommand(
         sub_cmd_name="names",
         sub_cmd_description=(
-            "Edit the displayed names used for various parts of investigations."
+            "Edit the displayed names used for various parts of BDA investigations."
         ),
     )
     @ipy.auto_defer(enabled=False)
@@ -350,7 +350,7 @@ class BulletConfigCMDs(utils.Extension):
 
     @config.subcommand(
         sub_cmd_name="toggle",
-        sub_cmd_description="Enables or disables Truth Bullets.",
+        sub_cmd_description="Enables or disables the discovery of Truth Bullets.",
     )
     async def toggle_bullets(
         self,
@@ -392,18 +392,19 @@ class BulletConfigCMDs(utils.Extension):
         )
 
     @config.subcommand(
-        "help", sub_cmd_description="Tells you how to set up the investigation system."
+        "help",
+        sub_cmd_description="Tells you how to set up the BDA investigation system.",
     )
     async def bullets_help(self, ctx: utils.THIASlashContext) -> None:
         embed = utils.make_embed(
-            "To set up the investigation system, follow the investigations setup guide"
-            " below.",
+            "To set up the BDA investigation system, follow the BDA Investigation setup"
+            " guide below.",
             title="Setup Bot",
         )
         button = ipy.Button(
             style=ipy.ButtonStyle.LINK,
-            label="Investigations Setup Guide",
-            url="https://pythia.astrea.cc/setup/investigations_setup",
+            label="BDA Investigation Setup Guide",
+            url="https://pythia.astrea.cc/setup/bda_investigations_setup",
         )
         await ctx.send(embeds=embed, components=button)
 
