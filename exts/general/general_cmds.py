@@ -126,15 +126,13 @@ class OtherCMDs(utils.Extension):
                 ' to assisting you in whatever tasks you may have."'
             ),
             (
-                "PYTHIA is a Discord bot meant to assist with various parts of running"
-                " Danganronpa/Killing Game RPs. Currently, it assists with:\n- The"
-                " process of creating and running investigations through an intuitive"
-                " investigation system.\n- A gacha system, allowing staff to make their"
-                " own system with unique items and rules.\n- A messaging system,"
-                " allowing for simple messaging between players."
+                "PYTHIA is a bot meant to assist with Danganronpa/Killing Game"
+                " roleplays. It serves as a way of automating many systems which would"
+                " be otherwise quite complex or repetitive to do."
             ),
             (
-                "To learn more, feel free to take a look at the [PYTHIA"
+                "To learn more and see all of the features PYTHIA currently has, feel"
+                " free to take a look at the [PYTHIA"
                 " website](https://pythia.astrea.cc)."
             ),
         ]
