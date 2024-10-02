@@ -16,6 +16,7 @@ import subprocess
 import sys
 from collections import defaultdict
 
+import dictdatabase as ddb
 import interactions as ipy
 import sentry_sdk
 import typing_extensions as typing
@@ -24,6 +25,9 @@ from interactions.ext import prefixed_commands as prefixed
 from prisma import Prisma
 
 from load_env import load_env
+
+ddb.config.use_compression = True
+ddb.config.indent = None
 
 load_env()
 

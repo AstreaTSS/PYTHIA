@@ -11,6 +11,7 @@ import asyncio
 import collections
 import importlib
 
+import dictdatabase as ddb
 import interactions as ipy
 import tansy
 import typing_extensions as typing
@@ -223,6 +224,28 @@ class BulletFinding(utils.Extension):
         await bullet_found.save()
         await self.check_for_finish(message.guild, bullet_chan, config)
 
+    @staticmethod
+    def cache_check(ctx: utils.THIASlashContext) -> typing.Optional[ipy.Embed]:
+        if ddb.at("guild-investigate-rename", key=str(ctx.guild_id)).exists():
+            return
+
+        if not ddb.at("guild-investigate-rename").exists():
+            ddb.at("guild-investigate-rename").create()
+        with ddb.at("guild-investigate-rename").session() as (session, guilds):
+            guilds[str(ctx.guild_id)] = True
+            session.write()
+
+        return ipy.Embed(
+            title="Warning",
+            description=(
+                "At around <t:1728705600:f>, `/investigate` will be renamed to"
+                " `/bda-investigate` to make way for new features. Please prepare"
+                " accordingly."
+            ),
+            color=ipy.MaterialColors.YELLOW,
+            timestamp=ipy.Timestamp.utcnow(),
+        )
+
     @tansy.slash_command(
         name="investigate",
         description=(
@@ -236,6 +259,7 @@ class BulletFinding(utils.Extension):
         self,
         ctx: utils.THIASlashContext,
         trigger: str = tansy.Option("The trigger to search for in this channel."),
+        **kwargs: typing.Any,
     ) -> None:
         config = await ctx.fetch_config(include={"bullets": True, "names": True})
         if typing.TYPE_CHECKING:
@@ -265,9 +289,17 @@ class BulletFinding(utils.Extension):
         truth_bullet.finder = ctx.author.id
 
         bullet_chan: ipy.GuildText | None = None
-        embed = truth_bullet.found_embed(str(ctx.author), config.names.singular_bullet)
+        embeds = [
+            truth_bullet.found_embed(str(ctx.author), config.names.singular_bullet)
+        ]
+        if (
+            not truth_bullet.hidden
+            and not kwargs.get("manual_trigger")
+            and (maybe_another := self.cache_check(ctx))
+        ):
+            embeds.append(maybe_another)
 
-        message = await ctx.send(embed=embed, ephemeral=ctx.ephemeral)
+        message = await ctx.send(embeds=embeds, ephemeral=ctx.ephemeral)
 
         if not truth_bullet.hidden:
             bullet_chan = await self.bot.fetch_channel(config.bullets.bullet_chan_id)
@@ -279,7 +311,7 @@ class BulletFinding(utils.Extension):
                 return
 
             await bullet_chan.send(
-                embed=embed,
+                embed=embeds[0],
                 components=ipy.Button(
                     style=ipy.ButtonStyle.LINK,
                     label="Context",
@@ -310,7 +342,7 @@ class BulletFinding(utils.Extension):
         ),
     ) -> None:
         await self.investigate.call_with_binding(
-            self.investigate.callback, ctx, trigger
+            self.investigate.callback, ctx, trigger, manual_trigger=True
         )
 
     @manual_trigger.autocomplete("trigger")
