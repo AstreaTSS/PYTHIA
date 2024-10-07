@@ -264,9 +264,17 @@ class GachaManagement(utils.Extension):
         self,
         ctx: utils.THIASlashContext,
         user: ipy.Member = tansy.Option("The user to add currency to."),
-        amount: int = tansy.Option("The amount of currency to add."),
+        amount: int = tansy.Option("The amount of currency to add.", min_value=1),
     ) -> None:
         names = await models.Names.get_or_create(ctx.guild_id)
+
+        if amount > 2147483647:
+            raise ipy.errors.BadArgument(
+                '"Frankly, the fact that you wish to add more than 2,147,483,647'
+                f" {names.currency_name(amount)} is absurd. Are you genuinely asking,"
+                ' or are you simply just testing my capabilities?" - PYTHIA'
+            )
+
         await models.GachaConfig.get_or_create(ctx.guild_id)
         player = await models.GachaPlayer.get_or_create(ctx.guild_id, user.id)
         player.currency_amount += amount
@@ -289,9 +297,17 @@ class GachaManagement(utils.Extension):
         user: ipy.Member = tansy.Option(
             "The user to remove currency from.",
         ),
-        amount: int = tansy.Option("The amount of currency to remove."),
+        amount: int = tansy.Option("The amount of currency to remove.", min_value=1),
     ) -> None:
         names = await models.Names.get_or_create(ctx.guild_id)
+
+        if amount > 2147483647:
+            raise ipy.errors.BadArgument(
+                '"Frankly, the fact that you wish to remove more than 2,147,483,647'
+                f" {names.currency_name(amount)} is absurd. Are you genuinely asking,"
+                ' or are you simply just testing my capabilities?" - PYTHIA'
+            )
+
         await models.GachaConfig.get_or_create(ctx.guild_id)
         player = await models.GachaPlayer.get_or_create(ctx.guild_id, user.id)
         player.currency_amount -= amount
