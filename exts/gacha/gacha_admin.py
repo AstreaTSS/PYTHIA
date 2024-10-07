@@ -193,7 +193,7 @@ class GachaManagement(utils.Extension):
         self,
         ctx: utils.THIASlashContext,
         cost: int = tansy.Option(
-            "The cost of a single gacha use.", min_value=1, max_length=2147483647
+            "The cost of a single gacha use.", min_value=1, max_value=2147483647
         ),
     ) -> None:
         if cost > 2147483647:  # just in case
