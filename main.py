@@ -113,7 +113,7 @@ class PYTHIA(utils.THIABase):
         activity = ipy.Activity(
             name="Status",
             type=ipy.ActivityType.CUSTOM,
-            state="New dice system - check bio",
+            state="Assisting servers | pythia.astrea.cc",
         )
         await self.change_presence(activity=activity)
 
@@ -122,7 +122,7 @@ class PYTHIA(utils.THIABase):
         activity = ipy.Activity(
             name="Status",
             type=ipy.ActivityType.CUSTOM,
-            state="New dice system - check bio",
+            state="Assisting servers | pythia.astrea.cc",
         )
         await self.change_presence(activity=activity)
 
