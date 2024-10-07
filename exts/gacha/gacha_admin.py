@@ -472,7 +472,9 @@ class GachaManagement(utils.Extension):
     async def gacha_give_all(
         self,
         ctx: utils.THIASlashContext,
-        amount: int = tansy.Option("The amount of currency to add."),
+        amount: int = tansy.Option(
+            "The amount of currency to add.", min_value=1, max_value=10000
+        ),
     ) -> None:
         config = await ctx.fetch_config({"names": True, "gacha": True})
         if typing.TYPE_CHECKING:
@@ -641,11 +643,10 @@ class GachaManagement(utils.Extension):
                 "Quantity must be a positive number."
             ) from None
 
-        if amount > 2147483647:
+        if amount > 999:
             raise ipy.errors.BadArgument(
-                "This amount is too high. Please set an amount at or lower than"
-                " 2,147,483,647 (signed 32-bit integer limit), or leave the value empty"
-                " to have an unlimited amount."
+                "This amount is too high. Please set an amount at or lower than 999, or"
+                " leave the value empty to have an unlimited amount."
             )
 
         if image and not HTTP_URL_REGEX.fullmatch(image):
@@ -744,11 +745,10 @@ class GachaManagement(utils.Extension):
                 "Quantity must be a positive number."
             ) from None
 
-        if amount > 2147483647:
+        if amount > 999:
             raise ipy.errors.BadArgument(
-                "This amount is too high. Please set an amount at or lower than"
-                " 2,147,483,647 (signed 32-bit integer limit), or leave the value empty"
-                " to have an unlimited amount."
+                "This amount is too high. Please set an amount at or lower than 999, or"
+                " leave the value empty to have an unlimited amount."
             )
 
         if image and not HTTP_URL_REGEX.fullmatch(image):
@@ -848,7 +848,8 @@ class GachaManagement(utils.Extension):
         user: ipy.Member = tansy.Option("The user to remove an item from."),
         name: str = tansy.Option("The name of the item to remove.", autocomplete=True),
         amount: typing.Optional[int] = tansy.Option(
-            "The amount to remove. Defaults to the amount of that item they have."
+            "The amount to remove. Defaults to the amount of that item they have.",
+            min_value=1,
         ),
         _replenish_gacha: str = tansy.Option(
             "Should said amount of the item be added back into the gacha pool? Defaults"
@@ -909,7 +910,9 @@ class GachaManagement(utils.Extension):
         user: ipy.Member = tansy.Option("The user to add an item to."),
         name: str = tansy.Option("The name of the item to add.", autocomplete=True),
         amount: typing.Optional[int] = tansy.Option(
-            "The amount to add. Defaults to 1."
+            "The amount to add. Defaults to 1.",
+            min_value=1,
+            max_value=999,
         ),
         _remove_amount_from_gacha: str = tansy.Option(
             "Should said amount of the item be removed from the gacha pool? Defaults"
@@ -939,6 +942,17 @@ class GachaManagement(utils.Extension):
             )
 
         player_gacha = await models.GachaPlayer.get_or_create(ctx.guild_id, user.id)
+
+        if (
+            await models.ItemToPlayer.prisma().count(
+                where={"player_id": player_gacha.id, "item_id": item.id},
+            )
+            >= 999
+        ):
+            raise ipy.errors.BadArgument(
+                "The user can have a maximum of 999 of this item."
+            )
+
         async with self.bot.db.batch_() as batch:
             for _ in range(amount):
                 batch.prismaitemtoplayer.create(
