@@ -267,6 +267,51 @@ class DiceManagement(utils.Extension):
             embed=utils.make_embed(f"Removed dice {name} from {user.mention}.")
         )
 
+    @manage.subcommand(
+        "clear-for",
+        sub_cmd_description="Clears all dice registered for a user.",
+    )
+    async def dice_clear_for(
+        self,
+        ctx: utils.THIASlashContext,
+        user: ipy.Member = tansy.Option("The user to clear dice for."),
+    ) -> None:
+        if (
+            await models.DiceEntry.prisma().delete_many(
+                where={"guild_id": ctx.guild_id, "user_id": user.id}
+            )
+            < 1
+        ):
+            raise ipy.errors.BadArgument("No registered dice found for that user.")
+        await ctx.send(embed=utils.make_embed(f"Cleared all dice for {user.mention}."))
+
+    @manage.subcommand(
+        "clear-everyone",
+        sub_cmd_description="Clears all dice registered for everyone.",
+    )
+    async def dice_clear_everyone(
+        self,
+        ctx: utils.THIASlashContext,
+        confirm: bool = tansy.Option(
+            "Actually clear? Set this to true if you're sure.", default=False
+        ),
+    ) -> None:
+        if not confirm:
+            raise ipy.errors.BadArgument(
+                "Confirm option not set to true. Please set the option `confirm` to"
+                " true to continue."
+            )
+
+        if (
+            await models.DiceEntry.prisma().delete_many(
+                where={"guild_id": ctx.guild_id}
+            )
+            < 1
+        ):
+            raise ipy.errors.BadArgument("No registered dice found for this server.")
+
+        await ctx.send(embed=utils.make_embed("Cleared all dice for this server."))
+
     @dice_remove_from.autocomplete("name")
     @dice_roll_registered_for.autocomplete("name")
     async def dice_name_autocomplete(

@@ -219,6 +219,32 @@ class DiceCMDs(utils.Extension):
         await ctx.send(embed=utils.make_embed(f"Removed dice {name}."), ephemeral=True)
 
     @dice.subcommand(
+        "clear",
+        sub_cmd_description="Clears all of your registered dice.",
+    )
+    async def dice_clear(
+        self,
+        ctx: utils.THIASlashContext,
+        confirm: bool = tansy.Option(
+            "Actually clear? Set this to true if you're sure.", default=False
+        ),
+    ) -> None:
+        if not confirm:
+            raise ipy.errors.BadArgument(
+                "Confirm option not set to true. Please set the option `confirm` to"
+                " true to continue."
+            )
+
+        if (
+            await models.DiceEntry.prisma().delete_many(
+                where={"guild_id": ctx.guild_id, "user_id": ctx.user.id}
+            )
+            < 1
+        ):
+            raise ipy.errors.BadArgument("You have no registered dice to clear.")
+        await ctx.send(embed=utils.make_embed("Cleared all registered dice."))
+
+    @dice.subcommand(
         "help",
         sub_cmd_description="Shows how to use the dice system.",
     )
