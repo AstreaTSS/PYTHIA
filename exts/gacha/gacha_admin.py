@@ -192,8 +192,16 @@ class GachaManagement(utils.Extension):
     async def gacha_cost(
         self,
         ctx: utils.THIASlashContext,
-        cost: int = tansy.Option("The cost of a single gacha use."),
+        cost: int = tansy.Option(
+            "The cost of a single gacha use.", min_value=1, max_length=2147483647
+        ),
     ) -> None:
+        if cost > 2147483647:  # just in case
+            raise ipy.errors.BadArgument(
+                "This amount is too high. Please set an amount at or lower than"
+                " 2,147,483,647 (signed 32-bit integer limit)."
+            )
+
         config = await models.GachaConfig.get_or_create(ctx.guild_id)
         config.currency_cost = cost
         await config.save()
@@ -627,6 +635,13 @@ class GachaManagement(utils.Extension):
                 "Quantity must be a positive number."
             ) from None
 
+        if amount > 2147483647:
+            raise ipy.errors.BadArgument(
+                "This amount is too high. Please set an amount at or lower than"
+                " 2,147,483,647 (signed 32-bit integer limit), or leave the value empty"
+                " to have an unlimited amount."
+            )
+
         if image and not HTTP_URL_REGEX.fullmatch(image):
             raise ipy.errors.BadArgument("The image given must be a valid URL.")
 
@@ -722,6 +737,13 @@ class GachaManagement(utils.Extension):
             raise ipy.errors.BadArgument(
                 "Quantity must be a positive number."
             ) from None
+
+        if amount > 2147483647:
+            raise ipy.errors.BadArgument(
+                "This amount is too high. Please set an amount at or lower than"
+                " 2,147,483,647 (signed 32-bit integer limit), or leave the value empty"
+                " to have an unlimited amount."
+            )
 
         if image and not HTTP_URL_REGEX.fullmatch(image):
             raise ipy.errors.BadArgument("The image given must be a valid URL.")

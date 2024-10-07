@@ -68,9 +68,15 @@ class BulletCMDs(utils.Extension):
 
         embeds: list[ipy.Embed] = []
 
+        count = await models.TruthBullet.prisma().count(
+            where={"guild_id": ctx.guild_id}
+        )
+
+        if count > 250:
+            raise utils.CustomCheckFailure("Cannot add more than 250 Truth Bullets.")
+
         if (
-            await models.TruthBullet.prisma().count(where={"guild_id": ctx.guild_id})
-            > 0
+            count > 0
             and await models.TruthBullet.prisma().count(
                 where={"guild_id": ctx.guild_id, "found": False}
             )

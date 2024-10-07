@@ -146,6 +146,11 @@ class MessageManagement(utils.Extension):
         ),
     ) -> None:
         await ctx.fetch_config({"messages": True})
+        if (
+            await models.MessageLink.prisma().count(where={"guild_id": ctx.guild_id})
+            >= 100
+        ):
+            raise utils.CustomCheckFailure("Cannot add more than 100 messaging links.")
 
         if link := await models.MessageLink.prisma().find_first(
             where={"guild_id": ctx.guild_id, "user_id": user.id}
