@@ -181,7 +181,7 @@ class GachaManagement(utils.Extension):
         await ctx.send(
             embed=utils.make_embed(
                 "Updated! Please note this will only affect public-facing"
-                f" aspects\nSingular: {names.singular_currency_name}\nPlural:"
+                f" aspects.\nSingular: {names.singular_currency_name}\nPlural:"
                 f" {names.plural_currency_name}"
             )
         )
