@@ -247,7 +247,7 @@ class BulletFinding(utils.Extension):
         )
 
     @tansy.slash_command(
-        name="investigate",
+        name="bda-investigate",
         description=(
             "Investigate for items in the current channel for a BDA. An alternative to"
             " sending a message."
@@ -292,12 +292,6 @@ class BulletFinding(utils.Extension):
         embeds = [
             truth_bullet.found_embed(str(ctx.author), config.names.singular_bullet)
         ]
-        if (
-            not truth_bullet.hidden
-            and not kwargs.get("manual_trigger")
-            and (maybe_another := self.cache_check(ctx))
-        ):
-            embeds.append(maybe_another)
 
         message = await ctx.send(embeds=embeds, ephemeral=ctx.ephemeral)
 
