@@ -11,5 +11,4 @@ orjson==3.10.7; implementation_name == "cpython"
 rapidfuzz==3.10.0
 sentry-sdk==2.16.0
 apollo-d20[numpy]==1.2.1
-dictdatabase==2.5.0
 uvloop==0.20.0; platform_system == "Linux" and implementation_name == "cpython"

@@ -16,7 +16,6 @@ import subprocess
 import sys
 from collections import defaultdict
 
-import dictdatabase as ddb
 import interactions as ipy
 import sentry_sdk
 import typing_extensions as typing
@@ -25,9 +24,6 @@ from interactions.ext import prefixed_commands as prefixed
 from prisma import Prisma
 
 from load_env import load_env
-
-ddb.config.use_compression = True
-ddb.config.indent = None
 
 load_env()
 
@@ -113,7 +109,7 @@ class PYTHIA(utils.THIABase):
         activity = ipy.Activity(
             name="Status",
             type=ipy.ActivityType.CUSTOM,
-            state="Upcoming command rename, minor features: check bio",
+            state="New minor features: check bio",
         )
         await self.change_presence(activity=activity)
 
@@ -122,7 +118,7 @@ class PYTHIA(utils.THIABase):
         activity = ipy.Activity(
             name="Status",
             type=ipy.ActivityType.CUSTOM,
-            state="Upcoming command rename, minor features: check bio",
+            state="New minor features: check bio",
         )
         await self.change_presence(activity=activity)
 
