@@ -102,7 +102,11 @@ class GachaCommands(utils.Extension):
                 }
             )
 
-        await ctx.send(embed=item.embed())
+        new_count = player.currency_amount - config.gacha.currency_cost
+        embed = item.embed()
+        embed.set_footer(f"{new_count} {config.names.currency_name(new_count)} left")
+
+        await ctx.send(embed=embed)
 
     @gacha.subcommand(
         "pull",
