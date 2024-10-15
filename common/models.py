@@ -11,6 +11,7 @@ import contextlib
 import datetime
 import os
 import re
+import textwrap
 from collections import Counter
 from enum import IntEnum
 
@@ -66,9 +67,10 @@ def code_template(value: str) -> str:
 
 
 def short_desc(description: str, length: int = 25) -> str:
-    if len(description) > length:
-        description = f"{description[:length-3]}..."
-    return description
+    new_description = textwrap.shorten(description, length, placeholder="...")
+    if new_description == "...":  # word is too long, lets manually cut it
+        return f"{description[:length-3].strip()}..."
+    return new_description
 
 
 class TruthBullet(PrismaTruthBullet):
