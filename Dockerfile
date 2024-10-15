@@ -1,4 +1,4 @@
-FROM python:3.12-alpine
+FROM python:3.13-alpine
 
 RUN apk add gcc bash musl-dev git libffi-dev npm curl
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
