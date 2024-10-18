@@ -183,7 +183,7 @@ async def autocomplete_gacha_user_item(
 async def autocomplete_gacha_optional_user_item(
     ctx: ipy.AutocompleteContext,
     name: str,
-    user: typing.Optional[ipy.Snowflake_Type],
+    user: typing.Optional[ipy.Snowflake_Type] = None,
     **kwargs: typing.Any,  # noqa: ARG001
 ) -> None:
     if not ctx.guild_id or not user:
