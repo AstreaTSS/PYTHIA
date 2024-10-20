@@ -212,6 +212,7 @@ class GachaCommands(utils.Extension):
         "view-item",
         sub_cmd_description="Shows information about an item you have.",
     )
+    @ipy.auto_defer(ephemeral=True)
     async def gacha_user_view_item(
         self,
         ctx: utils.THIASlashContext,
