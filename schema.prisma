@@ -114,9 +114,10 @@ model PrismaMessageLink {
 }
 
 model PrismaMessageConfig {
-  guild_id     BigInt  @id
-  enabled      Boolean @default(false)
-  anon_enabled Boolean @default(false)
+  guild_id         BigInt  @id
+  enabled          Boolean @default(false)
+  anon_enabled     Boolean @default(false)
+  ping_for_message Boolean @default(false)
 
   links       PrismaMessageLink[]
   main_config PrismaGuildConfig?  @relation(fields: [guild_id], references: [guild_id], onDelete: Cascade)
@@ -125,11 +126,11 @@ model PrismaMessageConfig {
 }
 
 model PrismaDiceEntry {
-  id         Int    @id @default(autoincrement())
-  guild_id   BigInt
-  user_id    BigInt
-  name       String
-  value      String
+  id       Int    @id @default(autoincrement())
+  guild_id BigInt
+  user_id  BigInt
+  name     String
+  value    String
 
   dice_config PrimsaDiceConfig? @relation(fields: [guild_id], references: [guild_id], onDelete: Cascade)
 
@@ -139,11 +140,11 @@ model PrismaDiceEntry {
 }
 
 model PrimsaDiceConfig {
-  guild_id BigInt @id
+  guild_id BigInt  @id
   visible  Boolean @default(false)
 
   entries     PrismaDiceEntry[]
-  main_config PrismaGuildConfig?  @relation(fields: [guild_id], references: [guild_id], onDelete: Cascade)
+  main_config PrismaGuildConfig? @relation(fields: [guild_id], references: [guild_id], onDelete: Cascade)
 
   @@map("thiadiceconfig")
 }

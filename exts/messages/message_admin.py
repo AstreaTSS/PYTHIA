@@ -40,8 +40,15 @@ class MessageManagement(utils.Extension):
             assert config.messages is not None
 
         str_builder = [
-            f"Messaging enabled: {utils.toggle_friendly_str(config.messages.enabled)}",
-            f"Anonymous messaging enabled: {config.messages.anon_enabled}",
+            f"Messaging enabled: {utils.yesno_friendly_str(config.messages.enabled)}",
+            (
+                "Anonymous messaging enabled:"
+                f" {utils.yesno_friendly_str(config.messages.anon_enabled)}"
+            ),
+            (
+                "Pinging on messages:"
+                f" {utils.yesno_friendly_str(config.messages.ping_for_message)}"
+            ),
             "",
             f"-# Links can be found at {self.message_view_links.mention()}.",
         ]
@@ -106,6 +113,35 @@ class MessageManagement(utils.Extension):
         await ctx.send(
             embed=utils.make_embed(
                 f"Anonymous messaging turned {utils.toggle_friendly_str(toggle)}!"
+            )
+        )
+
+    @config.subcommand(
+        "ping-on-message",
+        sub_cmd_description="Enables or disables pinging on messages.",
+    )
+    async def message_ping_toggle(
+        self,
+        ctx: utils.THIASlashContext,
+        _toggle: str = tansy.Option(
+            "Should pinging on messages be turned on or off?",
+            name="toggle",
+            choices=[
+                ipy.SlashCommandChoice("on", "on"),
+                ipy.SlashCommandChoice("off", "off"),
+            ],
+        ),
+    ) -> None:
+        toggle = _toggle == "on"
+        await ctx.fetch_config({"messages": True})
+
+        await models.MessageConfig.prisma().update(
+            data={"ping_for_message": toggle}, where={"guild_id": ctx.guild_id}
+        )
+
+        await ctx.send(
+            embed=utils.make_embed(
+                f"Pinging on messages turned {utils.toggle_friendly_str(toggle)}!"
             )
         )
 

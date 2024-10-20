@@ -92,7 +92,14 @@ class MessageCMDs(utils.Extension):
 
             try:
                 other_chan = utils.partial_channel(self.bot, other_user_link.channel_id)
-                await other_chan.send(embed=embed)
+                await other_chan.send(
+                    content=(
+                        f"<@{other_user_link.user_id}>"
+                        if config.messages.ping_for_message
+                        else None
+                    ),
+                    embed=embed,
+                )
             except ipy.errors.HTTPException:
                 raise utils.CustomCheckFailure(
                     "Could not send a message to the specified user's channel."
@@ -162,7 +169,14 @@ class MessageCMDs(utils.Extension):
 
             try:
                 other_chan = utils.partial_channel(self.bot, other_user_link.channel_id)
-                await other_chan.send(embed=embed)
+                await other_chan.send(
+                    content=(
+                        f"<@{other_user_link.user_id}>"
+                        if config.messages.ping_for_message
+                        else None
+                    ),
+                    embed=embed,
+                )
             except ipy.errors.HTTPException:
                 raise utils.CustomCheckFailure(
                     "Could not send a message to the specified user's channel."
