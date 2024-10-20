@@ -47,7 +47,7 @@ class MessageManagement(utils.Extension):
             ),
             (
                 "Pinging on messages:"
-                f" {utils.yesno_friendly_str(config.messages.ping_for_message)}"
+                f" {utils.toggle_friendly_str(config.messages.ping_for_message)}"
             ),
             "",
             f"-# Links can be found at {self.message_view_links.mention()}.",
