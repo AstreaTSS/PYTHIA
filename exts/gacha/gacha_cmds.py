@@ -235,7 +235,7 @@ class GachaCommands(utils.Extension):
                 "Item either does not exist or you do not have it."
             )
 
-        await ctx.send(embed=item.embed())
+        await ctx.send(embed=item.embed(), ephemeral=True)
 
     @gacha_user_view_item.autocomplete("name")
     async def _autocomplete_gacha_user_item(self, ctx: ipy.AutocompleteContext) -> None:
