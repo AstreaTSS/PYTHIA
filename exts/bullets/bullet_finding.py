@@ -70,7 +70,7 @@ class BulletFinding(utils.Extension):
 
         bullet_name = (
             config.names.singular_bullet
-            if most_found_num
+            if most_found_num == 1
             else config.names.plural_bullet
         )
         truth_bullet_finder = (
