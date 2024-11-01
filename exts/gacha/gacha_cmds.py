@@ -7,8 +7,10 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """
 
+import asyncio
 import importlib
 import random
+from collections import defaultdict
 
 import interactions as ipy
 import tansy
@@ -27,6 +29,9 @@ class GachaCommands(utils.Extension):
     def __init__(self, bot: utils.THIABase) -> None:
         self.name = "Gacha Commands"
         self.bot: utils.THIABase = bot
+        self.gacha_roll_locks: defaultdict[str, asyncio.Lock] = defaultdict(
+            asyncio.Lock
+        )
 
     gacha = tansy.SlashCommand(
         name="gacha",
@@ -50,58 +55,61 @@ class GachaCommands(utils.Extension):
         if not ctx.author.has_role(config.player_role):
             raise utils.CustomCheckFailure("You do not have the Player role.")
 
-        player = await models.GachaPlayer.get_or_create(ctx.guild.id, ctx.author.id)
+        async with self.gacha_roll_locks[str(ctx.author_id)]:
+            player = await models.GachaPlayer.get_or_create(ctx.guild.id, ctx.author.id)
 
-        if player.currency_amount < config.gacha.currency_cost:
-            raise utils.CustomCheckFailure(
-                f"You do not have enough {config.names.plural_currency_name} to roll"
-                " the gacha. You need at least"
-                f" {config.gacha.currency_cost} {config.names.currency_name(config.gacha.currency_cost)} to"
-                " do so."
-            )
-
-        where: PrismaGachaItemWhereInput = {}
-        if config.gacha.draw_duplicates:
-            where = {"guild_id": ctx.guild.id, "amount": {"not": 0}}
-        else:
-            where = {
-                "guild_id": ctx.guild.id,
-                "amount": {"not": 0},
-                "players": {"none": {"player_id": player.id}},
-            }
-
-        item_count = await models.GachaItem.prisma().count(where=where)
-        if item_count == 0:
-            raise utils.CustomCheckFailure("There are no items available to roll.")
-
-        item = await models.GachaItem.prisma().find_first_or_raise(
-            skip=random.randint(0, item_count - 1),  # noqa: S311
-            where=where,
-            order={"id": "asc"},
-        )
-
-        new_count = player.currency_amount - config.gacha.currency_cost
-        embed = item.embed()
-        embed.set_footer(f"{new_count} {config.names.currency_name(new_count)} left")
-
-        await ctx.send(embed=embed)
-
-        async with self.bot.db.batch_() as batch:
-            if item.amount != -1:
-                batch.prismagachaitem.update(
-                    data={"amount": {"decrement": 1}}, where={"id": item.id}
+            if player.currency_amount < config.gacha.currency_cost:
+                raise utils.CustomCheckFailure(
+                    f"You do not have enough {config.names.plural_currency_name} to"
+                    " roll the gacha. You need at least"
+                    f" {config.gacha.currency_cost} {config.names.currency_name(config.gacha.currency_cost)} to"
+                    " do so."
                 )
 
-            batch.prismagachaplayer.update(
-                data={"currency_amount": {"decrement": config.gacha.currency_cost}},
-                where={"id": player.id},
-            )
-            batch.prismaitemtoplayer.create(
-                data={
-                    "item": {"connect": {"id": item.id}},
-                    "player": {"connect": {"id": player.id}},
+            where: PrismaGachaItemWhereInput = {}
+            if config.gacha.draw_duplicates:
+                where = {"guild_id": ctx.guild.id, "amount": {"not": 0}}
+            else:
+                where = {
+                    "guild_id": ctx.guild.id,
+                    "amount": {"not": 0},
+                    "players": {"none": {"player_id": player.id}},
                 }
+
+            item_count = await models.GachaItem.prisma().count(where=where)
+            if item_count == 0:
+                raise utils.CustomCheckFailure("There are no items available to roll.")
+
+            item = await models.GachaItem.prisma().find_first_or_raise(
+                skip=random.randint(0, item_count - 1),  # noqa: S311
+                where=where,
+                order={"id": "asc"},
             )
+
+            new_count = player.currency_amount - config.gacha.currency_cost
+            embed = item.embed()
+            embed.set_footer(
+                f"{new_count} {config.names.currency_name(new_count)} left"
+            )
+
+            await ctx.send(embed=embed)
+
+            async with self.bot.db.batch_() as batch:
+                if item.amount != -1:
+                    batch.prismagachaitem.update(
+                        data={"amount": {"decrement": 1}}, where={"id": item.id}
+                    )
+
+                batch.prismagachaplayer.update(
+                    data={"currency_amount": {"decrement": config.gacha.currency_cost}},
+                    where={"id": player.id},
+                )
+                batch.prismaitemtoplayer.create(
+                    data={
+                        "item": {"connect": {"id": item.id}},
+                        "player": {"connect": {"id": player.id}},
+                    }
+                )
 
     @gacha.subcommand(
         "pull",
