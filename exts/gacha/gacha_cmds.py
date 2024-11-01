@@ -50,9 +50,7 @@ class GachaCommands(utils.Extension):
         if not ctx.author.has_role(config.player_role):
             raise utils.CustomCheckFailure("You do not have the Player role.")
 
-        player = await models.GachaPlayer.get_or_create(
-            ctx.guild.id, ctx.author.id, include={"items": True}
-        )
+        player = await models.GachaPlayer.get_or_create(ctx.guild.id, ctx.author.id)
 
         if player.currency_amount < config.gacha.currency_cost:
             raise utils.CustomCheckFailure(
@@ -72,9 +70,7 @@ class GachaCommands(utils.Extension):
                 "players": {"none": {"player_id": player.id}},
             }
 
-        item_count = await models.GachaItem.prisma().count(
-            where=where,
-        )
+        item_count = await models.GachaItem.prisma().count(where=where)
         if item_count == 0:
             raise utils.CustomCheckFailure("There are no items available to roll.")
 
@@ -84,11 +80,16 @@ class GachaCommands(utils.Extension):
             order={"id": "asc"},
         )
 
+        new_count = player.currency_amount - config.gacha.currency_cost
+        embed = item.embed()
+        embed.set_footer(f"{new_count} {config.names.currency_name(new_count)} left")
+
+        await ctx.send(embed=embed)
+
         async with self.bot.db.batch_() as batch:
             if item.amount != -1:
-                item.amount -= 1
                 batch.prismagachaitem.update(
-                    data={"amount": item.amount}, where={"id": item.id}
+                    data={"amount": {"decrement": 1}}, where={"id": item.id}
                 )
 
             batch.prismagachaplayer.update(
@@ -101,12 +102,6 @@ class GachaCommands(utils.Extension):
                     "player": {"connect": {"id": player.id}},
                 }
             )
-
-        new_count = player.currency_amount - config.gacha.currency_cost
-        embed = item.embed()
-        embed.set_footer(f"{new_count} {config.names.currency_name(new_count)} left")
-
-        await ctx.send(embed=embed)
 
     @gacha.subcommand(
         "pull",
