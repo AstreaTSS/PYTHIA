@@ -9,20 +9,27 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 import asyncio
 import importlib
-import random
 from collections import defaultdict
 
 import interactions as ipy
 import tansy
 import typing_extensions as typing
+from prisma.types import PrismaGachaItemScalarFieldKeys
 
 import common.fuzzy as fuzzy
 import common.help_tools as help_tools
 import common.models as models
 import common.utils as utils
 
-if typing.TYPE_CHECKING:
-    from prisma.types import PrismaGachaItemWhereInput
+QUERY_GACHA_ROLL = (
+    f"SELECT {', '.join(typing.get_args(PrismaGachaItemScalarFieldKeys))} FROM"  # noqa: S608
+    " thiagachaitems WHERE guild_id = $1 AND amount != 0 ORDER BY RANDOM() LIMIT 1;"
+)
+QUERY_GACHA_ROLL_NO_DUPS = (
+    f"SELECT {', '.join(typing.get_args(PrismaGachaItemScalarFieldKeys))} FROM"  # noqa: S608
+    " thiagachaitems WHERE guild_id = $1 AND amount != 0 AND id NOT IN (SELECT item_id"
+    " FROM thiagachaitemtoplayer WHERE player_id = $2) ORDER BY RANDOM() LIMIT 1;"
+)
 
 
 class GachaCommands(utils.Extension):
@@ -66,25 +73,17 @@ class GachaCommands(utils.Extension):
                     " do so."
                 )
 
-            where: PrismaGachaItemWhereInput = {}
             if config.gacha.draw_duplicates:
-                where = {"guild_id": ctx.guild.id, "amount": {"not": 0}}
+                item = await models.GachaItem.prisma().query_first(
+                    QUERY_GACHA_ROLL, ctx.guild.id
+                )
             else:
-                where = {
-                    "guild_id": ctx.guild.id,
-                    "amount": {"not": 0},
-                    "players": {"none": {"player_id": player.id}},
-                }
+                item = await models.GachaItem.prisma().query_first(
+                    QUERY_GACHA_ROLL_NO_DUPS, ctx.guild.id, player.id
+                )
 
-            item_count = await models.GachaItem.prisma().count(where=where)
-            if item_count == 0:
+            if item is None:
                 raise utils.CustomCheckFailure("There are no items available to roll.")
-
-            item = await models.GachaItem.prisma().find_first_or_raise(
-                skip=random.randint(0, item_count - 1),  # noqa: S311
-                where=where,
-                order={"id": "asc"},
-            )
 
             new_count = player.currency_amount - config.gacha.currency_cost
             embed = item.embed()
