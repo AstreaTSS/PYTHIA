@@ -962,7 +962,7 @@ class GachaManagement(utils.Extension):
                     }
                 )
 
-            if remove_amount_from_gacha:
+            if remove_amount_from_gacha and item.amount != -1:
                 batch.prismagachaitem.update(
                     data={"amount": {"decrement": amount}},
                     where={"id": item.id},
