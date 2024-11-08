@@ -18,6 +18,7 @@ from interactions.client.mixins.send import SendMixin
 
 import common.fuzzy as fuzzy
 import common.models as models
+import common.text_utils as text_utils
 import common.utils as utils
 
 
@@ -170,7 +171,7 @@ class BulletFinding(utils.Extension):
             return
 
         bullet_found = await models.TruthBullet.find(
-            message.channel.id, message.content
+            message.channel.id, text_utils.replace_smart_punc(message.content)
         )
         if not bullet_found:
             return
@@ -235,7 +236,10 @@ class BulletFinding(utils.Extension):
     async def investigate(
         self,
         ctx: utils.THIASlashContext,
-        trigger: str = tansy.Option("The trigger to search for in this channel."),
+        trigger: str = tansy.Option(
+            "The trigger to search for in this channel.",
+            converter=text_utils.ReplaceSmartPuncConverter,
+        ),
         **_: typing.Any,
     ) -> None:
         config = await ctx.fetch_config(include={"bullets": True, "names": True})
@@ -307,7 +311,9 @@ class BulletFinding(utils.Extension):
         self,
         ctx: utils.THIASlashContext,
         trigger: str = tansy.Option(
-            "The trigger of the Truth Bullet to manually trigger.", autocomplete=True
+            "The trigger of the Truth Bullet to manually trigger.",
+            autocomplete=True,
+            converter=text_utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
         await self.investigate.call_with_binding(
@@ -324,4 +330,5 @@ class BulletFinding(utils.Extension):
 def setup(bot: utils.THIABase) -> None:
     importlib.reload(utils)
     importlib.reload(fuzzy)
+    importlib.reload(text_utils)
     BulletFinding(bot)

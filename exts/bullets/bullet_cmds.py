@@ -16,6 +16,7 @@ import tansy
 import common.fuzzy as fuzzy
 import common.help_tools as help_tools
 import common.models as models
+import common.text_utils as text_utils
 import common.utils as utils
 
 
@@ -167,7 +168,9 @@ class BulletCMDs(utils.Extension):
 
             await models.TruthBullet.prisma().create(
                 data={
-                    "trigger": ctx.responses["truth_bullet_trigger"],
+                    "trigger": text_utils.replace_smart_punc(
+                        ctx.responses["truth_bullet_trigger"]
+                    ),
                     "aliases": [],
                     "description": ctx.responses["truth_bullet_desc"],
                     "channel_id": channel_id,
@@ -196,7 +199,9 @@ class BulletCMDs(utils.Extension):
             "The channel for the Truth Bullet to be removed."
         ),
         trigger: str = tansy.Option(
-            "The trigger of the Truth Bullet to be removed.", autocomplete=True
+            "The trigger of the Truth Bullet to be removed.",
+            autocomplete=True,
+            converter=text_utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
         num_deleted = await models.TruthBullet.prisma().delete_many(
@@ -300,7 +305,9 @@ class BulletCMDs(utils.Extension):
             "The channel the Truth Bullet is in."
         ),
         trigger: str = tansy.Option(
-            "The trigger of the Truth Bullet.", autocomplete=True
+            "The trigger of the Truth Bullet.",
+            autocomplete=True,
+            converter=text_utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
         possible_bullet = await models.TruthBullet.find_possible_bullet(
@@ -333,7 +340,9 @@ class BulletCMDs(utils.Extension):
             "The channel the Truth Bullet is in."
         ),
         trigger: str = tansy.Option(
-            "The trigger of the Truth Bullet to edit.", autocomplete=True
+            "The trigger of the Truth Bullet to edit.",
+            autocomplete=True,
+            converter=text_utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
         possible_bullet = await models.TruthBullet.find_possible_bullet(
@@ -408,7 +417,9 @@ class BulletCMDs(utils.Extension):
                 )
                 return
 
-            possible_bullet.trigger = ctx.responses["truth_bullet_trigger"]
+            possible_bullet.trigger = text_utils.replace_smart_punc(
+                ctx.responses["truth_bullet_trigger"]
+            )
             possible_bullet.description = ctx.responses["truth_bullet_desc"]
             possible_bullet.hidden = hidden
             await possible_bullet.save()
@@ -435,7 +446,9 @@ class BulletCMDs(utils.Extension):
             "The channel the Truth Bullet is in."
         ),
         trigger: str = tansy.Option(
-            "The trigger of the Truth Bullet to unfind.", autocomplete=True
+            "The trigger of the Truth Bullet to unfind.",
+            autocomplete=True,
+            converter=text_utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
         possible_bullet = await models.TruthBullet.find_possible_bullet(
@@ -470,7 +483,9 @@ class BulletCMDs(utils.Extension):
             "The channel the Truth Bullet is in."
         ),
         trigger: str = tansy.Option(
-            "The trigger of the Truth Bullet to unfind.", autocomplete=True
+            "The trigger of the Truth Bullet to unfind.",
+            autocomplete=True,
+            converter=text_utils.ReplaceSmartPuncConverter,
         ),
         user: ipy.Member = tansy.Option("The user who will find the Truth Bullet."),
     ) -> None:
@@ -498,10 +513,14 @@ class BulletCMDs(utils.Extension):
             "The channel the Truth Bullet is in."
         ),
         trigger: str = tansy.Option(
-            "The trigger of the Truth Bullet to add an alias to.", autocomplete=True
+            "The trigger of the Truth Bullet to add an alias to.",
+            autocomplete=True,
+            converter=text_utils.ReplaceSmartPuncConverter,
         ),
         alias: str = tansy.Option(
-            "The alias to add. Cannot be over 40 characters.", max_length=40
+            "The alias to add. Cannot be over 40 characters.",
+            max_length=40,
+            converter=text_utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
         if len(alias) > 40:
@@ -566,9 +585,15 @@ class BulletCMDs(utils.Extension):
             "The channel the Truth Bullet is in."
         ),
         trigger: str = tansy.Option(
-            "The trigger of the Truth Bullet to remove an alias to.", autocomplete=True
+            "The trigger of the Truth Bullet to remove an alias to.",
+            autocomplete=True,
+            converter=text_utils.ReplaceSmartPuncConverter,
         ),
-        alias: str = tansy.Option("The alias to remove.", autocomplete=True),
+        alias: str = tansy.Option(
+            "The alias to remove.",
+            autocomplete=True,
+            converter=text_utils.ReplaceSmartPuncConverter,
+        ),
     ) -> None:
         possible_bullet = await models.TruthBullet.find_possible_bullet(
             channel.id, trigger
@@ -615,4 +640,6 @@ class BulletCMDs(utils.Extension):
 def setup(bot: utils.THIABase) -> None:
     importlib.reload(utils)
     importlib.reload(fuzzy)
+    importlib.reload(help_tools)
+    importlib.reload(text_utils)
     BulletCMDs(bot)

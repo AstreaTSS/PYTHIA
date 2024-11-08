@@ -13,6 +13,7 @@ import typing_extensions as typing
 from rapidfuzz import process
 
 import common.models as models
+import common.text_utils as text_utils
 
 if typing.TYPE_CHECKING:
     from prisma.types import PrismaTruthBulletWhereInput
@@ -72,6 +73,8 @@ async def autocomplete_bullets(
     if not trigger:
         return await ctx.send([{"name": b.trigger, "value": b.trigger} for b in channel_bullets][:25])  # type: ignore
 
+    trigger = text_utils.replace_smart_punc(trigger)
+
     query: list[list[models.TruthBullet]] = extract_from_list(
         argument=trigger.lower(),
         list_of_items=channel_bullets,
@@ -95,12 +98,16 @@ async def autocomplete_aliases(
     if not channel or not trigger:
         return await ctx.send([])
 
+    trigger = text_utils.replace_smart_punc(trigger)
+
     truth_bullet = await models.TruthBullet.find_possible_bullet(channel, trigger)
     if not truth_bullet:
         return await ctx.send([])
 
     if not alias:
         return await ctx.send([{"name": a, "value": a} for a in truth_bullet.aliases][:25])  # type: ignore
+
+    alias = text_utils.replace_smart_punc(alias)
 
     query: list[list[str]] = extract_from_list(
         argument=trigger.lower(),
