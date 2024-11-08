@@ -41,6 +41,8 @@ from prisma.types import (
 )
 from pydantic import field_serializer, field_validator
 
+import common.text_utils as text_utils
+
 
 # yes, this is a copy from common.utils
 # but circular imports are a thing
@@ -91,8 +93,16 @@ class TruthBullet(PrismaTruthBullet):
 
     def bullet_info(self) -> str:
         str_list = [
-            f"Trigger `{self.trigger}` - in {self.chan_mention}",
-            f"Aliases: {', '.join(f'`{a}`' for a in self.aliases)}",
+            (
+                f"Trigger `{text_utils.escape_markdown(self.trigger)}` - in"
+                f" {self.chan_mention}"
+            ),
+            (
+                "Aliases:"
+                f" {', '.join(f'`{text_utils.escape_markdown(a)}`' for a in self.aliases)}"
+                if self.aliases
+                else "N/A"
+            ),
             f"Hidden: {yesno_friendly_str(self.hidden)}",
             f"Found: {yesno_friendly_str(self.found)}",
         ]
@@ -114,7 +124,8 @@ class TruthBullet(PrismaTruthBullet):
             color=int(os.environ["BOT_COLOR"]),
         )
         embed.description = (
-            f"`{self.trigger}` - from {self.chan_mention}\n\n{self.description}"
+            f"`{text_utils.escape_markdown(self.trigger)}` - from"
+            f" {self.chan_mention}\n\n{self.description}"
         )
 
         footer = f"Found by {username}" if self.finder else "To be found as of"
