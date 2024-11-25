@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 
 IS_LOADED = False
 
-__all__ = ("is_loaded", "set_loaded", "load_env")
+__all__ = ("is_loaded", "load_env", "set_loaded")
 
 
 def is_loaded() -> bool:
