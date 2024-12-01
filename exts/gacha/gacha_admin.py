@@ -597,7 +597,7 @@ class GachaManagement(utils.Extension):
                 ipy.SlashCommandChoice("yes", "yes"),
                 ipy.SlashCommandChoice("no", "no"),
             ],
-            default="no",
+            default="yes",
         ),
     ) -> None:
         send_button = _send_button == "yes"

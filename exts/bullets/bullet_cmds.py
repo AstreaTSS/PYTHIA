@@ -47,12 +47,40 @@ class BulletCMDs(utils.Extension):
         dm_permission=False,
     )
 
+    @staticmethod
+    def add_truth_bullets_modal(
+        channel: ipy.GuildText | ipy.GuildPublicThread,
+    ) -> ipy.Modal:
+        return ipy.Modal(
+            ipy.ShortText(
+                label="What's the trigger for this Truth Bullet?",
+                custom_id="truth_bullet_trigger",
+                max_length=60,
+            ),
+            ipy.ShortText(
+                label="Hide this Truth Bullet only to the finder?",
+                custom_id="truth_bullet_hidden",
+                value="no",
+                max_length=10,
+            ),
+            ipy.ParagraphText(
+                label="What's the description for this Truth Bullet?",
+                custom_id="truth_bullet_desc",
+                max_length=3900,
+            ),
+            title=(
+                f"Add Truth Bullets for #{name_shorten(channel.name or 'this-channel')}"
+            ),
+            custom_id=f"ui-modal:add_bullets-{channel.id}",
+        )
+
     @config.subcommand(
         sub_cmd_name="add",
         sub_cmd_description=(
             "Open a prompt to add Truth Bullets to a specified channel."
         ),
     )
+    @ipy.auto_defer(enabled=False)
     async def add_bullets(
         self,
         ctx: utils.THIASlashContext,
@@ -60,46 +88,60 @@ class BulletCMDs(utils.Extension):
             "The channel for the Truth Bullets to be added.",
             converter=utils.ValidChannelConverter,
         ),
+        _send_button: str = tansy.Option(
+            "Should a button be sent that allows for repeatedly adding Truth Bullets?",
+            name="send_button",
+            choices=[
+                ipy.SlashCommandChoice("yes", "yes"),
+                ipy.SlashCommandChoice("no", "no"),
+            ],
+            default="yes",
+        ),
     ) -> None:
-        button = ipy.Button(
-            style=ipy.ButtonStyle.GREEN,
-            label=f"Add Truth Bullets for #{channel.name}",
-            custom_id=f"ui-button:add_bullets-{channel.id}",
-        )
-
-        embeds: list[ipy.Embed] = []
+        send_button = _send_button == "yes"
 
         count = await models.TruthBullet.prisma().count(
             where={"guild_id": ctx.guild_id}
         )
-
         if count > 250:
             raise utils.CustomCheckFailure("Cannot add more than 250 Truth Bullets.")
 
-        if (
-            count > 0
-            and await models.TruthBullet.prisma().count(
-                where={"guild_id": ctx.guild_id, "found": False}
-            )
-            == 0
-        ):
-            embeds.append(
-                ipy.Embed(
-                    "Warning",
-                    "This server has Truth Bullets that all have been found, likely"
-                    " from a previous investigation. If you want to start fresh with"
-                    " completely new Truth Bullets, you can clear the current ones"
-                    f" with {self.bot.mention_command('bullet-manage clear')}.",
-                    color=ipy.RoleColors.YELLOW,
+        if send_button:
+            await ctx.defer()
+
+            embeds: list[ipy.Embed] = []
+            if (
+                count > 0
+                and await models.TruthBullet.prisma().count(
+                    where={"guild_id": ctx.guild_id, "found": False}
                 )
+                == 0
+            ):
+                embeds.append(
+                    ipy.Embed(
+                        "Warning",
+                        "This server has Truth Bullets that all have been found,"
+                        " likely from a previous investigation. If you want to start"
+                        " fresh with completely new Truth Bullets, you can clear the"
+                        " current ones with"
+                        f" {self.bot.mention_command('bullet-manage clear')}.",
+                        color=ipy.RoleColors.YELLOW,
+                    )
+                )
+
+            button = ipy.Button(
+                style=ipy.ButtonStyle.GREEN,
+                label=f"Add Truth Bullets for #{channel.name}",
+                custom_id=f"ui-button:add_bullets-{channel.id}",
             )
+            embeds.append(utils.make_embed("Add Truth Bullets via the button below!"))
 
-        embeds.append(utils.make_embed("Add Truth Bullets via the button below!"))
-
-        await ctx.send(
-            embeds=embeds,
-            components=button,
-        )
+            await ctx.send(
+                embeds=embeds,
+                components=button,
+            )
+        else:
+            await ctx.send_modal(self.add_truth_bullets_modal(channel))
 
     @ipy.listen("component")
     async def on_add_bullets_button(self, event: ipy.events.Component) -> None:
@@ -114,27 +156,7 @@ class BulletCMDs(utils.Extension):
                     "Could not find the channel this was associated to. Was it deleted?"
                 )
 
-            modal = ipy.Modal(
-                ipy.ShortText(
-                    label="What's the trigger for this Truth Bullet?",
-                    custom_id="truth_bullet_trigger",
-                    max_length=60,
-                ),
-                ipy.ShortText(
-                    label="Hide this Truth Bullet only to the finder?",
-                    custom_id="truth_bullet_hidden",
-                    value="no",
-                    max_length=10,
-                ),
-                ipy.ParagraphText(
-                    label="What's the description for this Truth Bullet?",
-                    custom_id="truth_bullet_desc",
-                    max_length=3900,
-                ),
-                title=f"Add Truth Bullets for #{name_shorten(channel.name)}",
-                custom_id=f"ui-modal:add_bullets-{channel.id}",
-            )
-            await ctx.send_modal(modal)
+            await ctx.send_modal(self.add_truth_bullets_modal(channel))
 
     @ipy.listen("modal_completion")
     async def on_modal_add_bullet(self, event: ipy.events.ModalCompletion) -> None:
