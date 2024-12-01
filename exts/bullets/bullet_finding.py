@@ -55,6 +55,15 @@ class BulletFinding(utils.Extension):
             assert config.bullets is not None
             assert config.names is not None
 
+        if not bullet_chan:
+            bullet_chan = await self.bot.fetch_channel(config.bullets.bullet_chan_id)
+            if not bullet_chan or not isinstance(bullet_chan, SendMixin):
+                config.bullets.bullets_enabled = False
+                self.bot.msg_enabled_bullets_guilds.discard(int(guild.id))
+                config.bullets.bullet_chan_id = None
+                await config.bullets.save()
+                return
+
         counter: collections.Counter[int] = collections.Counter()
 
         for bullet in await models.TruthBullet.prisma().find_many(
@@ -86,23 +95,27 @@ class BulletFinding(utils.Extension):
             "{{bullet_finder}}", truth_bullet_finder
         )
 
-        str_builder: list[str] = [
-            f"**All {config.names.plural_bullet} have been found.**",
-            "",
-            f"{best_bullet_finder} (found {most_found_num} {bullet_name}):",
-        ]
-        str_builder.extend(f"<@{person_id}>" for person_id in most_found_people)
+        content: str | None = None
 
-        if not bullet_chan:
-            bullet_chan = await self.bot.fetch_channel(config.bullets.bullet_chan_id)
-            if not bullet_chan or not isinstance(bullet_chan, SendMixin):
-                config.bullets.bullets_enabled = False
-                self.bot.msg_enabled_bullets_guilds.discard(int(guild.id))
-                config.bullets.bullet_chan_id = None
-                await config.bullets.save()
-                return
+        if config.bullets.show_best_finders:
+            str_builder: list[str] = [f"## {best_bullet_finder}"]
+            str_builder.extend(f"- <@{person_id}>" for person_id in most_found_people)
+            content = " ".join(f"<@{person_id}>" for person_id in most_found_people)
 
-        await bullet_chan.send("\n".join(str_builder))
+            embed = ipy.Embed(
+                title=f"All {config.names.plural_bullet} have been found.",
+                description="\n".join(str_builder),
+                color=ipy.RoleColors.GREEN,
+                timestamp=ipy.Timestamp.utcnow(),
+            )
+            embed.set_footer(text=f"Found {most_found_num} {bullet_name}")
+        else:
+            embed = ipy.Embed(
+                title=f"All {config.names.plural_bullet} have been found.",
+                color=ipy.RoleColors.GREEN,
+            )
+
+        await bullet_chan.send(content, embed=embed)
 
         config.bullets.bullets_enabled = False
         await config.bullets.save()

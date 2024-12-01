@@ -32,6 +32,7 @@ model PrismaBulletConfig {
   best_bullet_finder_role BigInt?
   bullets_enabled         Boolean @default(false)
   investigation_type      Int     @default(1) @db.SmallInt
+  show_best_finders       Boolean @default(true)
 
   main_config PrismaGuildConfig? @relation(fields: [guild_id], references: [guild_id], onDelete: Cascade)
 

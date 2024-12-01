@@ -65,6 +65,10 @@ class BulletConfigCMDs(utils.Extension):
                 "Best Truth Bullet Finder role:"
                 f" {f'<@&{config.bullets.best_bullet_finder_role}>' if config.bullets.best_bullet_finder_role else 'N/A'}"
             ),
+            (
+                "Announce Best Truth Bullet Finders at end:"
+                f" {utils.yesno_friendly_str(config.bullets.show_best_finders)}"
+            ),
         ]
 
         embed = ipy.Embed(
@@ -198,6 +202,50 @@ class BulletConfigCMDs(utils.Extension):
                 f" {bullet_config.investigation_type.name.replace('_', ' ').title()}."
             )
         )
+
+    @config.subcommand(
+        sub_cmd_name="announce-best-finders",
+        sub_cmd_description=(
+            "Toggle whether to announce the Best Truth Bullet Finders at the end of a"
+            " BDA investigation."
+        ),
+    )
+    async def set_announce_best_finders(
+        self,
+        ctx: utils.THIASlashContext,
+        _toggle: str = tansy.Option(
+            "Should the Best Truth Bullet Finders be announced at the end of a BDA"
+            " investigation?",
+            name="toggle",
+            choices=[
+                ipy.SlashCommandChoice("yes", "yes"),
+                ipy.SlashCommandChoice("no", "no"),
+            ],
+        ),
+    ) -> None:
+        toggle = _toggle == "yes"
+
+        config = await ctx.fetch_config({"bullets": True})
+        if typing.TYPE_CHECKING:
+            assert config.bullets is not None
+
+        config.bullets.show_best_finders = toggle
+        await config.bullets.save()
+
+        if toggle:
+            await ctx.send(
+                embed=utils.make_embed(
+                    "The bot will now announce Best Truth Bullet Finders at the end of"
+                    " a BDA investigation."
+                )
+            )
+        else:
+            await ctx.send(
+                embed=utils.make_embed(
+                    "The bot will no longer announce Best Truth Bullet Finders at the"
+                    " end of a BDA investigation."
+                )
+            )
 
     @config.subcommand(
         sub_cmd_name="names",
