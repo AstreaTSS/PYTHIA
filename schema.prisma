@@ -142,7 +142,7 @@ model PrismaDiceEntry {
 
 model PrimsaDiceConfig {
   guild_id BigInt  @id
-  visible  Boolean @default(false)
+  visible  Boolean @default(true)
 
   entries     PrismaDiceEntry[]
   main_config PrismaGuildConfig? @relation(fields: [guild_id], references: [guild_id], onDelete: Cascade)
