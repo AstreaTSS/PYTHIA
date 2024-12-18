@@ -35,8 +35,7 @@ class EtcEvents(ipy.Extension):
             where={"guild_id": int(event.guild_id)}
         )
 
-        # doesn't get deleted by cascade
-        await models.GachaPlayer.prisma().delete_many(
+        await models.TruthBullet.prisma().delete_many(
             where={"guild_id": int(event.guild_id)}
         )
 
