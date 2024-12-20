@@ -39,6 +39,51 @@ model PrismaBulletConfig {
   @@map("thiabulletconfig")
 }
 
+model PrismaItemsSystemItem {
+  id          Int     @id @default(autoincrement())
+  guild_id    BigInt
+  name        String
+  description String
+  image       String?
+  takeable    Boolean @default(true)
+
+  relations    PrismaItemRelation[]
+  items_config PrismaItemsConfig?   @relation(fields: [guild_id], references: [guild_id], onDelete: Cascade)
+
+  @@index([guild_id])
+  @@index([name])
+  @@map("thiaitemssystemitems")
+}
+
+enum ItemsRelationType {
+  CHANNEL
+  USER
+}
+
+model PrismaItemRelation {
+  id          Int                   @id @default(autoincrement())
+  item        PrismaItemsSystemItem @relation(fields: [item_id], references: [id], onDelete: Cascade)
+  item_id     Int
+  guild_id    BigInt
+  object_id   BigInt
+  object_type ItemsRelationType
+
+  @@index([item_id])
+  @@index([guild_id])
+  @@index([object_id])
+  @@map("thiaitemrelation")
+}
+
+model PrismaItemsConfig {
+  guild_id BigInt  @id
+  enabled  Boolean @default(false)
+
+  items       PrismaItemsSystemItem[]
+  main_config PrismaGuildConfig?      @relation(fields: [guild_id], references: [guild_id], onDelete: Cascade)
+
+  @@map("thiaitemsconfig")
+}
+
 enum Rarity {
   COMMON
   UNCOMMON
@@ -160,6 +205,7 @@ model PrismaGuildConfig {
   gacha    PrismaGachaConfig?
   messages PrismaMessageConfig?
   dice     PrimsaDiceConfig?
+  items    PrismaItemsConfig?
 
   @@map("thiaguildconfig")
 }

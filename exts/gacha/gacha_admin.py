@@ -9,7 +9,6 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 import asyncio
 import importlib
-import re
 
 import interactions as ipy
 import tansy
@@ -18,11 +17,8 @@ import typing_extensions as typing
 import common.fuzzy as fuzzy
 import common.help_tools as help_tools
 import common.models as models
+import common.text_utils as text_utils
 import common.utils as utils
-
-HTTP_URL_REGEX = re.compile(
-    r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
-)
 
 
 class GachaManagement(utils.Extension):
@@ -607,7 +603,7 @@ class GachaManagement(utils.Extension):
             await ctx.send(
                 embed=utils.make_embed("Add gacha items via the button below!"),
                 components=ipy.Button(
-                    style=ipy.ButtonStyle.PRIMARY,
+                    style=ipy.ButtonStyle.GREEN,
                     label="Add Gacha Item",
                     custom_id="thia-button:add_gacha_item",
                 ),
@@ -649,7 +645,7 @@ class GachaManagement(utils.Extension):
                 " leave the value empty to have an unlimited amount."
             )
 
-        if image and not HTTP_URL_REGEX.fullmatch(image):
+        if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):
             raise ipy.errors.BadArgument("The image given must be a valid URL.")
 
         # GachaConfig needs to exist, lets make sure it does
@@ -751,7 +747,7 @@ class GachaManagement(utils.Extension):
                 " leave the value empty to have an unlimited amount."
             )
 
-        if image and not HTTP_URL_REGEX.fullmatch(image):
+        if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):
             raise ipy.errors.BadArgument("The image given must be a valid URL.")
 
         await models.GachaItem.prisma().update(
@@ -995,5 +991,6 @@ class GachaManagement(utils.Extension):
 def setup(bot: utils.THIABase) -> None:
     importlib.reload(utils)
     importlib.reload(fuzzy)
+    importlib.reload(text_utils)
     importlib.reload(help_tools)
     GachaManagement(bot)

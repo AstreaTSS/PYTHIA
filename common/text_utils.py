@@ -13,6 +13,9 @@ import interactions as ipy
 
 SINGLE_QUOTE_REGEX = re.compile(r"‘|’")  # noqa: RUF001
 DOUBLE_QUOTE_REGEX = re.compile(r"“|”|„|‟|⹂|〝|〞|＂")  # noqa: RUF001
+HTTP_URL_REGEX = re.compile(
+    r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
+)
 
 
 def replace_smart_punc(text: str) -> str:
@@ -23,6 +26,10 @@ def replace_smart_punc(text: str) -> str:
 class ReplaceSmartPuncConverter(ipy.Converter):
     async def convert(self, _: ipy.BaseContext, argument: str) -> str:
         return replace_smart_punc(argument)
+
+
+def name_shorten(name: str, shorten_amount: int = 16) -> str:
+    return f"{name[:shorten_amount].strip()}..." if len(name) > shorten_amount else name
 
 
 """

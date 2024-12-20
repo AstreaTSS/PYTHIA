@@ -178,6 +178,15 @@ def yesno_friendly_str(bool_to_convert: bool) -> str:
     return "yes" if bool_to_convert else "no"
 
 
+def convert_to_bool(argument: str) -> bool:
+    lowered = argument.lower()
+    if lowered in {"yes", "y", "true", "t", "1", "enable", "on"}:
+        return True
+    if lowered in {"no", "n", "false", "f", "0", "disable", "off"}:
+        return False
+    raise ipy.errors.BadArgument(f"{argument} is not a recognised boolean option.")
+
+
 def partial_channel(bot: "THIABase", channel_id: ipy.Snowflake_Type) -> ipy.GuildText:
     return ipy.GuildText(
         client=bot, id=ipy.to_snowflake(channel_id), type=ipy.ChannelType.GUILD_TEXT

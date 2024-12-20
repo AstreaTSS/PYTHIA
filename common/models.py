@@ -7,6 +7,7 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """
 
+import collections
 import contextlib
 import datetime
 import os
@@ -21,6 +22,7 @@ from httpcore._backends import anyio
 from httpcore._backends.asyncio import AsyncioBackend
 from prisma import Base64, Json, _builder
 from prisma._async_http import Response
+from prisma.enums import ItemsRelationType, Rarity
 from prisma.models import (
     PrimsaDiceConfig,
     PrismaBulletConfig,
@@ -29,6 +31,9 @@ from prisma.models import (
     PrismaGachaItem,
     PrismaGachaPlayer,
     PrismaGuildConfig,
+    PrismaItemRelation,
+    PrismaItemsConfig,
+    PrismaItemsSystemItem,
     PrismaItemToPlayer,
     PrismaMessageConfig,
     PrismaMessageLink,
@@ -42,6 +47,33 @@ from prisma.types import (
 from pydantic import field_serializer, field_validator
 
 import common.text_utils as text_utils
+
+__all__ = (
+    "FIND_TRUTH_BULLET_EXACT_STR",
+    "FIND_TRUTH_BULLET_STR",
+    "VALIDATE_TRUTH_BULLET_STR",
+    "BulletConfig",
+    "DiceConfig",
+    "DiceEntry",
+    "GachaConfig",
+    "GachaItem",
+    "GachaPlayer",
+    "GuildConfig",
+    "InvestigationType",
+    "ItemRelation",
+    "ItemToPlayer",
+    "ItemsConfig",
+    "ItemsRelationType",
+    "ItemsSystemItem",
+    "MessageConfig",
+    "MessageLink",
+    "Names",
+    "Rarity",
+    "TruthBullet",
+    "code_template",
+    "escape_ilike",
+    "short_desc",
+)
 
 
 # yes, this is a copy from common.utils
@@ -262,12 +294,14 @@ class GachaItem(PrismaGachaItem):
 
 
 class _GachaHash:
+    __slots__ = ("id", "item")
+
     def __init__(self, item: "GachaItem") -> None:
         self.item = item
         self.id = item.id
 
     def __hash__(self) -> int:
-        return hash(self.id)
+        return self.id
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, _GachaHash) and self.id == other.id
@@ -401,6 +435,116 @@ class DiceConfig(GetMethodsMixin, PrimsaDiceConfig):
         await self.prisma().update(where={"guild_id": self.guild_id}, data=data)  # type: ignore
 
 
+class ItemRelation(PrismaItemRelation):
+    item: typing.Optional["ItemsSystemItem"] = None
+
+    async def save(self) -> None:
+        data = self.model_dump(exclude={"item"})
+        await self.prisma().update(where={"id": self.id}, data=data)  # type: ignore
+
+
+class _ItemRelationHash:
+    __slots__ = ("id", "relation")
+
+    def __init__(self, relation: "ItemRelation") -> None:
+        self.relation = relation
+        self.id = relation.object_id
+
+    def __hash__(self) -> int:
+        return self.id
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, _ItemRelationHash) and self.id == other.id
+
+
+class ItemsSystemItem(PrismaItemsSystemItem):
+    relations: typing.Optional[list[ItemRelation]] = None
+    items_config: typing.Optional["ItemsConfig"] = None
+
+    def embeds(self, *, count: int | None = None) -> list[ipy.Embed]:
+        embeds: list[ipy.Embed] = []
+
+        embed = ipy.Embed(
+            title=f"{self.name}{f' (x{count})' if count else ''}",
+            description=self.description,
+            color=ipy.Color(int(os.environ["BOT_COLOR"])),
+            timestamp=ipy.Timestamp.utcnow(),
+        )
+        if self.image:
+            embed.set_thumbnail(self.image)
+
+        embed.set_footer(f"Takeable: {yesno_friendly_str(self.takeable)}")
+
+        embeds.append(embed)
+
+        if self.relations:
+            relation_counter: collections.Counter[_ItemRelationHash] = (
+                collections.Counter()
+            )
+
+            for relation in self.relations:
+                relation_counter[_ItemRelationHash(relation)] += 1
+
+            relation_data = sorted(
+                (
+                    (relation.relation, count)
+                    for relation, count in relation_counter.items()
+                ),
+                key=lambda x: x[0].object_type,
+            )
+
+            str_builder: list[str] = []
+            character_count = 0
+
+            for entry, count in relation_data:
+                string_to_use = (
+                    f"- <#{entry.object_id}> (x{count})"
+                    if entry.object_type == ItemsRelationType.CHANNEL
+                    else f"- <@{entry.object_id}> (x{count})"
+                )
+
+                if character_count + len(string_to_use) > 4000:
+                    embeds.append(
+                        ipy.Embed(
+                            title=f"{self.name} - Possessors",
+                            description="\n".join(str_builder),
+                            color=ipy.Color(int(os.environ["BOT_COLOR"])),
+                            timestamp=ipy.Timestamp.utcnow(),
+                        )
+                    )
+
+                    str_builder.clear()
+                    character_count = 0
+
+                str_builder.append(string_to_use)
+                character_count += len(string_to_use)
+
+            if str_builder:
+                embeds.append(
+                    ipy.Embed(
+                        title=f"{self.name} - Possessors",
+                        description="\n".join(str_builder),
+                        color=ipy.Color(int(os.environ["BOT_COLOR"])),
+                        timestamp=ipy.Timestamp.utcnow(),
+                    )
+                )
+
+        return embeds
+
+    async def save(self) -> None:
+        data = self.model_dump(exclude={"items_config", "relations"})
+        await self.prisma().update(where={"id": self.id}, data=data)  # type: ignore
+
+
+class ItemsConfig(GetMethodsMixin, PrismaItemsConfig):
+    items: typing.Optional[list[ItemsSystemItem]] = None
+    main_config: typing.Optional["GuildConfig"] = None
+
+    async def save(self) -> None:
+        data = self.model_dump(exclude={"items", "main_config"})
+        await self.prisma().update(where={"guild_id": self.guild_id}, data=data)  # type: ignore
+
+
 class GuildConfigMixin:
     guild_id: ipy.Snowflake
 
@@ -437,6 +581,10 @@ class GuildConfigMixin:
                 )
             if entry == "dice" and not getattr(self, "dice", True):
                 self.dice = await DiceConfig.prisma().create(
+                    data={"guild_id": self.guild_id}
+                )
+            if entry == "items" and not getattr(self, "items", True):
+                self.items = await ItemsConfig.prisma().create(
                     data={"guild_id": self.guild_id}
                 )
 
@@ -484,6 +632,7 @@ class GuildConfigMixin:
                 "gacha",
                 "messages",
                 "dice",
+                "items",
             }
         )
         await self.prisma().update(where={"guild_id": self.guild_id}, data=data)  # type: ignore
@@ -494,6 +643,8 @@ class GuildConfig(GuildConfigMixin, PrismaGuildConfig):
     gacha: typing.Optional[GachaConfig] = None
     names: typing.Optional[Names] = None
     dice: typing.Optional[DiceConfig] = None
+    messages: typing.Optional[MessageConfig] = None
+    items: typing.Optional[ItemsConfig] = None
 
 
 FIND_TRUTH_BULLET_STR: typing.Final[str] = (
@@ -598,3 +749,6 @@ MessageLink.model_rebuild()
 MessageConfig.model_rebuild()
 DiceConfig.model_rebuild()
 DiceEntry.model_rebuild()
+ItemsConfig.model_rebuild()
+ItemsSystemItem.model_rebuild()
+ItemRelation.model_rebuild()

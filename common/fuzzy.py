@@ -16,7 +16,10 @@ import common.models as models
 import common.text_utils as text_utils
 
 if typing.TYPE_CHECKING:
-    from prisma.types import PrismaTruthBulletWhereInput
+    from prisma.types import (
+        PrismaItemsSystemItemWhereInput,
+        PrismaTruthBulletWhereInput,
+    )
 
 T = typing.TypeVar("T")
 
@@ -69,6 +72,8 @@ async def autocomplete_bullets(
         where["found"] = False
 
     channel_bullets = await models.TruthBullet.prisma().find_many(where=where)
+    if not channel_bullets:
+        return await ctx.send([])
 
     if not trigger:
         return await ctx.send([{"name": b.trigger, "value": b.trigger} for b in channel_bullets][:25])  # type: ignore
@@ -282,3 +287,111 @@ async def autocomplete_dice_entries_user(
         score_cutoff=0.6,
     )
     return await ctx.send([{"name": g[0].name, "value": g[0].name} for g in query][:25])  # type: ignore
+
+
+def get_vesti_item_name(item: models.ItemsSystemItem) -> str:
+    return item.name.lower() if isinstance(item, models.ItemsSystemItem) else item
+
+
+async def autocomplete_item(
+    ctx: ipy.AutocompleteContext,
+    name: str,
+    **_: typing.Any,
+) -> None:
+    guild_items = await models.ItemsSystemItem.prisma().find_many(
+        where={"guild_id": int(ctx.guild_id)}
+    )
+    if not guild_items:
+        return await ctx.send([])
+
+    if not name:
+        return await ctx.send([{"name": i.name, "value": i.name} for i in guild_items][:25])  # type: ignore
+
+    name = text_utils.replace_smart_punc(name)
+
+    query: list[list[models.ItemsSystemItem]] = extract_from_list(
+        argument=name.lower(),
+        list_of_items=guild_items,
+        processors=[get_vesti_item_name],
+        score_cutoff=0.6,
+    )
+    return await ctx.send([{"name": i[0].name, "value": i[0].name} for i in query][:25])  # type: ignore
+
+
+async def autocomplete_item_channel(
+    ctx: ipy.AutocompleteContext,
+    name: str,
+    channel: typing.Optional[str] = None,
+    check_takeable: bool = False,
+    **_: typing.Any,
+) -> None:
+    if not channel:
+        return await ctx.send([])
+
+    where: PrismaItemsSystemItemWhereInput = {
+        "relations": {"some": {"object_id": int(channel)}}
+    }
+    if check_takeable:
+        where["takeable"] = True
+
+    channel_items = await models.ItemsSystemItem.prisma().find_many(where=where)
+    if not channel_items:
+        return await ctx.send([])
+
+    if not name:
+        return await ctx.send(
+            [
+                {"name": i.name, "value": i.name}
+                for i in sorted(channel_items, key=lambda i: i.name)
+            ][
+                :25
+            ]  # type: ignore
+        )
+
+    name = text_utils.replace_smart_punc(name)
+
+    query: list[list[models.ItemsSystemItem]] = extract_from_list(
+        argument=name.lower(),
+        list_of_items=channel_items,
+        processors=[get_vesti_item_name],
+        score_cutoff=0.6,
+    )
+
+    return await ctx.send([{"name": i[0].name, "value": i[0].name} for i in query][:25])  # type: ignore
+
+
+async def autocomplete_item_user(
+    ctx: ipy.AutocompleteContext,
+    name: str,
+    user: typing.Optional[ipy.Snowflake_Type] = None,
+    **_: typing.Any,
+) -> None:
+    if not user:
+        return await ctx.send([])
+
+    user_items = await models.ItemsSystemItem.prisma().find_many(
+        where={"relations": {"some": {"object_id": int(user)}}}
+    )
+    if not user_items:
+        return await ctx.send([])
+
+    if not name:
+        return await ctx.send(
+            [
+                {"name": i.name, "value": i.name}
+                for i in sorted(user_items, key=lambda i: i.name)
+            ][
+                :25
+            ]  # type: ignore
+        )
+
+    name = text_utils.replace_smart_punc(name)
+
+    query: list[list[models.ItemsSystemItem]] = extract_from_list(
+        argument=name.lower(),
+        list_of_items=user_items,
+        processors=[get_vesti_item_name],
+        score_cutoff=0.6,
+    )
+
+    return await ctx.send([{"name": i[0].name, "value": i[0].name} for i in query][:25])  # type: ignore

@@ -20,20 +20,7 @@ import common.text_utils as text_utils
 import common.utils as utils
 
 
-def name_shorten(name: str, shorten_amount: int = 16) -> str:
-    return f"{name[:shorten_amount].strip()}..." if len(name) > shorten_amount else name
-
-
-def convert_to_bool(argument: str) -> bool:
-    lowered = argument.lower()
-    if lowered in {"yes", "y", "true", "t", "1", "enable", "on"}:
-        return True
-    if lowered in {"no", "n", "false", "f", "0", "disable", "off"}:
-        return False
-    raise ipy.errors.BadArgument(f"{argument} is not a recognised boolean option.")
-
-
-class BulletCMDs(utils.Extension):
+class BulletManagement(utils.Extension):
     """Commands for using and modifying Truth Bullets."""
 
     def __init__(self, bot: utils.THIABase) -> None:
@@ -69,7 +56,8 @@ class BulletCMDs(utils.Extension):
                 max_length=3900,
             ),
             title=(
-                f"Add Truth Bullets for #{name_shorten(channel.name or 'this-channel')}"
+                "Add Truth Bullets for"
+                f" #{text_utils.name_shorten(channel.name or 'this-channel')}"
             ),
             custom_id=f"ui-modal:add_bullets-{channel.id}",
         )
@@ -178,7 +166,7 @@ class BulletCMDs(utils.Extension):
                 return
 
             try:
-                hidden = convert_to_bool(ctx.responses["truth_bullet_hidden"])
+                hidden = utils.convert_to_bool(ctx.responses["truth_bullet_hidden"])
             except ipy.errors.BadArgument:
                 await ctx.send(
                     embed=utils.error_embed_generate(
@@ -395,17 +383,12 @@ class BulletCMDs(utils.Extension):
                 max_length=3900,
             ),
             title=(
-                f"Edit {name_shorten(possible_bullet.trigger, 10)} for"
-                f" #{name_shorten(channel.name, 14)}"
+                f"Edit {text_utils.name_shorten(possible_bullet.trigger, 10)} for"
+                f" #{text_utils.name_shorten(channel.name, 14)}"
             ),
             custom_id=f"ui:edit-bullet-{channel.id}|{trigger}",
         )
         await ctx.send_modal(modal)
-        await ctx.send(
-            embed=utils.make_embed(
-                f"Sent a popup to edit `{trigger}` for {channel.mention}!"
-            )
-        )
 
     @ipy.listen("modal_completion")
     async def on_modal_edit_bullet(self, event: ipy.events.ModalCompletion) -> None:
@@ -429,7 +412,7 @@ class BulletCMDs(utils.Extension):
                 return
 
             try:
-                hidden = convert_to_bool(ctx.responses["truth_bullet_hidden"])
+                hidden = utils.convert_to_bool(ctx.responses["truth_bullet_hidden"])
             except ipy.errors.BadArgument:
                 await ctx.send(
                     embed=utils.error_embed_generate(
@@ -664,4 +647,4 @@ def setup(bot: utils.THIABase) -> None:
     importlib.reload(fuzzy)
     importlib.reload(help_tools)
     importlib.reload(text_utils)
-    BulletCMDs(bot)
+    BulletManagement(bot)
