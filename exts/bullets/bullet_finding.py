@@ -31,6 +31,11 @@ async def player_check(ctx: utils.THIASlashContext) -> bool:
     return True
 
 
+class BDAInvestigateKwargs(typing.TypedDict, total=False):
+    manual_trigger: bool
+    finder: ipy.User | ipy.Member | None
+
+
 class BulletFinding(utils.Extension):
     """The extension that deals with finding Truth Bullets."""
 
@@ -253,14 +258,14 @@ class BulletFinding(utils.Extension):
             "The trigger to search for in this channel.",
             converter=text_utils.ReplaceSmartPuncConverter,
         ),
-        **_: typing.Any,
+        **kwargs: typing.Unpack[BDAInvestigateKwargs],
     ) -> None:
         config = await ctx.fetch_config(include={"bullets": True, "names": True})
         if typing.TYPE_CHECKING:
             assert config.bullets is not None
             assert config.names is not None
 
-        if not config.bullets.bullets_enabled:
+        if not config.bullets.bullets_enabled and not kwargs.get("manual_trigger"):
             self.bot.msg_enabled_bullets_guilds.discard(int(ctx.guild_id))
             raise utils.CustomCheckFailure(
                 f"{config.names.plural_bullet} are not enabled in this server."
@@ -279,11 +284,13 @@ class BulletFinding(utils.Extension):
 
         await ctx.defer(ephemeral=truth_bullet.hidden)
 
+        finder = the_finder if (the_finder := kwargs.get("finder")) else ctx.author
+
         truth_bullet.found = True
-        truth_bullet.finder = ctx.author.id
+        truth_bullet.finder = finder.id
 
         bullet_chan: ipy.GuildText | None = None
-        embed = truth_bullet.found_embed(str(ctx.author), config.names.singular_bullet)
+        embed = truth_bullet.found_embed(str(finder), config.names.singular_bullet)
 
         message = await ctx.send(embeds=embed, ephemeral=ctx.ephemeral)
 
@@ -306,7 +313,9 @@ class BulletFinding(utils.Extension):
             )
 
         await truth_bullet.save()
-        await self.check_for_finish(ctx.guild, bullet_chan, config)
+
+        if config.bullets.bullets_enabled:
+            await self.check_for_finish(ctx.guild, bullet_chan, config)
 
     config = tansy.SlashCommand(
         name="bullet-manage",
@@ -328,9 +337,12 @@ class BulletFinding(utils.Extension):
             autocomplete=True,
             converter=text_utils.ReplaceSmartPuncConverter,
         ),
+        finder: typing.Optional[ipy.Member] = tansy.Option(
+            "The person who will find the Truth Bullet.", default=None
+        ),
     ) -> None:
         await self.investigate.call_with_binding(
-            self.investigate.callback, ctx, trigger, manual_trigger=True
+            self.investigate.callback, ctx, trigger, manual_trigger=True, finder=finder
         )
 
     @manual_trigger.autocomplete("trigger")

@@ -488,7 +488,7 @@ class BulletManagement(utils.Extension):
             "The channel the Truth Bullet is in."
         ),
         trigger: str = tansy.Option(
-            "The trigger of the Truth Bullet to unfind.",
+            "The trigger of the Truth Bullet to find.",
             autocomplete=True,
             converter=text_utils.ReplaceSmartPuncConverter,
         ),
