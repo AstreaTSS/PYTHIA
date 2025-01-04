@@ -527,6 +527,7 @@ class GachaManagement(utils.Extension):
         members: list[GuildMemberEntry] = []
 
         if "COMMUNITY" in ctx.guild.features:
+            # fast path - can use an undocumented endpoint
             retry = 0
 
             while True:
@@ -535,15 +536,17 @@ class GachaManagement(utils.Extension):
                     route=Route("POST", f"/guilds/{ctx.guild_id}/members-search"),
                     payload={
                         "and_query": {"role_ids": {"and_query": [str(actual_role.id)]}},
-                        "limit": 250,
+                        "limit": 250,  # surely this is a reasonable limit
                     },
                 )
+
+                # index is likely being build, let's wait
                 if retry_after := data.get("retry_after"):
                     if retry_after == 0:
                         retry_after = 0.5
                     await asyncio.sleep(retry_after)
 
-                    if retry >= 5:
+                    if retry >= 5:  # reasonable limit
                         raise utils.CustomCheckFailure("Failed to fetch members.")
 
                     retry += 1
@@ -554,16 +557,17 @@ class GachaManagement(utils.Extension):
 
                 members = data["members"]
                 break
-
-            if not members:
-                raise utils.CustomCheckFailure(
-                    "No members with the Player role were found."
-                )
         else:
+            # slow path, we just have to iterate over all members
             iterator = MemberIterator(ctx.guild)
             async for member in iterator:
                 if str(actual_role.id) in member["roles"]:
                     members.append({"member": member})
+
+        if not members:
+            raise utils.CustomCheckFailure(
+                "No members with the Player role were found."
+            )
 
         existing_players = await models.GachaPlayer.prisma().find_many(
             where={
