@@ -27,6 +27,6 @@ PYTHIA is a Discord bot meant to assist with various parts of running Danganronp
 
 ### Copyright and License Notice
 
-Copyright 2021-2024 AstreaTSS.
+Copyright 2021-2025 AstreaTSS.
 
 Unless otherwise stated, all files in this repository are licensed under the Mozilla Public License v2.0. A copy of the license is available in the [LICENSE](LICENSE) file.
