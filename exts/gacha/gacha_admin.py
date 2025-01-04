@@ -487,7 +487,7 @@ class GachaManagement(utils.Extension):
             raise utils.CustomCheckFailure("The Player role was not found.")
 
         if not ctx.guild.chunked:
-            await ctx.guild.chunk()
+            await ctx.guild.gateway_chunk()
             await asyncio.sleep(1.5)  # sometimes, it needs the wiggle room
 
         members = actual_role.members.copy()
