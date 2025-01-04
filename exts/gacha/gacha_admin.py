@@ -488,7 +488,7 @@ class GachaManagement(utils.Extension):
 
         if not ctx.guild.chunked:
             await ctx.guild.chunk()
-            await asyncio.sleep(1)  # sometimes, it needs the wiggle room
+            await asyncio.sleep(1.5)  # sometimes, it needs the wiggle room
 
         members = actual_role.members.copy()
 
@@ -498,6 +498,12 @@ class GachaManagement(utils.Extension):
                 "user_id": {"in": [m.id for m in members]},
             },
         )
+        if any(p.currency_amount + amount > 2147483647 for p in existing_players):
+            raise ipy.errors.BadArgument(
+                "One or more users would have more than the maximum amount of currency,"
+                " 2,147,483,647, after this operation."
+            )
+
         existing_players_set = {p.user_id for p in existing_players}
 
         async with self.bot.db.batch_() as batch:
