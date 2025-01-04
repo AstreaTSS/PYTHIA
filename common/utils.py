@@ -35,7 +35,7 @@ DOCKER_ENABLED = os.environ.get("DOCKER_MODE") in OS_TRUE_VALUES
 
 BOT_COLOR = ipy.Color(int(os.environ["BOT_COLOR"]))
 
-logger = logging.getLogger("uibot")
+logger = logging.getLogger("pythiabot")
 
 
 @functools.wraps(tansy.slash_command)
