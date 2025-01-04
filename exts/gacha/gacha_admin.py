@@ -13,12 +13,27 @@ import importlib
 import interactions as ipy
 import tansy
 import typing_extensions as typing
+from interactions.api.http.route import Route
 
 import common.fuzzy as fuzzy
 import common.help_tools as help_tools
 import common.models as models
 import common.text_utils as text_utils
 import common.utils as utils
+
+if typing.TYPE_CHECKING:
+    import discord_typings
+
+
+class GuildMemberEntry(typing.TypedDict):
+    member: "discord_typings.GuildMemberAddData"
+
+
+class GuildMembersSearchResult(typing.TypedDict):
+    guild_id: str
+    members: list[GuildMemberEntry]
+    page_result_count: int
+    total_result_count: int
 
 
 class GachaManagement(utils.Extension):
@@ -486,16 +501,44 @@ class GachaManagement(utils.Extension):
         if actual_role is None:
             raise utils.CustomCheckFailure("The Player role was not found.")
 
-        if not ctx.guild.chunked:
-            await ctx.guild.gateway_chunk()
-            await asyncio.sleep(1.5)  # sometimes, it needs the wiggle room
+        members: list[GuildMemberEntry] = []
 
-        members = actual_role.members.copy()
+        retry = 0
+
+        while True:
+            data = await ctx.bot.http.request(
+                route=Route("POST", f"/guilds/{ctx.guild_id}/members-search"),
+                payload={
+                    "and_query": {"role_ids": {"and_query": [str(actual_role.id)]}},
+                    "limit": 250,
+                },
+            )
+            if retry_after := data.get("retry_after"):
+                if retry_after == 0:
+                    retry_after = 0.5
+                await asyncio.sleep(retry_after)
+
+                if retry >= 5:
+                    raise utils.CustomCheckFailure("Failed to fetch members.")
+
+                retry += 1
+                continue
+
+            if typing.TYPE_CHECKING:
+                data: GuildMembersSearchResult
+
+            members = data["members"]
+            break
+
+        if not members:
+            raise utils.CustomCheckFailure(
+                "No members with the Player role were found."
+            )
 
         existing_players = await models.GachaPlayer.prisma().find_many(
             where={
                 "guild_id": ctx.guild_id,
-                "user_id": {"in": [m.id for m in members]},
+                "user_id": {"in": [int(m["member"]["user"]["id"]) for m in members]},
             },
         )
         if any(p.currency_amount + amount > 2147483647 for p in existing_players):
@@ -508,17 +551,19 @@ class GachaManagement(utils.Extension):
 
         async with self.bot.db.batch_() as batch:
             for member in members:
-                if member.id not in existing_players_set:
+                member_id = int(member["member"]["user"]["id"])
+
+                if member_id not in existing_players_set:
                     batch.prismagachaplayer.create(
                         data={
                             "guild_id": ctx.guild_id,
-                            "user_id": member.id,
+                            "user_id": member_id,
                             "currency_amount": amount,
                         }
                     )
                 else:
                     batch.prismagachaplayer.update_many(
-                        where={"guild_id": ctx.guild_id, "user_id": member.id},
+                        where={"guild_id": ctx.guild_id, "user_id": member_id},
                         data={"currency_amount": {"increment": amount}},
                     )
 
