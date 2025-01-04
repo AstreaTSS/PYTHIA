@@ -14,6 +14,7 @@ import interactions as ipy
 import tansy
 import typing_extensions as typing
 from interactions.api.http.route import Route
+from interactions.models.misc.iterator import AsyncIterator
 
 import common.fuzzy as fuzzy
 import common.help_tools as help_tools
@@ -34,6 +35,28 @@ class GuildMembersSearchResult(typing.TypedDict):
     members: list[GuildMemberEntry]
     page_result_count: int
     total_result_count: int
+
+
+class MemberIterator(AsyncIterator):
+    def __init__(self, guild: "ipy.Guild", limit: int = 0) -> None:
+        super().__init__(limit)
+        self.guild = guild
+        self._more = True
+
+    async def fetch(self) -> list:
+        if self._more:
+            expected = self.get_limit
+
+            rcv = await self.guild._client.http.list_members(
+                self.guild.id,
+                limit=expected,
+                after=self.last["user"]["id"] if self.last else ipy.MISSING,
+            )
+            if not rcv:
+                raise asyncio.QueueEmpty
+            self._more = len(rcv) == expected
+            return rcv
+        raise asyncio.QueueEmpty
 
 
 class GachaManagement(utils.Extension):
@@ -503,37 +526,44 @@ class GachaManagement(utils.Extension):
 
         members: list[GuildMemberEntry] = []
 
-        retry = 0
+        if "COMMUNITY" in ctx.guild.features:
+            retry = 0
 
-        while True:
-            data = await ctx.bot.http.request(
-                route=Route("POST", f"/guilds/{ctx.guild_id}/members-search"),
-                payload={
-                    "and_query": {"role_ids": {"and_query": [str(actual_role.id)]}},
-                    "limit": 250,
-                },
-            )
-            if retry_after := data.get("retry_after"):
-                if retry_after == 0:
-                    retry_after = 0.5
-                await asyncio.sleep(retry_after)
+            while True:
+                # https://docs.discord.sex/resources/guild#search-guild-members
+                data = await ctx.bot.http.request(
+                    route=Route("POST", f"/guilds/{ctx.guild_id}/members-search"),
+                    payload={
+                        "and_query": {"role_ids": {"and_query": [str(actual_role.id)]}},
+                        "limit": 250,
+                    },
+                )
+                if retry_after := data.get("retry_after"):
+                    if retry_after == 0:
+                        retry_after = 0.5
+                    await asyncio.sleep(retry_after)
 
-                if retry >= 5:
-                    raise utils.CustomCheckFailure("Failed to fetch members.")
+                    if retry >= 5:
+                        raise utils.CustomCheckFailure("Failed to fetch members.")
 
-                retry += 1
-                continue
+                    retry += 1
+                    continue
 
-            if typing.TYPE_CHECKING:
-                data: GuildMembersSearchResult
+                if typing.TYPE_CHECKING:
+                    data: GuildMembersSearchResult
 
-            members = data["members"]
-            break
+                members = data["members"]
+                break
 
-        if not members:
-            raise utils.CustomCheckFailure(
-                "No members with the Player role were found."
-            )
+            if not members:
+                raise utils.CustomCheckFailure(
+                    "No members with the Player role were found."
+                )
+        else:
+            iterator = MemberIterator(ctx.guild)
+            async for member in iterator:
+                if str(actual_role.id) in member["roles"]:
+                    members.append({"member": member})
 
         existing_players = await models.GachaPlayer.prisma().find_many(
             where={
