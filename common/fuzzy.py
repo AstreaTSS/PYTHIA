@@ -322,11 +322,20 @@ async def autocomplete_item_channel(
     ctx: ipy.AutocompleteContext,
     name: str,
     channel: typing.Optional[str] = None,
+    investigate_variant: bool = False,
     check_takeable: bool = False,
     **_: typing.Any,
 ) -> None:
     if not channel:
         return await ctx.send([])
+
+    if investigate_variant:
+        config = await models.ItemsConfig.get(ctx.guild_id)
+        if not config:
+            return await ctx.send([])
+
+        if not config.autosuggest:
+            return await ctx.send([])
 
     where: PrismaItemsSystemItemWhereInput = {
         "relations": {"some": {"object_id": int(channel)}}

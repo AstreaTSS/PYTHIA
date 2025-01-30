@@ -453,6 +453,7 @@ class ItemsCommands(utils.Extension):
         return await fuzzy.autocomplete_item_channel(
             ctx,
             channel=str(ctx.channel_id),
+            investigate_variant=True,
             **ctx.kwargs,
         )
 
@@ -465,6 +466,7 @@ class ItemsCommands(utils.Extension):
             ctx,
             channel=str(ctx.channel_id),
             check_takeable=True,
+            investigate_variant=True,
             **ctx.kwargs,
         )
 

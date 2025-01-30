@@ -170,11 +170,11 @@ def get_all_extensions(str_path: str, folder: str = "exts") -> list[str]:
     return ext_files
 
 
-def toggle_friendly_str(bool_to_convert: bool) -> str:
+def toggle_friendly_str(bool_to_convert: bool) -> typing.Literal["on", "off"]:
     return "on" if bool_to_convert else "off"
 
 
-def yesno_friendly_str(bool_to_convert: bool) -> str:
+def yesno_friendly_str(bool_to_convert: bool) -> typing.Literal["yes", "no"]:
     return "yes" if bool_to_convert else "no"
 
 

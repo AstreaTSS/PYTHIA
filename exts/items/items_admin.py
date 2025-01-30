@@ -76,9 +76,12 @@ class ItemsManagement(utils.Extension):
         if typing.TYPE_CHECKING:
             assert config.items is not None
 
-        only_option_rn = f"Enabled: {utils.yesno_friendly_str(config.items.enabled)}"
+        options = (
+            f"Enabled: {utils.yesno_friendly_str(config.items.enabled)}",
+            f"Auto-Suggestions: {utils.toggle_friendly_str(config.items.autosuggest)}",
+        )
         await ctx.send(
-            embed=utils.make_embed(only_option_rn, title="Items Configuration")
+            embed=utils.make_embed("\n".join(options), title="Items Configuration")
         )
 
     @config.subcommand(
@@ -116,6 +119,40 @@ class ItemsManagement(utils.Extension):
         await ctx.send(
             embed=utils.make_embed(
                 f"Items system turned {utils.toggle_friendly_str(toggle)}."
+            )
+        )
+
+    @config.subcommand(
+        "auto-suggestions",
+        sub_cmd_description=(
+            "Enables or disables auto-suggestions when investigating items."
+        ),
+    )
+    async def auto_suggestions_toggle(
+        self,
+        ctx: utils.THIASlashContext,
+        _toggle: str = tansy.Option(
+            "Should auto-suggestions be turned on or off?",
+            name="toggle",
+            choices=[
+                ipy.SlashCommandChoice("on", "on"),
+                ipy.SlashCommandChoice("off", "off"),
+            ],
+        ),
+    ) -> None:
+        toggle = _toggle == "on"
+        config = await ctx.fetch_config({"items": True})
+        if typing.TYPE_CHECKING:
+            assert config.items is not None
+
+        await models.ItemsConfig.prisma().update(
+            data={"autosuggest": toggle},
+            where={"guild_id": ctx.guild.id},
+        )
+
+        await ctx.send(
+            embed=utils.make_embed(
+                f"Auto-suggestions turned {utils.toggle_friendly_str(toggle)}."
             )
         )
 
