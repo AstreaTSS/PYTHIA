@@ -220,6 +220,7 @@ model PrismaTruthBullet {
   found       Boolean
   finder      BigInt?
   hidden      Boolean  @default(false)
+  image       String?
 
   @@index([channel_id])
   @@index([guild_id])

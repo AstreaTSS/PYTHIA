@@ -163,6 +163,9 @@ class TruthBullet(PrismaTruthBullet):
         footer = f"Found by {username}" if self.finder else "To be found as of"
         embed.set_footer(text=footer)
 
+        if self.image:
+            embed.set_image(self.image)
+
         return embed
 
     @classmethod

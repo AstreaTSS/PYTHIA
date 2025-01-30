@@ -9,6 +9,7 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 import collections
 import importlib
+import typing
 
 import interactions as ipy
 import tansy
@@ -39,21 +40,32 @@ class BulletManagement(utils.Extension):
         channel: ipy.GuildText | ipy.GuildPublicThread,
     ) -> ipy.Modal:
         return ipy.Modal(
-            ipy.ShortText(
-                label="What's the trigger for this Truth Bullet?",
+            ipy.InputText(
+                label="Truth Bullet Trigger",
+                style=ipy.TextStyles.SHORT,
                 custom_id="truth_bullet_trigger",
                 max_length=60,
             ),
-            ipy.ShortText(
+            ipy.InputText(
+                label="Truth Bullet Description",
+                style=ipy.TextStyles.PARAGRAPH,
+                custom_id="truth_bullet_desc",
+                max_length=3800,
+            ),
+            ipy.InputText(
+                label="Truth Bullet Image",
+                style=ipy.TextStyles.SHORT,
+                custom_id="truth_bullet_image",
+                placeholder="The image URL of the Truth Bullet.",
+                max_length=1000,
+                required=False,
+            ),
+            ipy.InputText(
                 label="Hide this Truth Bullet only to the finder?",
+                style=ipy.TextStyles.SHORT,
                 custom_id="truth_bullet_hidden",
                 value="no",
                 max_length=10,
-            ),
-            ipy.ParagraphText(
-                label="What's the description for this Truth Bullet?",
-                custom_id="truth_bullet_desc",
-                max_length=3900,
             ),
             title=(
                 "Add Truth Bullets for"
@@ -176,6 +188,12 @@ class BulletManagement(utils.Extension):
                 )
                 return
 
+            image: typing.Optional[str] = (
+                ctx.kwargs.get("truth_bullet_image", "").strip() or None
+            )
+            if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):
+                raise ipy.errors.BadArgument("The image given must be a valid URL.")
+
             await models.TruthBullet.prisma().create(
                 data={
                     "trigger": text_utils.replace_smart_punc(
@@ -188,6 +206,7 @@ class BulletManagement(utils.Extension):
                     "found": False,
                     "finder": None,
                     "hidden": hidden,
+                    "image": image,
                 }
             )
 
@@ -330,12 +349,9 @@ class BulletManagement(utils.Extension):
             )
 
         bullet_info = possible_bullet.bullet_info()
-        embed = ipy.Embed(
-            title="Information about Truth Bullet",
-            description=bullet_info,
-            color=ctx.bot.color,
-            timestamp=ipy.Timestamp.utcnow(),
-        )
+        embed = utils.make_embed(bullet_info, title="Information about Truth Bullet")
+        if possible_bullet.image:
+            embed.add_image(possible_bullet.image)
 
         await ctx.send(embeds=embed, allowed_mentions=utils.deny_mentions(ctx.author))
 
@@ -355,35 +371,45 @@ class BulletManagement(utils.Extension):
             converter=text_utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
-        possible_bullet = await models.TruthBullet.find_possible_bullet(
-            channel.id, trigger
-        )
-        if not possible_bullet:
+        bullet = await models.TruthBullet.find_possible_bullet(channel.id, trigger)
+        if not bullet:
             raise ipy.errors.BadArgument(
                 f"Truth Bullet with trigger `{trigger}` does not exist!"
             )
 
         modal = ipy.Modal(
-            ipy.ShortText(
-                label="New trigger",
+            ipy.InputText(
+                label="Truth Bullet Trigger",
+                style=ipy.TextStyles.SHORT,
                 custom_id="truth_bullet_trigger",
-                value=possible_bullet.trigger,
+                value=bullet.trigger,
                 max_length=60,
             ),
-            ipy.ShortText(
+            ipy.InputText(
+                label="Truth Bullet Description",
+                style=ipy.TextStyles.PARAGRAPH,
+                custom_id="truth_bullet_desc",
+                value=bullet.description,
+                max_length=3800,
+            ),
+            ipy.InputText(
+                label="Truth Bullet Image",
+                style=ipy.TextStyles.SHORT,
+                custom_id="truth_bullet_image",
+                placeholder="The image URL of the Truth Bullet.",
+                value=bullet.image or ipy.MISSING,
+                max_length=1000,
+                required=False,
+            ),
+            ipy.InputText(
                 label="Hide this Truth Bullet only to the finder?",
+                style=ipy.TextStyles.SHORT,
                 custom_id="truth_bullet_hidden",
-                value=utils.yesno_friendly_str(possible_bullet.hidden),
+                value=utils.yesno_friendly_str(bullet.hidden),
                 max_length=10,
             ),
-            ipy.ParagraphText(
-                label="New description",
-                custom_id="truth_bullet_desc",
-                value=possible_bullet.description,
-                max_length=3900,
-            ),
             title=(
-                f"Edit {text_utils.name_shorten(possible_bullet.trigger, 10)} for"
+                f"Edit {text_utils.name_shorten(bullet.trigger, 10)} for"
                 f" #{text_utils.name_shorten(channel.name, 14)}"
             ),
             custom_id=f"ui:edit-bullet-{channel.id}|{trigger}",
@@ -400,10 +426,8 @@ class BulletManagement(utils.Extension):
             )
             channel_id = int(channel_id)
 
-            possible_bullet = await models.TruthBullet.find_possible_bullet(
-                channel_id, trigger
-            )
-            if possible_bullet is None:
+            bullet = await models.TruthBullet.find_possible_bullet(channel_id, trigger)
+            if bullet is None:
                 await ctx.send(
                     embed=utils.error_embed_generate(
                         f"Truth Bullet with trigger `{trigger}` no longer exists!"
@@ -422,18 +446,25 @@ class BulletManagement(utils.Extension):
                 )
                 return
 
-            possible_bullet.trigger = text_utils.replace_smart_punc(
+            image: typing.Optional[str] = (
+                ctx.kwargs.get("truth_bullet_image", "").strip() or None
+            )
+            if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):
+                raise ipy.errors.BadArgument("The image given must be a valid URL.")
+
+            bullet.trigger = text_utils.replace_smart_punc(
                 ctx.responses["truth_bullet_trigger"]
             )
-            possible_bullet.description = ctx.responses["truth_bullet_desc"]
-            possible_bullet.hidden = hidden
-            await possible_bullet.save()
+            bullet.description = ctx.responses["truth_bullet_desc"]
+            bullet.hidden = hidden
+            bullet.image = image
+            await bullet.save()
 
-            if possible_bullet.trigger != trigger:
+            if bullet.trigger != trigger:
                 await ctx.send(
                     embed=utils.make_embed(
                         f"Edited Truth Bullet `{trigger}` (renamed to"
-                        f" `{possible_bullet.trigger}`) in <#{channel_id}>!"
+                        f" `{bullet.trigger}`) in <#{channel_id}>!"
                     )
                 )
             else:
