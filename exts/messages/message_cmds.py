@@ -31,9 +31,8 @@ async def prefixed_check(ctx: utils.THIAHybridContext) -> bool:
 
 
 class MessageCMDs(utils.Extension):
-    def __init__(self, bot: utils.THIABase) -> None:
+    def __init__(self, _: utils.THIABase) -> None:
         self.name = "Messaging Commands"
-        self.bot: utils.THIABase = bot
 
     message = tansy.HybridSlashCommand(
         name="message",

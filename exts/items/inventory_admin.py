@@ -21,9 +21,8 @@ import common.utils as utils
 
 
 class InventoryManagement(utils.Extension):
-    def __init__(self, bot: utils.THIABase) -> None:
+    def __init__(self, _: utils.THIABase) -> None:
         self.name = "Inventory Management"
-        self.bot: utils.THIABase = bot
 
     manage = tansy.SlashCommand(
         name="inventory-manage",

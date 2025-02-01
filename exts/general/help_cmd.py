@@ -21,9 +21,8 @@ import common.utils as utils
 class HelpCMD(utils.Extension):
     """The cog that handles the help command."""
 
-    def __init__(self, bot: utils.THIABase) -> None:
+    def __init__(self, _: utils.THIABase) -> None:
         self.name = "Help Category"
-        self.bot: utils.THIABase = bot
 
     async def extract_commands(
         self, ctx: ipy.AutocompleteContext, argument: typing.Optional[str]

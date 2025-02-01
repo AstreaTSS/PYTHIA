@@ -24,9 +24,8 @@ import common.utils as utils
 class BulletManagement(utils.Extension):
     """Commands for using and modifying Truth Bullets."""
 
-    def __init__(self, bot: utils.THIABase) -> None:
+    def __init__(self, _: utils.THIABase) -> None:
         self.name = "Bullet"
-        self.bot: utils.THIABase = bot
 
     config = tansy.SlashCommand(
         name="bullet-manage",

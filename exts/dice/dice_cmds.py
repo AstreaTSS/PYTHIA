@@ -21,9 +21,8 @@ import common.utils as utils
 
 
 class DiceCMDs(utils.Extension):
-    def __init__(self, bot: utils.THIABase) -> None:
+    def __init__(self, _: utils.THIABase) -> None:
         self.name = "Dice Commands"
-        self.bot: utils.THIABase = bot
 
         self.add_ext_auto_defer(ephemeral=True)
 

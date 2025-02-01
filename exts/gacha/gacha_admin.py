@@ -60,9 +60,8 @@ class MemberIterator(AsyncIterator):
 
 
 class GachaManagement(utils.Extension):
-    def __init__(self, bot: utils.THIABase) -> None:
+    def __init__(self, _: utils.THIABase) -> None:
         self.name = "Gacha Management"
-        self.bot: utils.THIABase = bot
 
         self.gacha_item_create_modal = ipy.Modal(
             ipy.InputText(

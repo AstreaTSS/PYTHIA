@@ -33,9 +33,9 @@ QUERY_GACHA_ROLL_NO_DUPS = (
 
 
 class GachaCommands(utils.Extension):
-    def __init__(self, bot: utils.THIABase) -> None:
+    def __init__(self, _: utils.THIABase) -> None:
         self.name = "Gacha Commands"
-        self.bot: utils.THIABase = bot
+
         self.gacha_roll_locks: defaultdict[str, asyncio.Lock] = defaultdict(
             asyncio.Lock
         )

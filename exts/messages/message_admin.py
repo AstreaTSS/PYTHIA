@@ -19,9 +19,8 @@ import common.utils as utils
 
 
 class MessageManagement(utils.Extension):
-    def __init__(self, bot: utils.THIABase) -> None:
+    def __init__(self, _: utils.THIABase) -> None:
         self.name = "Messaging Management"
-        self.bot: utils.THIABase = bot
 
     config = tansy.SlashCommand(
         name="message-config",

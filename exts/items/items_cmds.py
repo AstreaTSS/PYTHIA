@@ -22,9 +22,8 @@ import common.utils as utils
 
 
 class ItemsCommands(utils.Extension):
-    def __init__(self, bot: utils.THIABase) -> None:
+    def __init__(self, _: utils.THIABase) -> None:
         self.name = "Items Commands"
-        self.bot: utils.THIABase = bot
 
     items = tansy.SlashCommand(
         name="items",

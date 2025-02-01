@@ -16,9 +16,6 @@ import common.utils as utils
 
 
 class EtcEvents(ipy.Extension):
-    def __init__(self, bot: utils.THIABase) -> None:
-        self.bot: utils.THIABase = bot
-
     @ipy.listen("guild_join")
     async def on_guild_join(self, event: ipy.events.GuildJoin) -> None:
         if not self.bot.is_ready:

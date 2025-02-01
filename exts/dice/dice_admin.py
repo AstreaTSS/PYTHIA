@@ -21,9 +21,8 @@ import common.utils as utils
 
 
 class DiceManagement(utils.Extension):
-    def __init__(self, bot: utils.THIABase) -> None:
+    def __init__(self, _: utils.THIABase) -> None:
         self.name = "Dice Management"
-        self.bot: utils.THIABase = bot
 
     config = tansy.SlashCommand(
         name="dice-config",

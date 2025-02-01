@@ -22,9 +22,8 @@ import common.utils as utils
 
 
 class ItemsManagement(utils.Extension):
-    def __init__(self, bot: utils.THIABase) -> None:
+    def __init__(self, _: utils.THIABase) -> None:
         self.name = "Items Management"
-        self.bot: utils.THIABase = bot
 
     @staticmethod
     def create_item_create_modal() -> ipy.Modal:

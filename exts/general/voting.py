@@ -47,8 +47,8 @@ class VoteHandler:
 class Voting(ipy.Extension):
     session: aiohttp.ClientSession
 
-    def __init__(self, bot: utils.THIABase) -> None:
-        self.bot: utils.THIABase = bot
+    def __init__(self, _: utils.THIABase) -> None:
+
         self.name = "Voting"
 
         self.shard_count = 1

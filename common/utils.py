@@ -257,6 +257,8 @@ async def _global_checks(ctx: ipy.BaseContext) -> bool:
 
 
 class Extension(ipy.Extension):
+    bot: "THIABase"
+
     def __new__(
         cls, bot: ipy.Client, *args: typing.Any, **kwargs: typing.Any
     ) -> "typing.Self":
@@ -284,8 +286,6 @@ if typing.TYPE_CHECKING:
         mini_commands_per_scope: dict[int, dict[str, MiniCommand]]
         msg_enabled_bullets_guilds: set[int]
 
-        @property
-        def guild_count(self) -> int: ...
         def create_task(self, coro: typing.Coroutine) -> asyncio.Task: ...
 
 else:

@@ -183,8 +183,8 @@ def make_table(
 
 
 class OwnerCMDs(ipy.Extension):
-    def __init__(self, bot: utils.THIABase) -> None:
-        self.bot: utils.THIABase = bot
+    def __init__(self, _: utils.THIABase) -> None:
+
         self.name = "Owner"
 
         self.set_extension_error(self.ext_error)

@@ -17,9 +17,8 @@ import common.utils as utils
 
 
 class ConfigCMDs(utils.Extension):
-    def __init__(self, bot: utils.THIABase) -> None:
+    def __init__(self, _: utils.THIABase) -> None:
         self.name = "Config"
-        self.bot: utils.THIABase = bot
 
     config = tansy.SlashCommand(
         name="config",

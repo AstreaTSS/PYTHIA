@@ -21,9 +21,6 @@ ValidContexts = prefixed.PrefixedContext | ipy.InteractionContext | hybrid.Hybri
 
 
 class OnCMDError(utils.Extension):
-    def __init__(self, bot: utils.THIABase) -> None:
-        self.bot: utils.THIABase = bot
-
     @staticmethod
     async def handle_send(ctx: ValidContexts, content: str) -> None:
         embed = utils.error_embed_generate(content)

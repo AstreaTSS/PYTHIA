@@ -26,11 +26,10 @@ PYTHON_IMPLEMENTATION = platform.python_implementation()
 
 
 class OtherCMDs(utils.Extension):
-    def __init__(self, bot: utils.THIABase) -> None:
+    def __init__(self, _: utils.THIABase) -> None:
         self.name = "General"
-        self.bot: utils.THIABase = bot
-        self.invite_link = ""
 
+        self.invite_link = ""
         self.bot.create_task(self.when_ready())
 
     async def when_ready(self) -> None:

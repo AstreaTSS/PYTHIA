@@ -39,9 +39,6 @@ class BDAInvestigateKwargs(typing.TypedDict, total=False):
 class BulletFinding(utils.Extension):
     """The extension that deals with finding Truth Bullets."""
 
-    def __init__(self, bot: utils.THIABase) -> None:
-        self.bot: utils.THIABase = bot
-
     async def check_for_finish(
         self,
         guild: ipy.Guild,
