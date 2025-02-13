@@ -330,7 +330,7 @@ async def autocomplete_item_channel(
         return await ctx.send([])
 
     if investigate_variant:
-        config = await models.ItemsConfig.get(ctx.guild_id)
+        config = await models.ItemsConfig.get_or_none(ctx.guild_id)
         if not config:
             return await ctx.send([])
 
