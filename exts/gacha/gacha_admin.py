@@ -861,7 +861,7 @@ class GachaManagement(utils.Extension):
         if amount <= 0:
             raise ipy.errors.BadArgument("No item with that name exists.")
 
-        await ctx.send(f"Deleted {name}.")
+        await ctx.send(embed=utils.make_embed(f"Deleted {name}."))
 
     @manage.subcommand("view-item", sub_cmd_description="Views an item in the gacha.")
     async def gacha_view_single_item(
