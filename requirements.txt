@@ -6,7 +6,7 @@ git+https://github.com/MarkusSintonen/httpcore.git@e724565270603a72d11f6d3bfc096
 httpx[http2]==0.28.1
 aiodns==3.2.0
 humanize==4.12.3
-python-dotenv==1.0.1
+python-dotenv==1.1.0
 orjson==3.10.18; implementation_name == "cpython"
 rapidfuzz==3.13.0
 sentry-sdk==2.27.0
