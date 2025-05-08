@@ -195,7 +195,7 @@ class GachaCommands(utils.Extension):
             if not recipient.has_role(config.player_role):
                 raise ipy.errors.BadArgument("The recipient has no data for gacha.")
             recipient_player = await models.GachaPlayer.prisma().create(
-                data={"guild_id": ctx.guild_id, "user_id": ctx.author.id}
+                data={"guild_id": ctx.guild_id, "user_id": recipient.id}
             )
 
         recipient_player.currency_amount += amount
