@@ -177,6 +177,7 @@ class GachaCommands(utils.Extension):
             "Shows your gacha currency and items. Alias of /gacha profile."
         ),
     )
+    @ipy.auto_defer(ephemeral=True)
     async def gacha_inventory(self, ctx: utils.THIASlashContext) -> None:
         await self.gacha_profile.call_with_binding(self.gacha_profile.callback, ctx)
 
