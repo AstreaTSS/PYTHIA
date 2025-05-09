@@ -20,8 +20,6 @@ import tansy
 import typing_extensions as typing
 from interactions.ext import hybrid_commands as hybrid
 from interactions.ext import prefixed_commands as prefixed
-from prisma.types import PrismaGuildConfigInclude
-from typing_extensions import TypeVar
 
 import common.models as models
 
@@ -272,13 +270,11 @@ if typing.TYPE_CHECKING:
     import collections
 
     from interactions.ext.prefixed_commands import PrefixedInjectedClient
-    from prisma import Prisma
 
     from .help_tools import MiniCommand, PermissionsResolver
 
     class THIABase(PrefixedInjectedClient):
         hybrid: hybrid.HybridManager
-        db: Prisma
         owner: ipy.User
         color: ipy.Color
         background_tasks: set[asyncio.Task]
@@ -294,11 +290,8 @@ else:
         pass
 
 
-ConfigT = TypeVar("ConfigT", bound=models.GuildConfigMixin, default=models.GuildConfig)
-
-
-class THIAContextMixin(typing.Generic[ConfigT]):
-    guild_config: typing.Optional[ConfigT]
+class THIAContextMixin:
+    guild_config: typing.Optional[models.GuildConfig]
     guild_id: ipy.Snowflake
 
     def __init__(self, *args: typing.Any, **kwargs: typing.Any) -> None:
@@ -316,9 +309,8 @@ class THIAContextMixin(typing.Generic[ConfigT]):
 
     async def fetch_config(
         self,
-        include: PrismaGuildConfigInclude | None = None,
-        model: type[ConfigT] = models.GuildConfig,
-    ) -> ConfigT:
+        include: models.GuildConfigInclude | None = None,
+    ) -> models.GuildConfig:
         """
         Gets the configuration for the context's guild.
 
@@ -328,30 +320,30 @@ class THIAContextMixin(typing.Generic[ConfigT]):
         if self.guild_config:
             return self.guild_config
 
-        config = await model.get_or_create(self.guild_id, include)
+        config = await models.GuildConfig.fetch_create(self.guild_id, include)
         self.guild_config = config
         return config
 
 
-class THIABaseContext(THIAContextMixin[ConfigT], ipy.BaseContext):
+class THIABaseContext(THIAContextMixin, ipy.BaseContext):
     pass
 
 
-class THIAModalContext(THIAContextMixin[ConfigT], ipy.ModalContext):
+class THIAModalContext(THIAContextMixin, ipy.ModalContext):
     pass
 
 
-class THIAInteractionContext(THIAContextMixin[ConfigT], ipy.InteractionContext):
+class THIAInteractionContext(THIAContextMixin, ipy.InteractionContext):
     pass
 
 
-class THIASlashContext(THIAContextMixin[ConfigT], ipy.SlashContext):
+class THIASlashContext(THIAContextMixin, ipy.SlashContext):
     pass
 
 
-class THIAHybridContext(THIAContextMixin[ConfigT], hybrid.HybridContext):
+class THIAHybridContext(THIAContextMixin, hybrid.HybridContext):
     pass
 
 
-class THIAPrefixedContext(THIAContextMixin[ConfigT], prefixed.PrefixedContext):
+class THIAPrefixedContext(THIAContextMixin, prefixed.PrefixedContext):
     pass

@@ -15,6 +15,9 @@ import tansy
 import typing_extensions as typing
 from interactions.api.http.route import Route
 from interactions.models.misc.iterator import AsyncIterator
+from tortoise.expressions import F
+from tortoise.query_utils import Prefetch
+from tortoise.transactions import in_transaction
 
 import common.fuzzy as fuzzy
 import common.help_tools as help_tools
@@ -156,7 +159,7 @@ class GachaManagement(utils.Extension):
         ),
     ) -> None:
         toggle = _toggle == "on"
-        config = await models.GuildConfig.get_or_create(ctx.guild_id)
+        config = await ctx.fetch_config({"gacha": True})
 
         if toggle and not config.player_role:
             raise utils.CustomCheckFailure(
@@ -164,9 +167,7 @@ class GachaManagement(utils.Extension):
                 f" {self.bot.mention_command('config player')} first."
             )
 
-        await models.GachaConfig.prisma().update(
-            data={"enabled": toggle}, where={"guild_id": ctx.guild_id}
-        )
+        await models.GachaConfig.filter(guild_id=ctx.guild_id).update(enabled=toggle)
 
         await ctx.send(
             embed=utils.make_embed(
@@ -180,21 +181,23 @@ class GachaManagement(utils.Extension):
     )
     @ipy.auto_defer(enabled=False)
     async def gacha_name(self, ctx: utils.THIASlashContext) -> None:
-        names = await models.Names.get_or_create(ctx.guild_id)
+        config = await ctx.fetch_config({"names": True})
+        if typing.TYPE_CHECKING:
+            assert config.names is not None
 
         modal = ipy.Modal(
             ipy.InputText(
                 label="Singular Currency Name",
                 style=ipy.TextStyles.SHORT,
                 custom_id="singular_currency_name",
-                value=names.singular_currency_name,
+                value=config.names.singular_currency_name,
                 max_length=40,
             ),
             ipy.InputText(
                 label="Plural Currency Name",
                 style=ipy.TextStyles.SHORT,
                 custom_id="plural_currency_name",
-                value=names.plural_currency_name,
+                value=config.names.plural_currency_name,
                 max_length=40,
             ),
             title="Edit Currency Names",
@@ -205,7 +208,11 @@ class GachaManagement(utils.Extension):
 
     @ipy.modal_callback("currency_names")
     async def currency_names_edit(self, ctx: utils.THIAModalContext) -> None:
-        names = await models.Names.get_or_create(ctx.guild_id)
+        config = await ctx.fetch_config({"names": True})
+        if typing.TYPE_CHECKING:
+            assert config.names is not None
+
+        names = config.names
 
         names.singular_currency_name = ctx.kwargs["singular_currency_name"]
         names.plural_currency_name = ctx.kwargs["plural_currency_name"]
@@ -235,9 +242,10 @@ class GachaManagement(utils.Extension):
                 " 2,147,483,647 (signed 32-bit integer limit)."
             )
 
-        config = await models.GachaConfig.get_or_create(ctx.guild_id)
-        config.currency_cost = cost
-        await config.save()
+        await ctx.fetch_config({"gacha": True})
+        await models.GachaConfig.filter(guild_id=ctx.guild_id).update(
+            currency_cost=cost
+        )
 
         await ctx.send(
             embed=utils.make_embed(
@@ -265,8 +273,9 @@ class GachaManagement(utils.Extension):
     ) -> None:
         toggle = _toggle == "yes"
 
-        await models.GachaConfig.prisma().update(
-            data={"draw_duplicates": toggle}, where={"guild_id": ctx.guild_id}
+        await ctx.fetch_config({"gacha": True})
+        await models.GachaConfig.filter(guild_id=ctx.guild_id).update(
+            draw_duplicates=toggle
         )
 
         await ctx.send(
@@ -309,25 +318,28 @@ class GachaManagement(utils.Extension):
             "The amount of currency to add.", min_value=1, max_value=2147483647
         ),
     ) -> None:
-        names = await models.Names.get_or_create(ctx.guild_id)
+        config = await ctx.fetch_config({"names": True, "gacha": True})
+        if typing.TYPE_CHECKING:
+            assert config.names is not None
 
-        await models.GachaConfig.get_or_create(ctx.guild_id)
-        player = await models.GachaPlayer.get_or_create(ctx.guild_id, user.id)
+        player, _ = await models.GachaPlayer.get_or_create(
+            guild_id=ctx.guild_id, user_id=user.id
+        )
         player.currency_amount += amount
 
         if player.currency_amount > 2147483647:
             raise ipy.errors.BadArgument(
                 '"Frankly, the fact that you wish to make a person have more than'
-                f" 2,147,483,647 {names.currency_name(amount)} is absurd. I seek to"
-                ' assist, but I will refuse to handle amounts like this." - PYTHIA'
+                f" 2,147,483,647 {config.names.currency_name(amount)} is absurd. I seek"
+                ' to assist, but I will refuse to handle amounts like this." - PYTHIA'
             )
 
         await player.save()
 
         await ctx.send(
             embed=utils.make_embed(
-                f"Added {amount} {names.currency_name(amount)} to {user.mention}."
-                f" New total: {player.currency_amount}."
+                f"Added {amount} {config.names.currency_name(amount)} to"
+                f" {user.mention}. New total: {player.currency_amount}."
             )
         )
 
@@ -345,24 +357,27 @@ class GachaManagement(utils.Extension):
             "The amount of currency to remove.", min_value=1, max_value=2147483647
         ),
     ) -> None:
-        names = await models.Names.get_or_create(ctx.guild_id)
+        config = await ctx.fetch_config({"names": True, "gacha": True})
+        if typing.TYPE_CHECKING:
+            assert config.names is not None
 
-        await models.GachaConfig.get_or_create(ctx.guild_id)
-        player = await models.GachaPlayer.get_or_create(ctx.guild_id, user.id)
+        player, _ = await models.GachaPlayer.get_or_create(
+            guild_id=ctx.guild_id, user_id=user.id
+        )
         player.currency_amount -= amount
 
         if player.currency_amount < -2147483647:
             raise ipy.errors.BadArgument(
                 '"Frankly, the fact that you make a person have less than than'
-                f" -2,147,483,647 {names.currency_name(amount)} is absurd. Surely, you"
-                ' only did so to test my capabilities, correct?" - PYTHIA'
+                f" -2,147,483,647 {config.names.currency_name(amount)} is absurd."
+                ' Surely, you only did so to test my capabilities, correct?" - PYTHIA'
             )
 
         await player.save()
 
         await ctx.send(
             embed=utils.make_embed(
-                f"Removed {amount} {names.currency_name(amount)} from"
+                f"Removed {amount} {config.names.currency_name(amount)} from"
                 f" {user.mention}. New total: {player.currency_amount}."
             )
         )
@@ -379,14 +394,9 @@ class GachaManagement(utils.Extension):
             type=ipy.User,
         ),
     ) -> None:
-        amount = await models.GachaPlayer.prisma().update_many(
-            where={
-                "guild_id": ctx.guild_id,
-                "user_id": user.id,
-                "currency_amount": {"not": 0},
-            },
-            data={"currency_amount": 0},
-        )
+        amount = await models.GachaPlayer.filter(
+            guild_id=ctx.guild_id, user_id=user.id, currency_amount__not=0
+        ).update(currency_amount=0)
 
         if amount == 0:
             raise ipy.errors.BadArgument("The user has no currency to reset.")
@@ -405,9 +415,9 @@ class GachaManagement(utils.Extension):
             type=ipy.User,
         ),
     ) -> None:
-        amount = await models.ItemToPlayer.prisma().delete_many(
-            where={"player": {"is": {"user_id": user.id, "guild_id": ctx.guild_id}}}
-        )
+        amount = await models.ItemToPlayer.filter(
+            player__user_id=user.id, player__guild_id=ctx.guild_id
+        ).delete()
 
         if not amount:
             raise ipy.errors.BadArgument("The user has no items to reset.")
@@ -428,9 +438,9 @@ class GachaManagement(utils.Extension):
             type=ipy.User,
         ),
     ) -> None:
-        amount = await models.GachaPlayer.prisma().delete_many(
-            where={"guild_id": ctx.guild_id, "user_id": user.id},
-        )
+        amount = await models.GachaPlayer.filter(
+            guild_id=ctx.guild_id, user_id=user.id
+        ).delete()
 
         if not amount:
             raise ipy.errors.BadArgument("The user has no data to clear.")
@@ -458,9 +468,7 @@ class GachaManagement(utils.Extension):
                 " true to continue."
             )
 
-        items_amount = await models.GachaItem.prisma().delete_many(
-            where={"guild_id": ctx.guild_id}
-        )
+        items_amount = await models.GachaItem.filter(guild_id=ctx.guild_id).delete()
 
         if items_amount <= 0:
             raise utils.CustomCheckFailure("There's no gacha item data to clear!")
@@ -484,12 +492,8 @@ class GachaManagement(utils.Extension):
                 " true to continue."
             )
 
-        players_amount = await models.GachaPlayer.prisma().delete_many(
-            where={"guild_id": ctx.guild_id}
-        )
-        items_amount = await models.GachaItem.prisma().delete_many(
-            where={"guild_id": ctx.guild_id}
-        )
+        players_amount = await models.GachaPlayer.filter(guild_id=ctx.guild_id).delete()
+        items_amount = await models.GachaItem.filter(guild_id=ctx.guild_id).delete()
 
         if players_amount + items_amount <= 0:
             raise utils.CustomCheckFailure("There's no gacha data to clear!")
@@ -568,11 +572,9 @@ class GachaManagement(utils.Extension):
                 "No members with the Player role were found."
             )
 
-        existing_players = await models.GachaPlayer.prisma().find_many(
-            where={
-                "guild_id": ctx.guild_id,
-                "user_id": {"in": [int(m["member"]["user"]["id"]) for m in members]},
-            },
+        existing_players = await models.GachaPlayer.filter(
+            guild_id=ctx.guild_id,
+            user_id__in=[int(m["member"]["user"]["id"]) for m in members],
         )
         if any(p.currency_amount + amount > 2147483647 for p in existing_players):
             raise ipy.errors.BadArgument(
@@ -581,24 +583,21 @@ class GachaManagement(utils.Extension):
             )
 
         existing_players_set = {p.user_id for p in existing_players}
+        non_existing_players = {
+            int(m["member"]["user"]["id"]) for m in members
+        }.difference(existing_players_set)
 
-        async with self.bot.db.batch_() as batch:
-            for member in members:
-                member_id = int(member["member"]["user"]["id"])
+        async with in_transaction():
+            await models.GachaPlayer.filter(
+                guild_id=ctx.guild_id, user_id__in=list(existing_players_set)
+            ).update(currency_amount=F("currency_amount") + amount)
 
-                if member_id not in existing_players_set:
-                    batch.prismagachaplayer.create(
-                        data={
-                            "guild_id": ctx.guild_id,
-                            "user_id": member_id,
-                            "currency_amount": amount,
-                        }
-                    )
-                else:
-                    batch.prismagachaplayer.update_many(
-                        where={"guild_id": ctx.guild_id, "user_id": member_id},
-                        data={"currency_amount": {"increment": amount}},
-                    )
+            await models.GachaPlayer.bulk_create(
+                models.GachaPlayer(
+                    guild_id=ctx.guild_id, user_id=user_id, currency_amount=amount
+                )
+                for user_id in non_existing_players
+            )
 
         await ctx.send(
             embed=utils.make_embed(
@@ -611,10 +610,12 @@ class GachaManagement(utils.Extension):
         sub_cmd_description="Lists the currency amounts of all users.",
     )
     async def gacha_view_all_currencies(self, ctx: utils.THIASlashContext) -> None:
-        names = await models.Names.get_or_create(ctx.guild_id)
-        players = await models.GachaPlayer.prisma().find_many(
-            where={"guild_id": ctx.guild_id},
-            order={"currency_amount": "desc"},
+        config = await ctx.fetch_config({"names": True})
+        if typing.TYPE_CHECKING:
+            assert config.names is not None
+
+        players = await models.GachaPlayer.filter(guild_id=ctx.guild_id).order_by(
+            "-currency_amount"
         )
 
         if not players:
@@ -623,7 +624,7 @@ class GachaManagement(utils.Extension):
         str_build: list[str] = []
         str_build.extend(
             f"<@{player.user_id}> -"
-            f" {player.currency_amount} {names.currency_name(player.currency_amount)}"
+            f" {player.currency_amount} {config.names.currency_name(player.currency_amount)}"
             for player in players
         )
 
@@ -643,15 +644,20 @@ class GachaManagement(utils.Extension):
             type=ipy.User,
         ),
     ) -> None:
-        names = await models.Names.get_or_create(ctx.guild_id)
+        config = await ctx.fetch_config({"names": True})
+        if typing.TYPE_CHECKING:
+            assert config.names is not None
+
         player = await models.GachaPlayer.get_or_none(
-            ctx.guild_id, user.id, include={"items": {"include": {"item": True}}}
+            guild_id=ctx.guild_id, user_id=user.id
+        ).prefetch_related(
+            Prefetch("items", models.ItemToPlayer.filter().prefetch_related("item"))
         )
 
         if player is None:
             raise ipy.errors.BadArgument("The user has no data for gacha.")
 
-        embeds = player.create_profile(user.display_name, names)
+        embeds = player.create_profile(user.display_name, config.names)
 
         if len(embeds) > 1:
             pag = help_tools.HelpPaginator.create_from_embeds(
@@ -706,12 +712,7 @@ class GachaManagement(utils.Extension):
         str_amount: str = ctx.kwargs.get("item_amount", "-1").strip() or "-1"
         image: typing.Optional[str] = ctx.kwargs.get("item_image", "").strip() or None
 
-        if (
-            await models.GachaItem.prisma().count(
-                where={"guild_id": ctx.guild_id, "name": name}
-            )
-            > 0
-        ):
+        if await models.GachaItem.exists(guild_id=ctx.guild_id, name=name):
             raise ipy.errors.BadArgument("An item with that name already exists.")
 
         try:
@@ -732,17 +733,15 @@ class GachaManagement(utils.Extension):
         if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):
             raise ipy.errors.BadArgument("The image given must be a valid URL.")
 
-        # GachaConfig needs to exist, lets make sure it does
-        await models.GachaConfig.get_or_create(ctx.guild_id)
+        # some configs needs to exist, lets make sure they do
+        await ctx.fetch_config({"gacha": True})
 
-        await models.GachaItem.prisma().create(
-            data={
-                "guild_id": ctx.guild_id,
-                "name": name,
-                "description": description,
-                "amount": amount,
-                "image": image,
-            }
+        await models.GachaItem.create(
+            guild_id=ctx.guild_id,
+            name=name,
+            description=description,
+            amount=amount,
+            image=image,
         )
 
         await ctx.send(embed=utils.make_embed(f"Added item {name} to the gacha."))
@@ -757,9 +756,7 @@ class GachaManagement(utils.Extension):
         ctx: utils.THIASlashContext,
         name: str = tansy.Option("The name of the item to edit.", autocomplete=True),
     ) -> None:
-        item = await models.GachaItem.prisma().find_first(
-            where={"guild_id": ctx.guild_id, "name": name}
-        )
+        item = await models.GachaItem.get_or_none(guild_id=ctx.guild_id, name=name)
         if item is None:
             raise ipy.errors.BadArgument("No item with that name exists.")
 
@@ -813,7 +810,7 @@ class GachaManagement(utils.Extension):
         str_amount: str = ctx.kwargs.get("item_amount", "-1").strip() or "-1"
         image: typing.Optional[str] = ctx.kwargs.get("item_image", "").strip() or None
 
-        if not await models.GachaItem.prisma().count(where={"id": item_id}):
+        if not await models.GachaItem.exists(id=item_id):
             raise ipy.errors.BadArgument("The item no longer exists.")
 
         try:
@@ -834,34 +831,49 @@ class GachaManagement(utils.Extension):
         if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):
             raise ipy.errors.BadArgument("The image given must be a valid URL.")
 
-        await models.GachaItem.prisma().update(
-            data={
-                "name": name,
-                "description": description,
-                "amount": amount,
-                "image": image,
-            },
-            where={"id": item_id},
+        await models.GachaItem.filter(id=item_id).update(
+            name=name,
+            description=description,
+            amount=amount,
+            image=image,
         )
 
         await ctx.send(embed=utils.make_embed(f"Edited item {name}."))
 
     @manage.subcommand(
+        "delete-item",
+        sub_cmd_description="Deletes an item from the gacha.",
+    )
+    async def gacha_item_delete(
+        self,
+        ctx: utils.THIASlashContext,
+        name: str = tansy.Option("The name of the item to delete.", autocomplete=True),
+    ) -> None:
+        amount = await models.GachaItem.filter(
+            guild_id=ctx.guild_id, name=name
+        ).delete()
+
+        if amount <= 0:
+            raise ipy.errors.BadArgument("No item with that name exists.")
+
+        await ctx.send(embed=utils.make_embed(f"Deleted {name}."))
+
+    @manage.subcommand(
         "remove-item",
-        sub_cmd_description="Removes an item from the gacha.",
+        sub_cmd_description=(
+            "Removes an item from the gacha. Alias of /gacha delete-item."
+        ),
     )
     async def gacha_item_remove(
         self,
         ctx: utils.THIASlashContext,
         name: str = tansy.Option("The name of the item to remove.", autocomplete=True),
     ) -> None:
-        amount = await models.GachaItem.prisma().delete_many(
-            where={"guild_id": ctx.guild_id, "name": name}
+        await self.gacha_item_delete.call_with_binding(
+            self.gacha_item_delete.callback,
+            ctx,
+            name,
         )
-        if amount <= 0:
-            raise ipy.errors.BadArgument("No item with that name exists.")
-
-        await ctx.send(embed=utils.make_embed(f"Deleted {name}."))
 
     @manage.subcommand("view-item", sub_cmd_description="Views an item in the gacha.")
     async def gacha_view_single_item(
@@ -869,9 +881,7 @@ class GachaManagement(utils.Extension):
         ctx: utils.THIASlashContext,
         name: str = tansy.Option("The name of the item to view.", autocomplete=True),
     ) -> None:
-        item = await models.GachaItem.prisma().find_first(
-            where={"guild_id": ctx.guild_id, "name": name}
-        )
+        item = await models.GachaItem.get_or_none(guild_id=ctx.guild_id, name=name)
         if item is None:
             raise ipy.errors.BadArgument("No item with that name exists.")
 
@@ -884,9 +894,7 @@ class GachaManagement(utils.Extension):
         self,
         ctx: utils.THIASlashContext,
     ) -> None:
-        items = await models.GachaItem.prisma().find_many(
-            where={"guild_id": ctx.guild_id}
-        )
+        items = await models.GachaItem.filter(guild_id=ctx.guild_id)
 
         if not items:
             raise utils.CustomCheckFailure("This server has no items to show.")
@@ -944,38 +952,32 @@ class GachaManagement(utils.Extension):
     ) -> None:
         replenish_gacha = _replenish_gacha == "yes"
 
-        item = await models.GachaItem.prisma().find_first(
-            where={"guild_id": ctx.guild_id, "name": name}
-        )
+        item = await models.GachaItem.get_or_none(guild_id=ctx.guild_id, name=name)
         if item is None:
             raise ipy.errors.BadArgument("No item with that name exists.")
 
-        item_to_players = await models.ItemToPlayer.prisma().find_many(
-            where={"player": {"is": {"user_id": user.id}}, "item_id": item.id},
-        )
-        if not item_to_players:
+        items_count = await models.ItemToPlayer.filter(
+            player__user_id=user.id, player__guild_id=ctx.guild_id, item_id=item.id
+        ).count()
+        if not items_count:
             raise ipy.errors.BadArgument("The user does not have that item.")
 
         if amount is None:
-            amount = len(item_to_players)
+            amount = items_count
 
-        if len(item_to_players) < amount:
+        if items_count < amount:
             raise ipy.errors.BadArgument(
                 "The user does not have that many items to remove."
             )
 
-        async with self.bot.db.batch_() as batch:
-            for i in range(amount):
-                item_to_player = item_to_players[i]
-                batch.prismaitemtoplayer.delete(
-                    where={"id": item_to_player.id},
-                )
+        await models.ItemToPlayer.filter(
+            player__user_id=user.id, player__guild_id=ctx.guild_id, item_id=item.id
+        ).limit(amount).delete()
 
-            if replenish_gacha and item.amount != -1:
-                batch.prismagachaitem.update(
-                    data={"amount": {"increment": amount}},
-                    where={"id": item.id},
-                )
+        if replenish_gacha and item.amount != -1:
+            await models.GachaItem.filter(id=item.id).update(
+                amount=F("amount") + amount
+            )
 
         reply_str = f"Removed {amount} of {item.name} from {user.mention}."
         if replenish_gacha and item.amount != -1:
@@ -992,7 +994,7 @@ class GachaManagement(utils.Extension):
         amount: typing.Optional[int] = tansy.Option(
             "The amount to add. Defaults to 1.",
             min_value=1,
-            max_value=999,
+            max_value=500,
         ),
         _remove_amount_from_gacha: str = tansy.Option(
             "Should said amount of the item be removed from the gacha pool? Defaults"
@@ -1007,9 +1009,7 @@ class GachaManagement(utils.Extension):
     ) -> None:
         remove_amount_from_gacha = _remove_amount_from_gacha == "yes"
 
-        item = await models.GachaItem.prisma().find_first(
-            where={"guild_id": ctx.guild_id, "name": name}
-        )
+        item = await models.GachaItem.get_or_none(guild_id=ctx.guild_id, name=name)
         if item is None:
             raise ipy.errors.BadArgument("No item with that name exists.")
 
@@ -1021,32 +1021,32 @@ class GachaManagement(utils.Extension):
                 "The item does not have enough quantity to give."
             )
 
-        player_gacha = await models.GachaPlayer.get_or_create(ctx.guild_id, user.id)
+        player_gacha, _ = await models.GachaPlayer.get_or_create(
+            guild_id=ctx.guild_id, user_id=user.id
+        )
 
         if (
-            await models.ItemToPlayer.prisma().count(
-                where={"player_id": player_gacha.id, "item_id": item.id},
-            )
-            >= 999
+            await models.ItemToPlayer.filter(
+                player_id=player_gacha.id, item_id=item.id
+            ).count()
+            >= 500
         ):
             raise ipy.errors.BadArgument(
-                "The user can have a maximum of 999 of this item."
+                "The user can have a maximum of 500 of this item."
             )
 
-        async with self.bot.db.batch_() as batch:
-            for _ in range(amount):
-                batch.prismaitemtoplayer.create(
-                    data={
-                        "item": {"connect": {"id": item.id}},
-                        "player": {"connect": {"id": player_gacha.id}},
-                    }
-                )
+        await models.ItemToPlayer.bulk_create(
+            models.ItemToPlayer(
+                player_id=player_gacha.id,
+                item_id=item.id,
+            )
+            for _ in range(amount)
+        )
 
-            if remove_amount_from_gacha and item.amount != -1:
-                batch.prismagachaitem.update(
-                    data={"amount": {"decrement": amount}},
-                    where={"id": item.id},
-                )
+        if remove_amount_from_gacha and item.amount != -1:
+            await models.GachaItem.filter(id=item.id).update(
+                amount=F("amount") - amount
+            )
 
         reply_str = f"Added {amount} of {item.name} to {user.mention}."
         if remove_amount_from_gacha:
@@ -1055,6 +1055,7 @@ class GachaManagement(utils.Extension):
         await ctx.send(embed=utils.make_embed(reply_str))
 
     @gacha_item_edit.autocomplete("name")
+    @gacha_item_delete.autocomplete("name")
     @gacha_item_remove.autocomplete("name")
     @gacha_view_single_item.autocomplete("name")
     @gacha_add_item_to.autocomplete("name")

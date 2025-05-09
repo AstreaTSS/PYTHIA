@@ -14,7 +14,9 @@ from collections import defaultdict
 import interactions as ipy
 import tansy
 import typing_extensions as typing
-from prisma.types import PrismaGachaItemScalarFieldKeys
+from tortoise.expressions import F
+from tortoise.query_utils import Prefetch
+from tortoise.transactions import in_transaction
 
 import common.fuzzy as fuzzy
 import common.help_tools as help_tools
@@ -22,11 +24,11 @@ import common.models as models
 import common.utils as utils
 
 QUERY_GACHA_ROLL = (
-    f"SELECT {', '.join(typing.get_args(PrismaGachaItemScalarFieldKeys))} FROM"  # noqa: S608
+    f"SELECT {', '.join(models.GachaItem._meta.fields_db_projection)} FROM"  # noqa: S608
     " thiagachaitems WHERE guild_id = $1 AND amount != 0 ORDER BY RANDOM() LIMIT 1;"
 )
 QUERY_GACHA_ROLL_NO_DUPS = (
-    f"SELECT {', '.join(typing.get_args(PrismaGachaItemScalarFieldKeys))} FROM"  # noqa: S608
+    f"SELECT {', '.join(models.GachaItem._meta.fields_db_projection)} FROM"  # noqa: S608
     " thiagachaitems WHERE guild_id = $1 AND amount != 0 AND id NOT IN (SELECT item_id"
     " FROM thiagachaitemtoplayer WHERE player_id = $2) ORDER BY RANDOM() LIMIT 1;"
 )
@@ -62,28 +64,39 @@ class GachaCommands(utils.Extension):
         if not ctx.author.has_role(config.player_role):
             raise utils.CustomCheckFailure("You do not have the Player role.")
 
+        name_for_action = ctx._command_name.split(" ")[1]
+
         async with self.gacha_roll_locks[str(ctx.author_id)]:
-            player = await models.GachaPlayer.get_or_create(ctx.guild.id, ctx.author.id)
+            player, _ = await models.GachaPlayer.get_or_create(
+                guild_id=ctx.guild_id, user_id=ctx.author.id
+            )
 
             if player.currency_amount < config.gacha.currency_cost:
                 raise utils.CustomCheckFailure(
                     f"You do not have enough {config.names.plural_currency_name} to"
-                    " roll the gacha. You need at least"
+                    f" {name_for_action} the gacha. You need at least"
                     f" {config.gacha.currency_cost} {config.names.currency_name(config.gacha.currency_cost)} to"
                     " do so."
                 )
 
+            # technically, this is sql injection
+            # but our input is safe
             if config.gacha.draw_duplicates:
-                item = await models.GachaItem.prisma().query_first(
-                    QUERY_GACHA_ROLL, ctx.guild.id
+                items = await models.GachaItem.raw(
+                    QUERY_GACHA_ROLL.replace("$1", str(ctx.guild.id))
                 )
             else:
-                item = await models.GachaItem.prisma().query_first(
-                    QUERY_GACHA_ROLL_NO_DUPS, ctx.guild.id, player.id
+                items = await models.GachaItem.raw(
+                    QUERY_GACHA_ROLL_NO_DUPS.replace("$1", str(ctx.guild.id)).replace(
+                        "$2", str(player.id)
+                    )
                 )
 
-            if item is None:
-                raise utils.CustomCheckFailure("There are no items available to roll.")
+            if not items:
+                raise utils.CustomCheckFailure(
+                    f"There are no items available to {name_for_action}."
+                )
+            item: models.GachaItem = items[0]
 
             new_count = player.currency_amount - config.gacha.currency_cost
             embed = item.embed()
@@ -93,21 +106,18 @@ class GachaCommands(utils.Extension):
 
             await ctx.send(embed=embed)
 
-            async with self.bot.db.batch_() as batch:
+            async with in_transaction():
                 if item.amount != -1:
-                    batch.prismagachaitem.update(
-                        data={"amount": {"decrement": 1}}, where={"id": item.id}
-                    )
+                    item.amount -= 1
+                    await item.save()
 
-                batch.prismagachaplayer.update(
-                    data={"currency_amount": {"decrement": config.gacha.currency_cost}},
-                    where={"id": player.id},
+                await models.GachaPlayer.filter(id=player.id).update(
+                    currency_amount=F("currency_amount") - config.gacha.currency_cost
                 )
-                batch.prismaitemtoplayer.create(
-                    data={
-                        "item": {"connect": {"id": item.id}},
-                        "player": {"connect": {"id": player.id}},
-                    }
+
+                await models.ItemToPlayer.create(
+                    item_id=item.id,
+                    player_id=player.id,
                 )
 
     @gacha.subcommand(
@@ -139,13 +149,15 @@ class GachaCommands(utils.Extension):
             raise utils.CustomCheckFailure("Gacha is not enabled in this server.")
 
         player = await models.GachaPlayer.get_or_none(
-            ctx.guild_id, ctx.author.id, include={"items": {"include": {"item": True}}}
+            guild_id=ctx.guild_id, user_id=ctx.author.id
+        ).prefetch_related(
+            Prefetch("items", models.ItemToPlayer.filter().prefetch_related("item"))
         )
         if player is None:
             if not ctx.author.has_role(config.player_role):
                 raise ipy.errors.BadArgument("You have no data for gacha.")
-            player = await models.GachaPlayer.prisma().create(
-                data={"guild_id": ctx.guild_id, "user_id": ctx.author.id},
+            player = await models.GachaPlayer.create(
+                guild_id=ctx.guild_id, user_id=ctx.author.id
             )
 
         embeds = player.create_profile(ctx.author.display_name, config.names)
@@ -158,6 +170,16 @@ class GachaCommands(utils.Extension):
             await pag.send(ctx, ephemeral=True)
         else:
             await ctx.send(embeds=embeds, ephemeral=True)
+
+    @gacha.subcommand(
+        "inventory",
+        sub_cmd_description=(
+            "Shows your gacha currency and items. Alias of /gacha profile."
+        ),
+    )
+    @ipy.auto_defer(ephemeral=True)
+    async def gacha_inventory(self, ctx: utils.THIASlashContext) -> None:
+        await self.gacha_profile.call_with_binding(self.gacha_profile.callback, ctx)
 
     @gacha.subcommand(
         "give-currency",
@@ -177,25 +199,27 @@ class GachaCommands(utils.Extension):
         if not config.player_role or not config.gacha.enabled:
             raise utils.CustomCheckFailure("Gacha is not enabled in this server.")
 
-        player = await models.GachaPlayer.get_or_none(ctx.guild_id, ctx.author.id)
+        player = await models.GachaPlayer.get_or_none(
+            guild_id=ctx.guild_id, user_id=ctx.author.id
+        )
         if player is None:
             if not ctx.author.has_role(config.player_role):
                 raise ipy.errors.BadArgument("You have no data for gacha.")
-            player = await models.GachaPlayer.prisma().create(
-                data={"guild_id": ctx.guild_id, "user_id": ctx.author.id}
+            player = await models.GachaPlayer.create(
+                guild_id=ctx.guild_id, user_id=ctx.author.id
             )
 
         if player.currency_amount < amount:
             raise utils.CustomCheckFailure("You do not have enough currency to give.")
 
         recipient_player = await models.GachaPlayer.get_or_none(
-            ctx.guild_id, recipient.id
+            guild_id=ctx.guild_id, user_id=recipient.id
         )
         if recipient_player is None:
             if not recipient.has_role(config.player_role):
                 raise ipy.errors.BadArgument("The recipient has no data for gacha.")
-            recipient_player = await models.GachaPlayer.prisma().create(
-                data={"guild_id": ctx.guild_id, "user_id": recipient.id}
+            recipient_player = await models.GachaPlayer.create(
+                guild_id=ctx.guild_id, user_id=recipient.id
             )
 
         recipient_player.currency_amount += amount
@@ -220,18 +244,11 @@ class GachaCommands(utils.Extension):
         ctx: utils.THIASlashContext,
         name: str = tansy.Option("The name of the item to view.", autocomplete=True),
     ) -> None:
-        item = await models.GachaItem.prisma().find_first(
-            where={
-                "guild_id": ctx.guild_id,
-                "name": name,
-                "players": {
-                    "some": {
-                        "player": {
-                            "is": {"guild_id": ctx.guild_id, "user_id": ctx.author.id}
-                        }
-                    }
-                },
-            },
+        item = await models.GachaItem.get_or_none(
+            guild_id=ctx.guild_id,
+            name=name,
+            players__player__guild_id=ctx.guild_id,
+            players__player__user_id=ctx.author.id,
         )
         if item is None:
             raise ipy.errors.BadArgument(

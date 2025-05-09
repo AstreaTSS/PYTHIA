@@ -21,7 +21,7 @@ import sentry_sdk
 import typing_extensions as typing
 from interactions.ext import hybrid_commands as hybrid
 from interactions.ext import prefixed_commands as prefixed
-from prisma import Prisma
+from tortoise import Tortoise
 
 from load_env import load_env
 
@@ -30,6 +30,7 @@ load_env()
 import common.help_tools as help_tools
 import common.models as models
 import common.utils as utils
+import db_settings
 
 if typing.TYPE_CHECKING:
     import discord_typings
@@ -156,7 +157,7 @@ class PYTHIA(utils.THIABase):
         return task
 
     async def stop(self) -> None:
-        await self.db.disconnect()
+        await Tortoise.close_connections()
         await super().stop()
 
 
@@ -201,21 +202,13 @@ hybrid.setup(bot, hybrid_context=utils.THIAHybridContext)
 
 
 async def start() -> None:
-    db = Prisma(
-        auto_register=True,
-        datasource={"url": os.environ["DB_URL"]},
-        http={"http2": True},
-    )
-    await db.connect()
-    bot.db = db
+    await Tortoise.init(db_settings.TORTOISE_ORM)
 
-    for model in await models.BulletConfig.prisma().find_many(
-        where={
-            "bullets_enabled": True,
-            "investigation_type": {"not": models.InvestigationType.COMMAND_ONLY},
-        }
+    async for model in models.BulletConfig.filter(
+        bullets_enabled=True,
+        investigation_type__not=models.InvestigationType.COMMAND_ONLY,
     ):
-        bot.msg_enabled_bullets_guilds.add(model.guild_id)
+        bot.msg_enabled_bullets_guilds.add(model.guild_id)  # type: ignore
 
     ext_list = utils.get_all_extensions(os.environ["DIRECTORY_OF_FILE"])
     for ext in ext_list:
@@ -246,9 +239,10 @@ if __name__ == "__main__":
         import sys
 
         subprocess.run(
-            [sys.executable, "-m", "prisma", "migrate", "deploy"],
+            [sys.executable, "-m", "aerich", "update"],
             check=True,
             env={"DB_URL": os.environ["DB_URL"]},
         )
 
-    run_method(start())
+    with contextlib.suppress(KeyboardInterrupt):
+        run_method(start())

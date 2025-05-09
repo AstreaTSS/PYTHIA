@@ -23,7 +23,6 @@
 				"ms-python.python",
 				"charliermarsh.ruff",
 				"ms-python.black-formatter",
-				"Prisma.prisma"
 			]
 		}
 	},

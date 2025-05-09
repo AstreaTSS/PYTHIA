@@ -84,8 +84,8 @@ class DiceCMDs(utils.Extension):
 
         await ctx.defer(ephemeral=not config.dice.visible)
 
-        entry = await models.DiceEntry.prisma().find_first(
-            where={"guild_id": ctx.guild_id, "user_id": ctx.author.id, "name": name}
+        entry = await models.DiceEntry.get_or_none(
+            guild_id=ctx.guild_id, user_id=ctx.author.id, name=name
         )
         if not entry:
             raise ipy.errors.BadArgument("No registered dice found with that name.")
@@ -121,17 +121,17 @@ class DiceCMDs(utils.Extension):
         ),
     ) -> None:
         if (
-            await models.DiceEntry.prisma().count(
-                where={"guild_id": ctx.guild_id, "user_id": ctx.author.id}
-            )
+            await models.DiceEntry.filter(
+                guild_id=ctx.guild_id, user_id=ctx.author_id
+            ).count()
             >= 25
         ):
             raise utils.CustomCheckFailure(
                 "You can only have up to 25 dice entries per server."
             )
 
-        if await models.DiceEntry.prisma().count(
-            where={"guild_id": ctx.guild_id, "user_id": ctx.author.id, "name": name}
+        if await models.DiceEntry.exists(
+            guild_id=ctx.guild_id, user_id=ctx.author_id, name=name
         ):
             raise ipy.errors.BadArgument("A dice with that name already exists.")
 
@@ -148,13 +148,11 @@ class DiceCMDs(utils.Extension):
         except d20.errors.RollValueError:
             raise ipy.errors.BadArgument("Invalid dice roll value.") from None
 
-        await models.DiceEntry.prisma().create(
-            data={
-                "guild_id": ctx.guild_id,
-                "user_id": ctx.author.id,
-                "name": name,
-                "value": dice,
-            }
+        await models.DiceEntry.create(
+            guild_id=ctx.guild_id,
+            user_id=ctx.author_id,
+            name=name,
+            value=dice,
         )
 
         await ctx.send(
@@ -169,8 +167,8 @@ class DiceCMDs(utils.Extension):
         self,
         ctx: utils.THIASlashContext,
     ) -> None:
-        entries = await models.DiceEntry.prisma().find_many(
-            where={"guild_id": ctx.guild_id, "user_id": ctx.author.id}
+        entries = await models.DiceEntry.filter(
+            guild_id=ctx.guild_id, user_id=ctx.author_id
         )
         if not entries:
             raise ipy.errors.BadArgument("No registered dice found.")
@@ -209,9 +207,9 @@ class DiceCMDs(utils.Extension):
         ),
     ) -> None:
         if (
-            await models.DiceEntry.prisma().delete_many(
-                where={"guild_id": ctx.guild_id, "user_id": ctx.author.id, "name": name}
-            )
+            await models.DiceEntry.filter(
+                guild_id=ctx.guild_id, user_id=ctx.author_id, name=name
+            ).delete()
             < 1
         ):
             raise ipy.errors.BadArgument("No registered dice found with that name.")
@@ -235,9 +233,10 @@ class DiceCMDs(utils.Extension):
             )
 
         if (
-            await models.DiceEntry.prisma().delete_many(
-                where={"guild_id": ctx.guild_id, "user_id": ctx.user.id}
-            )
+            await models.DiceEntry.filter(
+                guild_id=ctx.guild_id,
+                user_id=ctx.author_id,
+            ).delete()
             < 1
         ):
             raise ipy.errors.BadArgument("You have no registered dice to clear.")

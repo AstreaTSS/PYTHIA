@@ -58,7 +58,7 @@ class BulletConfigCMDs(utils.Extension):
             ),
             (
                 "BDA Investigation mode:"
-                f" {config.bullets.investigation_type.name.replace('_', ' ').title()}"
+                f" {config.bullets.investigation_type_enum.name.replace('_', ' ').title()}"
             ),
             (
                 "Best Truth Bullet Finder role:"
@@ -117,9 +117,12 @@ class BulletConfigCMDs(utils.Extension):
         if channel and not isinstance(channel, SendMixin):
             raise ipy.errors.BadArgument("The channel must be a text channel.")
 
-        bullet_config = await models.BulletConfig.get_or_create(ctx.guild_id)
-        bullet_config.bullet_chan_id = channel.id if channel else None
-        await bullet_config.save()
+        config = await ctx.fetch_config({"bullets": True})
+        if typing.TYPE_CHECKING:
+            assert config.bullets is not None
+
+        config.bullets.bullet_chan_id = channel.id if channel else None
+        await config.bullets.save()
 
         if channel:
             await ctx.send(
@@ -149,9 +152,12 @@ class BulletConfigCMDs(utils.Extension):
                 "You must either specify a role or specify to unset the role."
             )
 
-        bullet_config = await models.BulletConfig.get_or_create(ctx.guild_id)
-        bullet_config.best_bullet_finder_role = role.id if role else None
-        await bullet_config.save()
+        config = await ctx.fetch_config({"bullets": True})
+        if typing.TYPE_CHECKING:
+            assert config.bullets is not None
+
+        config.bullets.best_bullet_finder_role = role.id if role else None
+        await config.bullets.save()
 
         if role:
             await ctx.send(
@@ -186,19 +192,22 @@ class BulletConfigCMDs(utils.Extension):
         except ValueError:
             raise ipy.errors.BadArgument("Invalid investigation mode.") from None
 
-        bullet_config = await models.BulletConfig.get_or_create(ctx.guild_id)
-        bullet_config.investigation_type = investigation_type
-        await bullet_config.save()
+        config = await ctx.fetch_config({"bullets": True})
+        if typing.TYPE_CHECKING:
+            assert config.bullets is not None
+
+        config.bullets.investigation_type = investigation_type
+        await config.bullets.save()
 
         if investigation_type == models.InvestigationType.COMMAND_ONLY:
             self.bot.msg_enabled_bullets_guilds.discard(int(ctx.guild.id))
-        elif bullet_config.bullets_enabled:
+        elif config.bullets.bullets_enabled:
             self.bot.msg_enabled_bullets_guilds.add(int(ctx.guild.id))
 
         await ctx.send(
             embed=utils.make_embed(
                 "BDA investigation mode now set to"
-                f" {bullet_config.investigation_type.name.replace('_', ' ').title()}."
+                f" {config.bullets.investigation_type.name.replace('_', ' ').title()}."
             )
         )
 
@@ -267,7 +276,10 @@ class BulletConfigCMDs(utils.Extension):
         if to_change not in {"bullet_names", "bullet_finders"}:
             raise ipy.errors.BadArgument("Invalid change requested!")
 
-        names = await models.Names.get_or_create(ctx.guild_id)
+        config = await ctx.fetch_config({"names": True})
+        if typing.TYPE_CHECKING:
+            assert config.names is not None
+        names = config.names
 
         if to_change == "bullet_names":
             modal = ipy.Modal(
@@ -319,7 +331,10 @@ class BulletConfigCMDs(utils.Extension):
 
     @ipy.modal_callback("bullet_names")
     async def bullet_names_edit(self, ctx: utils.THIAModalContext) -> None:
-        names = await models.Names.get_or_create(ctx.guild_id)
+        config = await ctx.fetch_config({"names": True})
+        if typing.TYPE_CHECKING:
+            assert config.names is not None
+        names = config.names
 
         names.singular_bullet = ctx.kwargs["singular_name"]
         names.plural_bullet = ctx.kwargs["plural_name"]
@@ -335,7 +350,10 @@ class BulletConfigCMDs(utils.Extension):
 
     @ipy.modal_callback("bullet_finders")
     async def bullet_finders_edit(self, ctx: utils.THIAModalContext) -> None:
-        names = await models.Names.get_or_create(ctx.guild_id)
+        config = await ctx.fetch_config({"names": True})
+        if typing.TYPE_CHECKING:
+            assert config.names is not None
+        names = config.names
 
         if (
             var_name := models.TEMPLATE_MARKDOWN.search(
