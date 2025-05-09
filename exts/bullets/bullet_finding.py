@@ -45,12 +45,7 @@ class BulletFinding(utils.Extension):
         bullet_chan: ipy.GuildText | None,
         config: models.GuildConfig,
     ) -> None:
-        if (
-            await models.TruthBullet.prisma().count(
-                where={"guild_id": guild.id, "found": False}
-            )
-            > 0
-        ):
+        if await models.TruthBullet.filter(guild_id=guild.id, found=False).exists():
             return
 
         if typing.TYPE_CHECKING:
@@ -68,9 +63,7 @@ class BulletFinding(utils.Extension):
 
         counter: collections.Counter[int] = collections.Counter()
 
-        for bullet in await models.TruthBullet.prisma().find_many(
-            where={"guild_id": guild.id}
-        ):
+        async for bullet in models.TruthBullet.filter(guild_id=guild.id):
             counter[bullet.finder] += 1  # type: ignore
 
         most_found = counter.most_common(None)
@@ -159,10 +152,9 @@ class BulletFinding(utils.Extension):
         if int(message.guild.id) not in self.bot.msg_enabled_bullets_guilds:
             return
 
-        config = await models.GuildConfig.get_or_none(
-            guild_id=message.guild.id, include={"bullets": True, "names": True}
+        config = await models.GuildConfig.fetch(
+            message.guild.id, include={"bullets": True, "names": True}
         )
-
         if not config:
             return
 
@@ -236,7 +228,7 @@ class BulletFinding(utils.Extension):
                 )
                 return
 
-        await bullet_found.save()
+        await bullet_found.save(force_update=True)
         await self.check_for_finish(message.guild, bullet_chan, config)
 
     @tansy.slash_command(

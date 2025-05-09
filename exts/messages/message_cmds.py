@@ -71,16 +71,16 @@ class MessageCMDs(utils.Extension):
                     "The messaging system is not enabled for this server."
                 )
 
-            ctx_user_link = await models.MessageLink.prisma().find_first(
-                where={"guild_id": ctx.guild_id, "user_id": ctx.author_id}
+            ctx_user_link = await models.MessageLink.get_or_none(
+                guild_id=ctx.guild_id, user_id=ctx.author_id
             )
             if not ctx_user_link:
                 raise utils.CustomCheckFailure(
                     "You are not set up with the messaging system."
                 )
 
-            other_user_link = await models.MessageLink.prisma().find_first(
-                where={"guild_id": ctx.guild_id, "user_id": user.id}
+            other_user_link = await models.MessageLink.get_or_none(
+                guild_id=ctx.guild_id, user_id=user.id
             )
             if not other_user_link:
                 raise ipy.errors.BadArgument(
@@ -148,16 +148,16 @@ class MessageCMDs(utils.Extension):
                     "Anonymous messages are not enabled for this server."
                 )
 
-            ctx_user_link = await models.MessageLink.prisma().find_first(
-                where={"guild_id": ctx.guild_id, "user_id": ctx.author_id}
+            ctx_user_link = await models.MessageLink.get_or_none(
+                guild_id=ctx.guild_id, user_id=ctx.author_id
             )
             if not ctx_user_link:
                 raise utils.CustomCheckFailure(
                     "You are not set up with the messaging system."
                 )
 
-            other_user_link = await models.MessageLink.prisma().find_first(
-                where={"guild_id": ctx.guild_id, "user_id": user.id}
+            other_user_link = await models.MessageLink.get_or_none(
+                guild_id=ctx.guild_id, user_id=user.id
             )
             if not other_user_link:
                 raise ipy.errors.BadArgument(

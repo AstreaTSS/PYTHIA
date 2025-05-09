@@ -110,10 +110,8 @@ class ItemsManagement(utils.Extension):
                 f" {self.bot.mention_command('config player')} first."
             )
 
-        await models.ItemsConfig.prisma().update(
-            data={"enabled": toggle},
-            where={"guild_id": ctx.guild.id},
-        )
+        config.items.enabled = toggle
+        await config.items.save()
 
         await ctx.send(
             embed=utils.make_embed(
@@ -144,10 +142,8 @@ class ItemsManagement(utils.Extension):
         if typing.TYPE_CHECKING:
             assert config.items is not None
 
-        await models.ItemsConfig.prisma().update(
-            data={"autosuggest": toggle},
-            where={"guild_id": ctx.guild.id},
-        )
+        config.items.autosuggest = toggle
+        await config.items.save()
 
         await ctx.send(
             embed=utils.make_embed(
@@ -221,12 +217,7 @@ class ItemsManagement(utils.Extension):
     async def on_create_item_modal(self, ctx: ipy.ModalContext) -> None:
         name = text_utils.replace_smart_punc(ctx.responses["item_name"])
 
-        if (
-            await models.ItemsSystemItem.prisma().count(
-                where={"guild_id": int(ctx.guild_id), "name": name}
-            )
-            > 0
-        ):
+        if await models.ItemsSystemItem.exists(guild_id=int(ctx.guild_id), name=name):
             await ctx.send(
                 embed=utils.error_embed_generate(
                     f"An item named `{text_utils.escape_markdown(name)}` already"
@@ -252,16 +243,14 @@ class ItemsManagement(utils.Extension):
         if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):
             raise ipy.errors.BadArgument("The image given must be a valid URL.")
 
-        await models.ItemsConfig.get_or_create(ctx.guild_id)  # needs to exist
+        await models.GuildConfig.fetch_create(ctx.guild_id, {"items": True})
 
-        await models.ItemsSystemItem.prisma().create(
-            data={
-                "name": name,
-                "description": ctx.responses["item_description"],
-                "image": image,
-                "takeable": takeable,
-                "guild_id": ctx.guild_id,
-            }
+        await models.ItemsSystemItem.create(
+            name=name,
+            description=ctx.responses["item_description"],
+            image=image,
+            takeable=takeable,
+            guild_id=ctx.guild_id,
         )
 
         await ctx.send(
@@ -283,8 +272,9 @@ class ItemsManagement(utils.Extension):
             converter=text_utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
-        item = await models.ItemsSystemItem.prisma().find_first(
-            where={"guild_id": ctx.guild_id, "name": name}
+        item = await models.ItemsSystemItem.get_or_none(
+            guild_id=ctx.guild_id,
+            name=name,
         )
         if not item:
             raise ipy.errors.BadArgument(
@@ -333,21 +323,15 @@ class ItemsManagement(utils.Extension):
         if ctx.custom_id.startswith("thia:edit_item-"):
             item_id = int(ctx.custom_id.removeprefix("thia:edit_item-"))
 
-            item = await models.ItemsSystemItem.prisma().find_unique(
-                where={"id": int(item_id)}
-            )
+            item = await models.ItemsSystemItem.get_or_none(id=item_id)
             if not item:
                 raise ipy.errors.BadArgument("This item no longer exists.")
 
             old_name = item.name
             name = text_utils.replace_smart_punc(ctx.responses["item_name"])
 
-            if (
-                name != old_name
-                and await models.ItemsSystemItem.prisma().count(
-                    where={"guild_id": int(ctx.guild_id), "name": name}
-                )
-                > 0
+            if name != old_name and await models.ItemsSystemItem.exists(
+                guild_id=int(ctx.guild_id), name=name
             ):
                 await ctx.send(
                     embed=utils.error_embed_generate(
@@ -398,10 +382,7 @@ class ItemsManagement(utils.Extension):
         sub_cmd_description="Lists all items in the server.",
     )
     async def list_items(self, ctx: utils.THIASlashContext) -> None:
-        items = await models.ItemsSystemItem.prisma().find_many(
-            where={"guild_id": ctx.guild_id}
-        )
-
+        items = await models.ItemsSystemItem.filter(guild_id=ctx.guild_id)
         if not items:
             raise utils.CustomCheckFailure("This server has no items to show.")
 
@@ -437,14 +418,10 @@ class ItemsManagement(utils.Extension):
         sub_cmd_description="Lists all items currently placed in channels.",
     )
     async def list_placed_items(self, ctx: utils.THIASlashContext) -> None:
-        placed_items = await models.ItemRelation.prisma().find_many(
-            where={
-                "guild_id": ctx.guild_id,
-                "object_type": models.ItemsRelationType.CHANNEL,
-            },
-            include={"item": True},
-        )
-
+        placed_items = await models.ItemRelation.filter(
+            guild_id=ctx.guild_id,
+            object_type=models.ItemsRelationType.CHANNEL,
+        ).prefetch_related("item")
         if not placed_items:
             raise utils.CustomCheckFailure(
                 "This server has no items placed in channels."
@@ -496,10 +473,9 @@ class ItemsManagement(utils.Extension):
             "The channel to list items for.",
         ),
     ) -> None:
-        channel_items = await models.ItemRelation.prisma().find_many(
-            where={"object_id": channel.id},
-            include={"item": True},
-        )
+        channel_items = await models.ItemRelation.filter(
+            object_id=channel.id,
+        ).prefetch_related("item")
         if not channel_items:
             raise utils.CustomCheckFailure("This channel has no items placed in it.")
 
@@ -555,8 +531,9 @@ class ItemsManagement(utils.Extension):
             default=1,
         ),
     ) -> None:
-        item = await models.ItemsSystemItem.prisma().find_first(
-            where={"guild_id": ctx.guild_id, "name": name}
+        item = await models.ItemsSystemItem.get_or_none(
+            guild_id=ctx.guild_id,
+            name=name,
         )
         if not item:
             raise ipy.errors.BadArgument(
@@ -570,9 +547,9 @@ class ItemsManagement(utils.Extension):
                 " channel."
             )
 
-        if await models.ItemRelation.prisma().count(
-            where={"item_id": item.id, "object_id": channel.id}
-        ) >= (50 if item.takeable else 1):
+        if await models.ItemRelation.filter(
+            item_id=item.id, object_id=channel.id
+        ).count() >= (50 if item.takeable else 1):
             if item.takeable:
                 raise utils.CustomCheckFailure(
                     "You cannot place more than 50 of the same item in a channel."
@@ -581,16 +558,15 @@ class ItemsManagement(utils.Extension):
                 "You cannot place more than 1 of a non-takeable item in a channel."
             )
 
-        async with self.bot.db.batch_() as batch:
-            for _ in range(amount):
-                batch.prismaitemrelation.create(
-                    data={
-                        "item": {"connect": {"id": item.id}},
-                        "guild_id": ctx.guild_id,
-                        "object_id": int(channel.id),
-                        "object_type": models.ItemsRelationType.CHANNEL,
-                    }
-                )
+        await models.ItemRelation.bulk_create(
+            models.ItemRelation(
+                item_id=item.id,
+                guild_id=ctx.guild_id,
+                object_id=int(channel.id),
+                object_type=models.ItemsRelationType.CHANNEL,
+            )
+            for _ in range(amount)
+        )
 
         await ctx.send(
             embed=utils.make_embed(
@@ -621,8 +597,9 @@ class ItemsManagement(utils.Extension):
             default=1,
         ),
     ) -> None:
-        item = await models.ItemsSystemItem.prisma().find_first(
-            where={"guild_id": ctx.guild_id, "name": name}
+        item = await models.ItemsSystemItem.get_or_none(
+            guild_id=ctx.guild_id,
+            name=name,
         )
         if not item:
             raise ipy.errors.BadArgument(
@@ -630,28 +607,23 @@ class ItemsManagement(utils.Extension):
                 " server."
             )
 
-        total = await models.ItemRelation.prisma().count(
-            where={"item_id": item.id, "object_id": channel.id}
-        )
+        total = await models.ItemRelation.filter(
+            item_id=item.id, object_id=channel.id
+        ).count()
 
         if amount >= total:
             amount = total
-            # fast path
-            await models.ItemRelation.prisma().delete_many(
-                where={"item_id": item.id, "object_id": channel.id}
-            )
+            await models.ItemRelation.filter(
+                item_id=item.id, object_id=channel.id
+            ).delete()
         elif total == 0:
             raise utils.CustomCheckFailure(
                 "There are no items of this type in the channel."
             )
         else:
-            to_drop = await models.ItemRelation.prisma().find_many(
-                where={"item_id": item.id, "object_id": channel.id},
-                take=amount,
-            )
-            await models.ItemRelation.prisma().delete_many(
-                where={"id": {"in": [i.id for i in to_drop]}}
-            )
+            await models.ItemRelation.filter(
+                item_id=item.id, object_id=channel.id
+            ).limit(amount).delete()
 
         await ctx.send(
             embed=utils.make_embed(
@@ -684,10 +656,14 @@ class ItemsManagement(utils.Extension):
     ) -> None:
         view_possessors = _view_possessors == "yes"
 
-        item = await models.ItemsSystemItem.prisma().find_first(
-            where={"guild_id": ctx.guild_id, "name": name},
-            include={"relations": view_possessors},
+        queryset = models.ItemsSystemItem.get_or_none(
+            guild_id=ctx.guild_id,
+            name=name,
         )
+        if view_possessors:
+            queryset = queryset.prefetch_related("relations")
+
+        item = await queryset
         if not item:
             raise ipy.errors.BadArgument(
                 f"Item `{text_utils.escape_markdown(name)}` does not exist in this"
@@ -718,9 +694,9 @@ class ItemsManagement(utils.Extension):
             converter=text_utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
-        count = await models.ItemsSystemItem.prisma().delete_many(
-            where={"guild_id": ctx.guild_id, "name": name}
-        )
+        count = await models.ItemsSystemItem.filter(
+            guild_id=ctx.guild_id, name=name
+        ).delete()
         if count == 0:
             raise ipy.errors.BadArgument(
                 f"Item `{text_utils.escape_markdown(name)}` does not exist in this"
@@ -744,9 +720,9 @@ class ItemsManagement(utils.Extension):
             "The channel to clear items from.",
         ),
     ) -> None:
-        count = await models.ItemRelation.prisma().delete_many(
-            where={"object_id": channel.id}
-        )
+        count = await models.ItemRelation.filter(
+            object_id=channel.id,
+        ).delete()
         if count == 0:
             raise utils.CustomCheckFailure(
                 "There are no items to clear from this channel."
@@ -776,9 +752,9 @@ class ItemsManagement(utils.Extension):
                 " true to continue."
             )
 
-        items_amount = await models.ItemsSystemItem.prisma().delete_many(
-            where={"guild_id": ctx.guild_id}
-        )
+        items_amount = await models.ItemRelation.filter(
+            guild_id=ctx.guild_id,
+        ).delete()
 
         if items_amount <= 0:
             raise utils.CustomCheckFailure("There's no items data to clear!")

@@ -99,11 +99,11 @@ class BulletManagement(utils.Extension):
     ) -> None:
         send_button = _send_button == "yes"
 
-        count = await models.TruthBullet.prisma().count(
-            where={"guild_id": ctx.guild_id}
-        )
-        if count > 250:
-            raise utils.CustomCheckFailure("Cannot add more than 250 Truth Bullets.")
+        count = await models.TruthBullet.filter(
+            guild_id=ctx.guild_id,
+        ).count()
+        if count > 300:
+            raise utils.CustomCheckFailure("Cannot add more than 300 Truth Bullets.")
 
         if send_button:
             await ctx.defer()
@@ -111,10 +111,9 @@ class BulletManagement(utils.Extension):
             embeds: list[ipy.Embed] = []
             if (
                 count > 0
-                and await models.TruthBullet.prisma().count(
-                    where={"guild_id": ctx.guild_id, "found": False}
-                )
-                == 0
+                and await models.TruthBullet.filter(
+                    guild_id=ctx.guild_id, found=False
+                ).exists()
             ):
                 embeds.append(
                     ipy.Embed(
@@ -193,20 +192,18 @@ class BulletManagement(utils.Extension):
             if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):
                 raise ipy.errors.BadArgument("The image given must be a valid URL.")
 
-            await models.TruthBullet.prisma().create(
-                data={
-                    "trigger": text_utils.replace_smart_punc(
-                        ctx.responses["truth_bullet_trigger"]
-                    ),
-                    "aliases": [],
-                    "description": ctx.responses["truth_bullet_desc"],
-                    "channel_id": channel_id,
-                    "guild_id": ctx.guild_id,
-                    "found": False,
-                    "finder": None,
-                    "hidden": hidden,
-                    "image": image,
-                }
+            await models.TruthBullet.create(
+                trigger=text_utils.replace_smart_punc(
+                    ctx.responses["truth_bullet_trigger"]
+                ),
+                aliases=[],
+                description=ctx.responses["truth_bullet_desc"],
+                channel_id=channel_id,
+                guild_id=ctx.guild_id,
+                found=False,
+                finder=None,
+                hidden=hidden,
+                image=image,
             )
 
             await ctx.send(
@@ -232,15 +229,10 @@ class BulletManagement(utils.Extension):
             converter=text_utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
-        num_deleted = await models.TruthBullet.prisma().delete_many(
-            where={
-                "channel_id": channel.id,
-                "trigger": {
-                    "equals": models.escape_ilike(trigger),
-                    "mode": "insensitive",
-                },
-            }
-        )
+        num_deleted = await models.TruthBullet.filter(
+            channel_id=channel.id,
+            trigger__iexact=models.escape_ilike(trigger),
+        ).delete()
 
         if num_deleted > 0:
             await ctx.send(
@@ -262,12 +254,7 @@ class BulletManagement(utils.Extension):
         ),
     )
     async def clear_bullets(self, ctx: utils.THIASlashContext) -> None:
-        num_deleted = await models.TruthBullet.prisma().delete_many(
-            where={"guild_id": ctx.guild_id}
-        )
-
-        # just to give a more clear indication to users
-        # technically everything's fine without this
+        num_deleted = await models.TruthBullet.filter(guild_id=ctx.guild_id).delete()
         if num_deleted > 0:
             await ctx.send(
                 embed=utils.make_embed("Cleared all Truth Bullets for this server!")
@@ -282,8 +269,8 @@ class BulletManagement(utils.Extension):
         sub_cmd_description="Lists all Truth Bullets in the server this is run in.",
     )
     async def list_bullets(self, ctx: utils.THIASlashContext) -> None:
-        guild_bullets = await models.TruthBullet.prisma().find_many(
-            where={"guild_id": ctx.guild_id}
+        guild_bullets = await models.TruthBullet.filter(
+            guild_id=ctx.guild_id,
         )
         if not guild_bullets:
             raise utils.CustomCheckFailure("There's no Truth Bullets for this server!")
@@ -564,17 +551,9 @@ class BulletManagement(utils.Extension):
                 + "Please use something at or under 40 characters."
             )
 
-        if (
-            await models.TruthBullet.prisma().count(
-                where={
-                    "channel_id": channel.id,
-                    "trigger": {
-                        "equals": models.escape_ilike(alias),
-                        "mode": "insensitive",
-                    },
-                }
-            )
-            > 0
+        if await models.TruthBullet.exists(
+            channel_id=channel.id,
+            trigger__iexact=models.escape_ilike(alias),
         ):
             raise ipy.errors.BadArgument(
                 f"Alias `{alias}` is used as a trigger for another Truth Bullet for"
@@ -589,6 +568,9 @@ class BulletManagement(utils.Extension):
                 f"Truth Bullet with trigger `{trigger}` does not exist!"
             )
 
+        if possible_bullet.aliases is None:
+            possible_bullet.aliases = []
+
         if len(possible_bullet.aliases) >= 5:
             raise utils.CustomCheckFailure(
                 "Cannot add more aliases to this Truth Bullet!"
@@ -599,7 +581,7 @@ class BulletManagement(utils.Extension):
                 f"Alias `{alias}` already exists for this Truth Bullet!"
             )
 
-        possible_bullet.aliases.add(alias)
+        possible_bullet.aliases.append(alias)
         await possible_bullet.save()
 
         await ctx.send(
@@ -637,6 +619,9 @@ class BulletManagement(utils.Extension):
             raise ipy.errors.BadArgument(
                 f"Truth Bullet with `{trigger}` does not exist!"
             )
+
+        if possible_bullet.aliases is None:
+            possible_bullet.aliases = []
 
         try:
             possible_bullet.aliases.remove(alias)

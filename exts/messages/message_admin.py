@@ -76,9 +76,7 @@ class MessageManagement(utils.Extension):
         toggle = _toggle == "on"
         await ctx.fetch_config({"messages": True})
 
-        await models.MessageConfig.prisma().update(
-            data={"enabled": toggle}, where={"guild_id": ctx.guild_id}
-        )
+        await models.MessageConfig.filter(guild_id=ctx.guild_id).update(enabled=toggle)
 
         await ctx.send(
             embed=utils.make_embed(
@@ -105,8 +103,8 @@ class MessageManagement(utils.Extension):
         toggle = _toggle == "on"
         await ctx.fetch_config({"messages": True})
 
-        await models.MessageConfig.prisma().update(
-            data={"anon_enabled": toggle}, where={"guild_id": ctx.guild_id}
+        await models.MessageConfig.filter(guild_id=ctx.guild_id).update(
+            anon_enabled=toggle
         )
 
         await ctx.send(
@@ -134,8 +132,8 @@ class MessageManagement(utils.Extension):
         toggle = _toggle == "on"
         await ctx.fetch_config({"messages": True})
 
-        await models.MessageConfig.prisma().update(
-            data={"ping_for_message": toggle}, where={"guild_id": ctx.guild_id}
+        await models.MessageConfig.filter(guild_id=ctx.guild_id).update(
+            ping_for_message=toggle
         )
 
         await ctx.send(
@@ -181,25 +179,18 @@ class MessageManagement(utils.Extension):
         ),
     ) -> None:
         await ctx.fetch_config({"messages": True})
-        if (
-            await models.MessageLink.prisma().count(where={"guild_id": ctx.guild_id})
-            >= 100
-        ):
-            raise utils.CustomCheckFailure("Cannot add more than 100 messaging links.")
+        if await models.MessageLink.filter(guild_id=ctx.guild_id).count() >= 200:
+            raise utils.CustomCheckFailure("Cannot add more than 200 messaging links.")
 
-        if link := await models.MessageLink.prisma().find_first(
-            where={"guild_id": ctx.guild_id, "user_id": user.id}
+        if link := await models.MessageLink.get_or_none(
+            guild_id=ctx.guild_id, user_id=user.id
         ):
-            await models.MessageLink.prisma().update(
-                data={"channel_id": channel.id}, where={"id": link.id}
-            )
+            await models.MessageLink.filter(id=link.id).update(channel_id=channel.id)
         else:
-            await models.MessageLink.prisma().create(
-                data={
-                    "guild_id": ctx.guild_id,
-                    "user_id": user.id,
-                    "channel_id": channel.id,
-                }
+            await models.MessageLink.create(
+                guild_id=ctx.guild_id,
+                user_id=user.id,
+                channel_id=channel.id,
             )
 
         await ctx.send(
@@ -212,10 +203,7 @@ class MessageManagement(utils.Extension):
         "list-links", sub_cmd_description="Lists all messaging links for this server."
     )
     async def message_view_links(self, ctx: utils.THIASlashContext) -> None:
-        links = await models.MessageLink.prisma().find_many(
-            where={"guild_id": ctx.guild_id}
-        )
-
+        links = await models.MessageLink.filter(guild_id=ctx.guild_id)
         if not links:
             raise utils.CustomCheckFailure(
                 "This server has no messaging links to list."
@@ -253,10 +241,9 @@ class MessageManagement(utils.Extension):
         ctx: utils.THIASlashContext,
         user: ipy.Member = tansy.Option("The user to remove the link from."),
     ) -> None:
-        num_deleted = await models.MessageLink.prisma().delete_many(
-            where={"guild_id": ctx.guild_id, "user_id": user.id}
-        )
-
+        num_deleted = await models.MessageLink.filter(
+            guild_id=ctx.guild_id, user_id=user.id
+        ).delete()
         if num_deleted < 1:
             raise utils.CustomCheckFailure("There's no messaging link to remove!")
 
@@ -282,10 +269,7 @@ class MessageManagement(utils.Extension):
                 " true to continue."
             )
 
-        num_deleted = await models.MessageLink.prisma().delete_many(
-            where={"guild_id": ctx.guild_id}
-        )
-
+        num_deleted = await models.MessageLink.filter(guild_id=ctx.guild_id).delete()
         if num_deleted < 1:
             raise utils.CustomCheckFailure("There's no messaging links to clear!")
 

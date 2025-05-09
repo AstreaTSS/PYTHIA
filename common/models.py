@@ -8,72 +8,18 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """
 
 import collections
-import contextlib
-import datetime
 import os
 import re
 import textwrap
 from collections import Counter
-from enum import IntEnum
+from enum import Enum, IntEnum
 
 import interactions as ipy
 import typing_extensions as typing
-from httpcore._backends import anyio
-from httpcore._backends.asyncio import AsyncioBackend
-from prisma import Base64, Json, _builder
-from prisma._async_http import Response
-from prisma.enums import ItemsRelationType, Rarity
-from prisma.models import (
-    PrimsaDiceConfig,
-    PrismaBulletConfig,
-    PrismaDiceEntry,
-    PrismaGachaConfig,
-    PrismaGachaItem,
-    PrismaGachaPlayer,
-    PrismaGuildConfig,
-    PrismaItemRelation,
-    PrismaItemsConfig,
-    PrismaItemsSystemItem,
-    PrismaItemToPlayer,
-    PrismaMessageConfig,
-    PrismaMessageLink,
-    PrismaNames,
-    PrismaTruthBullet,
-)
-from prisma.types import (
-    PrismaGachaPlayerInclude,
-    PrismaGuildConfigInclude,
-)
-from pydantic import field_serializer, field_validator
+from tortoise import Model, connections, fields
+from tortoise.contrib.postgres.fields import ArrayField
 
 import common.text_utils as text_utils
-
-__all__ = (
-    "FIND_TRUTH_BULLET_EXACT_STR",
-    "FIND_TRUTH_BULLET_STR",
-    "VALIDATE_TRUTH_BULLET_STR",
-    "BulletConfig",
-    "DiceConfig",
-    "DiceEntry",
-    "GachaConfig",
-    "GachaItem",
-    "GachaPlayer",
-    "GuildConfig",
-    "InvestigationType",
-    "ItemRelation",
-    "ItemToPlayer",
-    "ItemsConfig",
-    "ItemsRelationType",
-    "ItemsSystemItem",
-    "MessageConfig",
-    "MessageLink",
-    "Names",
-    "Rarity",
-    "TruthBullet",
-    "code_template",
-    "escape_ilike",
-    "short_desc",
-)
 
 
 # yes, this is a copy from common.utils
@@ -107,17 +53,424 @@ def short_desc(description: str, length: int = 25) -> str:
     return new_description
 
 
-class TruthBullet(PrismaTruthBullet):
-    aliases: set[str]
+class ItemsRelationType(str, Enum):
+    CHANNEL = "CHANNEL"
+    USER = "USER"
 
-    @field_validator("aliases", mode="after")
-    @classmethod
-    def _transform_aliases_into_set(cls, value: list[str]) -> set[str]:
-        return set(value)
 
-    @field_serializer("aliases", when_used="always")
-    def _transform_aliases_into_list(self, value: set[str]) -> list[str]:
-        return sorted(value)
+class Rarity(str, Enum):
+    COMMON = "COMMON"
+    UNCOMMON = "UNCOMMON"
+    RARE = "RARE"
+    SUPER_RARE = "SUPER_RARE"
+    LEGENDARY = "LEGENDARY"
+
+
+class InvestigationType(IntEnum):
+    DEFAULT = 1
+    COMMAND_ONLY = 2
+
+
+def new_init(old_init: typing.Callable) -> typing.Callable:
+    def wrapper(self: Model, *args: typing.Any, **kwargs: typing.Any) -> None:
+        guild_id = kwargs.pop("guild_id", None)
+        old_init(self, *args, **kwargs)
+        if guild_id is not None:
+            self.guild_id = guild_id
+
+    return wrapper
+
+
+MODEL_T = typing.TypeVar("MODEL_T", bound=Model)
+
+
+def guild_id_model(cls: type[MODEL_T]) -> type[MODEL_T]:
+    cls._meta.fields_db_projection["guild_id"] = "guild_id"
+    cls.__init__ = new_init(cls.__init__)
+    return cls
+
+
+class Names(Model):
+    guild: fields.OneToOneRelation["GuildConfig"] = fields.OneToOneField(
+        "models.GuildConfig", "names", pk=True
+    )
+    singular_bullet = fields.TextField(default="Truth Bullet")
+    plural_bullet = fields.TextField(default="Truth Bullets")
+    singular_truth_bullet_finder = fields.TextField(default="{{bullet_name}} Finder")
+    plural_truth_bullet_finder = fields.TextField(default="{{bullet_name}} Finders")
+    best_bullet_finder = fields.TextField(default="Best {{bullet_finder}}")
+    singular_currency_name = fields.TextField(default="Coin")
+    plural_currency_name = fields.TextField(default="Coins")
+
+    class Meta:
+        table = "thianames"
+
+    def currency_name(self, amount: int) -> str:
+        return self.singular_currency_name if amount == 1 else self.plural_currency_name
+
+
+class BulletConfig(Model):
+    guild: fields.OneToOneRelation["GuildConfig"] = fields.OneToOneField(
+        "models.GuildConfig", "bullets", pk=True
+    )
+    bullet_chan_id: fields.Field[int | None] = fields.BigIntField(null=True)
+    best_bullet_finder_role: fields.Field[int | None] = fields.BigIntField(null=True)
+    bullets_enabled = fields.BooleanField(default=False)
+    investigation_type = fields.SmallIntField(default=1)
+    show_best_finders = fields.BooleanField(default=True)
+
+    @property
+    def investigation_type_enum(self) -> InvestigationType:
+        return InvestigationType(self.investigation_type)
+
+    class Meta:
+        table = "thiabulletconfig"
+
+
+class ItemsConfig(Model):
+    guild: fields.OneToOneRelation["GuildConfig"] = fields.OneToOneField(
+        "models.GuildConfig", "items", pk=True
+    )
+    enabled = fields.BooleanField(default=False)
+    autosuggest = fields.BooleanField(default=True)
+
+    items: fields.ReverseRelation["ItemsSystemItem"]
+
+    class Meta:
+        table = "thiaitemsconfig"
+
+
+class _ItemRelationHash:
+    __slots__ = ("id", "relation")
+
+    def __init__(self, relation: "ItemRelation") -> None:
+        self.relation = relation
+        self.id = relation.object_id
+
+    def __hash__(self) -> int:
+        return self.id
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, _ItemRelationHash) and self.id == other.id
+
+
+@guild_id_model
+class ItemsSystemItem(Model):
+    id = fields.IntField(pk=True)
+    guild: fields.ForeignKeyRelation[ItemsConfig] = fields.ForeignKeyField(
+        "models.ItemsConfig", "items", db_index=True
+    )
+    name = fields.TextField()
+    description = fields.TextField()
+    image: fields.Field[str | None] = fields.TextField(null=True)
+    takeable = fields.BooleanField(default=True)
+
+    relations: fields.ReverseRelation["ItemRelation"]
+
+    class Meta:
+        table = "thiaitemssystemitems"
+
+    def embeds(self, *, count: int | None = None) -> list[ipy.Embed]:
+        embeds: list[ipy.Embed] = []
+
+        embed = ipy.Embed(
+            title=f"{self.name}{f' (x{count})' if count else ''}",
+            description=self.description,
+            color=ipy.Color(int(os.environ["BOT_COLOR"])),
+            timestamp=ipy.Timestamp.utcnow(),
+        )
+        if self.image:
+            embed.set_thumbnail(self.image)
+
+        embed.set_footer(f"Takeable: {yesno_friendly_str(self.takeable)}")
+
+        embeds.append(embed)
+
+        if isinstance(self.relations, list) and self.relations:
+            relation_counter: collections.Counter[_ItemRelationHash] = (
+                collections.Counter()
+            )
+
+            for relation in self.relations:
+                relation_counter[_ItemRelationHash(relation)] += 1
+
+            relation_data = sorted(
+                (
+                    (relation.relation, count)
+                    for relation, count in relation_counter.items()
+                ),
+                key=lambda x: x[0].object_type,
+            )
+
+            str_builder: list[str] = []
+            character_count = 0
+
+            for entry, count in relation_data:
+                string_to_use = (
+                    f"- <#{entry.object_id}> (x{count})"
+                    if entry.object_type == ItemsRelationType.CHANNEL
+                    else f"- <@{entry.object_id}> (x{count})"
+                )
+
+                if character_count + len(string_to_use) > 4000:
+                    embeds.append(
+                        ipy.Embed(
+                            title=f"{self.name} - Possessors",
+                            description="\n".join(str_builder),
+                            color=ipy.Color(int(os.environ["BOT_COLOR"])),
+                            timestamp=ipy.Timestamp.utcnow(),
+                        )
+                    )
+
+                    str_builder.clear()
+                    character_count = 0
+
+                str_builder.append(string_to_use)
+                character_count += len(string_to_use)
+
+            if str_builder:
+                embeds.append(
+                    ipy.Embed(
+                        title=f"{self.name} - Possessors",
+                        description="\n".join(str_builder),
+                        color=ipy.Color(int(os.environ["BOT_COLOR"])),
+                        timestamp=ipy.Timestamp.utcnow(),
+                    )
+                )
+
+        return embeds
+
+
+class ItemRelation(Model):
+    id = fields.IntField(pk=True)
+    item: fields.ForeignKeyRelation["ItemsSystemItem"] = fields.ForeignKeyField(
+        "models.ItemsSystemItem", "relations"
+    )
+    guild_id = fields.BigIntField(db_index=True)
+    object_id = fields.BigIntField(db_index=True)
+    object_type = fields.CharEnumField(ItemsRelationType)
+
+    class Meta:
+        table = "thiaitemrelation"
+        indexes: typing.ClassVar[list[tuple[str]]] = [
+            ("item_id",),
+            ("guild_id",),
+            ("object_id",),
+        ]
+
+
+class GachaConfig(Model):
+    guild: fields.OneToOneRelation["GuildConfig"] = fields.OneToOneField(
+        "models.GuildConfig", "gacha", pk=True
+    )
+    enabled = fields.BooleanField(default=False)
+    currency_cost = fields.IntField(default=1)
+    draw_duplicates = fields.BooleanField(default=True)
+
+    items: fields.ReverseRelation["GachaItem"]
+    players: fields.ReverseRelation["GachaPlayer"]
+
+    class Meta:
+        table = "thiagachaconfig"
+
+
+@guild_id_model
+class GachaItem(Model):
+    id = fields.IntField(pk=True)
+    guild: fields.ForeignKeyRelation[GachaConfig] = fields.ForeignKeyField(
+        "models.GachaConfig", "items", db_index=True
+    )
+    name = fields.TextField()
+    description = fields.TextField()
+    image: fields.Field[str | None] = fields.TextField(null=True)
+    rarity = fields.CharEnumField(Rarity, default=Rarity.COMMON)
+    amount = fields.IntField(default=-1, db_index=True)
+
+    players: fields.ReverseRelation["ItemToPlayer"]
+
+    class Meta:
+        table = "thiagachaitems"
+
+    def embed(self, *, show_amount: bool = False) -> ipy.Embed:
+        embed = ipy.Embed(
+            title=self.name,
+            description=self.description,
+            color=ipy.Color(int(os.environ["BOT_COLOR"])),
+            timestamp=ipy.Timestamp.utcnow(),
+        )
+        if self.image:
+            embed.set_thumbnail(self.image)
+
+        if show_amount:
+            embed.add_field(
+                name="Quantity Remaining",
+                value=self.amount if self.amount != -1 else "Unlimited",
+                inline=True,
+            )
+
+        return embed
+
+
+class GachaHash:
+    __slots__ = ("id", "item")
+
+    def __init__(self, item: "GachaItem") -> None:
+        self.item = item
+        self.id = item.id
+
+    def __hash__(self) -> int:
+        return self.id
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, GachaHash) and self.id == other.id
+
+
+@guild_id_model
+class GachaPlayer(Model):
+    id = fields.IntField(pk=True)
+    guild: fields.ForeignKeyRelation[GachaConfig] = fields.ForeignKeyField(
+        "models.GachaConfig", "players", db_index=True
+    )
+    user_id = fields.BigIntField()
+    currency_amount = fields.IntField(default=0)
+
+    items: fields.ReverseRelation["ItemToPlayer"]
+
+    class Meta:
+        table = "thiagachaplayers"
+        indexes: typing.ClassVar[list[tuple[str, ...]]] = [("guild_id", "user_id")]
+
+    def create_profile(self, user_display_name: str, names: "Names") -> list[ipy.Embed]:
+        str_builder = [
+            (
+                "Currency:"
+                f" {self.currency_amount} {names.currency_name(self.currency_amount)}"
+            ),
+            "\n**Items:**",
+        ]
+
+        if self.items and all(entry.item for entry in self.items):
+            counter: Counter[GachaHash] = Counter()
+            for item in self.items:
+                counter[GachaHash(item.item)] += 1
+
+            counter_data = sorted(
+                ((name, count) for name, count in counter.items()),
+                key=lambda x: x[0].item.name.lower(),
+            )
+
+            str_builder.extend(
+                f"**{entry.item.name}**{f' (x{count})' if count > 1 else ''} -"
+                f" {short_desc(entry.item.description)}"
+                for entry, count in counter_data
+            )
+        else:
+            str_builder.append("*No items.*")
+
+        if len(str_builder) <= 30:
+            return [
+                ipy.Embed(
+                    title=f"{user_display_name}'s Gacha Data",
+                    description="\n".join(str_builder),
+                    color=ipy.Color(int(os.environ["BOT_COLOR"])),
+                    timestamp=ipy.Timestamp.utcnow(),
+                )
+            ]
+
+        chunks = [str_builder[x : x + 30] for x in range(0, len(str_builder), 30)]
+        return [
+            ipy.Embed(
+                title=f"{user_display_name}'s Gacha Data",
+                description="\n".join(chunk),
+                color=ipy.Color(int(os.environ["BOT_COLOR"])),
+                timestamp=ipy.Timestamp.utcnow(),
+            )
+            for chunk in chunks
+        ]
+
+
+class ItemToPlayer(Model):
+    id = fields.IntField(pk=True)
+    item: fields.ForeignKeyRelation[GachaItem] = fields.ForeignKeyField(
+        "models.GachaItem", "players"
+    )
+    player: fields.ForeignKeyRelation[GachaPlayer] = fields.ForeignKeyField(
+        "models.GachaPlayer", "items"
+    )
+
+    class Meta:
+        table = "thiagachaitemtoplayer"
+
+
+class MessageConfig(Model):
+    guild: fields.OneToOneRelation["GuildConfig"] = fields.OneToOneField(
+        "models.GuildConfig", "messages", pk=True
+    )
+    enabled = fields.BooleanField(default=False)
+    anon_enabled = fields.BooleanField(default=False)
+    ping_for_message = fields.BooleanField(default=False)
+
+    links: fields.ReverseRelation["MessageLink"]
+
+    class Meta:
+        table = "thiamessageconfig"
+
+
+@guild_id_model
+class MessageLink(Model):
+    id = fields.IntField(pk=True)
+    guild: fields.ForeignKeyRelation[MessageConfig] = fields.ForeignKeyField(
+        "models.MessageConfig", "links", db_index=True
+    )
+    user_id = fields.BigIntField()
+    channel_id = fields.BigIntField()
+
+    class Meta:
+        table = "thiamessagelink"
+        indexes: typing.ClassVar[list[tuple[str, ...]]] = [("guild_id", "user_id")]
+
+
+class DiceConfig(Model):
+    guild: fields.OneToOneRelation["GuildConfig"] = fields.OneToOneField(
+        "models.GuildConfig", "dice", pk=True
+    )
+    visible = fields.BooleanField(default=True)
+
+    entries: fields.ReverseRelation["DiceEntry"]
+
+    class Meta:
+        table = "thiadiceconfig"
+
+
+@guild_id_model
+class DiceEntry(Model):
+    id = fields.IntField(pk=True)
+    guild: fields.ForeignKeyRelation[DiceConfig] = fields.ForeignKeyField(
+        "models.DiceConfig", "entries", db_index=True
+    )
+    user_id = fields.BigIntField()
+    name = fields.TextField()
+    value = fields.TextField()
+
+    class Meta:
+        table = "thiadicenetry"
+        indexes: typing.ClassVar[list[tuple[str, ...]]] = [("guild_id", "user_id")]
+
+
+class TruthBullet(Model):
+    id = fields.IntField(pk=True)
+    trigger = fields.CharField(max_length=100)
+    aliases: fields.Field[list[str] | None] = ArrayField("VARCHAR(40)", null=True)
+    description = fields.TextField()
+    channel_id = fields.BigIntField(db_index=True)
+    guild_id = fields.BigIntField(db_index=True)
+    found = fields.BooleanField(db_index=True)
+    finder: fields.Field[int | None] = fields.BigIntField(null=True)
+    hidden = fields.BooleanField(default=False)
+    image: fields.Field[str | None] = fields.TextField(null=True)
+
+    class Meta:
+        table = "thiatruthbullets"
 
     @property
     def chan_mention(self) -> str:
@@ -172,488 +525,116 @@ class TruthBullet(PrismaTruthBullet):
     async def find(
         cls, channel_id: ipy.Snowflake_Type, content: str
     ) -> typing.Self | None:
-        return await cls.prisma().query_first(
-            FIND_TRUTH_BULLET_STR, int(channel_id), content
+        conn = connections.get("default")
+        data = await conn.execute_query_dict(
+            FIND_TRUTH_BULLET_STR, values=[int(channel_id), content]
         )
+        return cls(**data[0]) if data else None
 
     @classmethod
     async def find_exact(
         cls, channel_id: ipy.Snowflake_Type, content: str
     ) -> typing.Self | None:
-        return await cls.prisma().query_first(
-            FIND_TRUTH_BULLET_EXACT_STR, int(channel_id), content
+        conn = connections.get("default")
+        data = await conn.execute_query_dict(
+            FIND_TRUTH_BULLET_EXACT_STR, values=[int(channel_id), content]
         )
+        return cls(**data[0]) if data else None
 
     @classmethod
     async def find_possible_bullet(
         cls, channel_id: ipy.Snowflake_Type, trigger: str
     ) -> typing.Self | None:
-        return await cls.prisma().find_first(
-            where={
-                "channel_id": int(channel_id),
-                "trigger": {"equals": escape_ilike(trigger), "mode": "insensitive"},
-            }
-        )
+        return await cls.filter(
+            channel_id=int(channel_id),
+            trigger__icontains=escape_ilike(trigger),
+        ).first()
 
     @classmethod
     async def validate(cls, channel_id: ipy.Snowflake_Type, trigger: str) -> bool:
-        return (
-            await cls.prisma()._client.query_first(
-                VALIDATE_TRUTH_BULLET_STR, int(channel_id), trigger
-            )
-            is not None
+        conn = connections.get("default")
+        data = await conn.execute_query_dict(
+            VALIDATE_TRUTH_BULLET_STR, values=[int(channel_id), trigger]
         )
+        return bool(data)
 
-    async def save(self) -> None:
-        data = self.model_dump()
-        await self.prisma().update(where={"id": self.id}, data=data)  # type: ignore
 
+class GuildConfigInclude(typing.TypedDict, total=False):
+    names: bool
+    bullets: bool
+    gacha: bool
+    messages: bool
+    dice: bool
+    items: bool
 
-class GetMethodsMixin:
-    @classmethod
-    async def get(cls, guild_id: int) -> typing.Self:
-        return await cls.prisma().find_unique_or_raise(where={"guild_id": guild_id})
 
-    @classmethod
-    async def get_or_none(cls, guild_id: int) -> typing.Optional[typing.Self]:
-        return await cls.prisma().find_unique(where={"guild_id": guild_id})
+class GuildConfig(Model):
+    guild_id = fields.BigIntField(pk=True)
+    player_role: fields.Field[int | None] = fields.BigIntField(null=True)
 
-    @classmethod
-    async def get_or_create(cls, guild_id: int) -> typing.Self:
-        return await cls.get_or_none(guild_id) or await cls.prisma().create(
-            data={"guild_id": guild_id}
-        )
+    names: fields.OneToOneNullableRelation["Names"]
+    bullets: fields.OneToOneNullableRelation["BulletConfig"]
+    gacha: fields.OneToOneNullableRelation["GachaConfig"]
+    messages: fields.OneToOneNullableRelation["MessageConfig"]
+    dice: fields.OneToOneNullableRelation["DiceConfig"]
+    items: fields.OneToOneNullableRelation["ItemsConfig"]
 
+    class Meta:
+        table = "thiaguildconfig"
 
-class Names(GetMethodsMixin, PrismaNames):
-    main_config: "typing.Optional[GuildConfig]" = None
-
-    def currency_name(self, amount: int) -> str:
-        return self.singular_currency_name if amount == 1 else self.plural_currency_name
-
-    async def save(self) -> None:
-        data = self.model_dump(exclude={"main_config"})
-        await self.prisma().update(where={"guild_id": self.guild_id}, data=data)  # type: ignore
-
-
-class InvestigationType(IntEnum):
-    DEFAULT = 1
-    COMMAND_ONLY = 2
-
-
-class BulletConfig(GetMethodsMixin, PrismaBulletConfig):
-    investigation_type: InvestigationType
-    main_config: "typing.Optional[GuildConfig]" = None
-
-    @field_validator("investigation_type", mode="after")
-    @classmethod
-    def _transform_int_into_investigation_type(cls, value: int) -> InvestigationType:
-        return InvestigationType(value)
-
-    @field_serializer("investigation_type", when_used="always")
-    def _transform_investigation_type_into_int(self, value: InvestigationType) -> int:
-        return value.value
-
-    async def save(self) -> None:
-        data = self.model_dump(exclude={"main_config"})
-        await self.prisma().update(where={"guild_id": self.guild_id}, data=data)  # type: ignore
-
-
-class ItemToPlayer(PrismaItemToPlayer):
-    item: typing.Optional["GachaItem"] = None
-    player: typing.Optional["GachaPlayer"] = None
-
-    async def save(self) -> None:
-        data = self.model_dump(exclude={"item", "player"})
-        await self.prisma().update(where={"id": self.id}, data=data)
-
-
-class GachaItem(PrismaGachaItem):
-    players: "typing.Optional[list[ItemToPlayer]]" = None
-    gacha_config: "typing.Optional[GachaConfig]" = None
-
-    def embed(self, *, show_amount: bool = False) -> ipy.Embed:
-        embed = ipy.Embed(
-            title=self.name,
-            description=self.description,
-            color=ipy.Color(int(os.environ["BOT_COLOR"])),
-            timestamp=ipy.Timestamp.utcnow(),
-        )
-        if self.image:
-            embed.set_thumbnail(self.image)
-
-        if show_amount:
-            embed.add_field(
-                name="Quantity Remaining",
-                value=self.amount if self.amount != -1 else "Unlimited",
-                inline=True,
-            )
-
-        return embed
-
-    async def save(self) -> None:
-        data = self.model_dump(exclude={"gacha_config", "players"})
-        await self.prisma().update(where={"id": self.id}, data=data)  # type: ignore
-
-
-class _GachaHash:
-    __slots__ = ("id", "item")
-
-    def __init__(self, item: "GachaItem") -> None:
-        self.item = item
-        self.id = item.id
-
-    def __hash__(self) -> int:
-        return self.id
-
-    def __eq__(self, other: object) -> bool:
-        return isinstance(other, _GachaHash) and self.id == other.id
-
-
-class GachaPlayer(PrismaGachaPlayer):
-    items: "typing.Optional[list[ItemToPlayer]]" = None
-    gacha_config: "typing.Optional[GachaConfig]" = None
-
-    @classmethod
-    async def get(
-        cls,
-        guild_id: int,
-        user_id: int,
-        include: PrismaGachaPlayerInclude | None = None,
-    ) -> typing.Self:
-        return await cls.prisma().find_first_or_raise(
-            where={"guild_id": guild_id, "user_id": user_id}, include=include
-        )
-
-    @classmethod
-    async def get_or_none(
-        cls,
-        guild_id: int,
-        user_id: int,
-        include: PrismaGachaPlayerInclude | None = None,
-    ) -> typing.Optional[typing.Self]:
-        return await cls.prisma().find_first(
-            where={"guild_id": guild_id, "user_id": user_id}, include=include
-        )
-
-    @classmethod
-    async def get_or_create(
-        cls,
-        guild_id: int,
-        user_id: int,
-        include: PrismaGachaPlayerInclude | None = None,
-    ) -> typing.Self:
-        return await cls.get_or_none(
-            guild_id, user_id, include=include
-        ) or await cls.prisma().create(
-            data={"guild_id": guild_id, "user_id": user_id}, include=include
-        )
-
-    def create_profile(self, user_display_name: str, names: "Names") -> list[ipy.Embed]:
-        str_builder = [
-            (
-                "Currency:"
-                f" {self.currency_amount} {names.currency_name(self.currency_amount)}"
-            ),
-            "\n**Items:**",
-        ]
-
-        if self.items and all(entry.item for entry in self.items):
-            counter: Counter[_GachaHash] = Counter()
-            for item in self.items:
-                counter[_GachaHash(item.item)] += 1
-
-            counter_data = sorted(
-                ((name, count) for name, count in counter.items()),
-                key=lambda x: x[0].item.name.lower(),
-            )
-
-            str_builder.extend(
-                f"**{entry.item.name}**{f' (x{count})' if count > 1 else ''} -"
-                f" {short_desc(entry.item.description)}"
-                for entry, count in counter_data
-            )
-        else:
-            str_builder.append("*No items.*")
-
-        if len(str_builder) <= 30:
-            return [
-                ipy.Embed(
-                    title=f"{user_display_name}'s Gacha Data",
-                    description="\n".join(str_builder),
-                    color=ipy.Color(int(os.environ["BOT_COLOR"])),
-                    timestamp=ipy.Timestamp.utcnow(),
-                )
-            ]
-
-        chunks = [str_builder[x : x + 30] for x in range(0, len(str_builder), 30)]
-        return [
-            ipy.Embed(
-                title=f"{user_display_name}'s Gacha Data",
-                description="\n".join(chunk),
-                color=ipy.Color(int(os.environ["BOT_COLOR"])),
-                timestamp=ipy.Timestamp.utcnow(),
-            )
-            for chunk in chunks
-        ]
-
-    async def save(self) -> None:
-        data = self.model_dump(exclude={"items", "gacha_config", "id", "guild_id"})
-        await self.prisma().update(where={"id": self.id}, data=data)
-
-
-class GachaConfig(GetMethodsMixin, PrismaGachaConfig):
-    items: "typing.Optional[list[GachaItem]]" = None
-    players: "typing.Optional[list[GachaPlayer]]" = None
-    main_config: "typing.Optional[GuildConfig]" = None
-
-    async def save(self) -> None:
-        data = self.model_dump(exclude={"items", "players", "main_config"})
-        await self.prisma().update(where={"guild_id": self.guild_id}, data=data)  # type: ignore
-
-
-class MessageLink(PrismaMessageLink):
-    message_config: typing.Optional["MessageConfig"] = None
-
-
-class MessageConfig(PrismaMessageConfig):
-    links: typing.Optional[list["MessageLink"]] = None
-    main_config: typing.Optional["GuildConfig"] = None
-
-    async def save(self) -> None:
-        data = self.model_dump(exclude={"main_config", "links"})
-        await self.prisma().update(where={"guild_id": self.guild_id}, data=data)  # type: ignore
-
-
-class DiceEntry(PrismaDiceEntry):
-    dice_config: typing.Optional["DiceConfig"] = None
-
-
-class DiceConfig(GetMethodsMixin, PrimsaDiceConfig):
-    entries: typing.Optional[list[DiceEntry]] = None
-    main_config: typing.Optional["GuildConfig"] = None
-
-    async def save(self) -> None:
-        data = self.model_dump(exclude={"entries", "main_config"})
-        await self.prisma().update(where={"guild_id": self.guild_id}, data=data)  # type: ignore
-
-
-class ItemRelation(PrismaItemRelation):
-    item: typing.Optional["ItemsSystemItem"] = None
-
-    async def save(self) -> None:
-        data = self.model_dump(exclude={"item"})
-        await self.prisma().update(where={"id": self.id}, data=data)  # type: ignore
-
-
-class _ItemRelationHash:
-    __slots__ = ("id", "relation")
-
-    def __init__(self, relation: "ItemRelation") -> None:
-        self.relation = relation
-        self.id = relation.object_id
-
-    def __hash__(self) -> int:
-        return self.id
-
-    def __eq__(self, other: object) -> bool:
-        return isinstance(other, _ItemRelationHash) and self.id == other.id
-
-
-class ItemsSystemItem(PrismaItemsSystemItem):
-    relations: typing.Optional[list[ItemRelation]] = None
-    items_config: typing.Optional["ItemsConfig"] = None
-
-    def embeds(self, *, count: int | None = None) -> list[ipy.Embed]:
-        embeds: list[ipy.Embed] = []
-
-        embed = ipy.Embed(
-            title=f"{self.name}{f' (x{count})' if count else ''}",
-            description=self.description,
-            color=ipy.Color(int(os.environ["BOT_COLOR"])),
-            timestamp=ipy.Timestamp.utcnow(),
-        )
-        if self.image:
-            embed.set_thumbnail(self.image)
-
-        embed.set_footer(f"Takeable: {yesno_friendly_str(self.takeable)}")
-
-        embeds.append(embed)
-
-        if self.relations:
-            relation_counter: collections.Counter[_ItemRelationHash] = (
-                collections.Counter()
-            )
-
-            for relation in self.relations:
-                relation_counter[_ItemRelationHash(relation)] += 1
-
-            relation_data = sorted(
-                (
-                    (relation.relation, count)
-                    for relation, count in relation_counter.items()
-                ),
-                key=lambda x: x[0].object_type,
-            )
-
-            str_builder: list[str] = []
-            character_count = 0
-
-            for entry, count in relation_data:
-                string_to_use = (
-                    f"- <#{entry.object_id}> (x{count})"
-                    if entry.object_type == ItemsRelationType.CHANNEL
-                    else f"- <@{entry.object_id}> (x{count})"
-                )
-
-                if character_count + len(string_to_use) > 4000:
-                    embeds.append(
-                        ipy.Embed(
-                            title=f"{self.name} - Possessors",
-                            description="\n".join(str_builder),
-                            color=ipy.Color(int(os.environ["BOT_COLOR"])),
-                            timestamp=ipy.Timestamp.utcnow(),
-                        )
-                    )
-
-                    str_builder.clear()
-                    character_count = 0
-
-                str_builder.append(string_to_use)
-                character_count += len(string_to_use)
-
-            if str_builder:
-                embeds.append(
-                    ipy.Embed(
-                        title=f"{self.name} - Possessors",
-                        description="\n".join(str_builder),
-                        color=ipy.Color(int(os.environ["BOT_COLOR"])),
-                        timestamp=ipy.Timestamp.utcnow(),
-                    )
-                )
-
-        return embeds
-
-    async def save(self) -> None:
-        data = self.model_dump(exclude={"items_config", "relations"})
-        await self.prisma().update(where={"id": self.id}, data=data)  # type: ignore
-
-
-class ItemsConfig(GetMethodsMixin, PrismaItemsConfig):
-    items: typing.Optional[list[ItemsSystemItem]] = None
-    main_config: typing.Optional["GuildConfig"] = None
-
-    async def save(self) -> None:
-        data = self.model_dump(exclude={"items", "main_config"})
-        await self.prisma().update(where={"guild_id": self.guild_id}, data=data)  # type: ignore
-
-
-class GuildConfigMixin:
-    guild_id: ipy.Snowflake
-
-    if typing.TYPE_CHECKING:
-        from prisma import actions
-
-        @classmethod
-        def prisma(cls) -> actions.PrismaGuildConfigActions[typing.Self]: ...
-
-        model_dump: typing.Callable[..., dict[str, typing.Any]]
-
-    async def _fill_in_include(
-        self, include: PrismaGuildConfigInclude | None
-    ) -> typing.Self:
+    async def _fill_in_include(self, include: GuildConfigInclude | None) -> typing.Self:
         if not include:
             return self
 
         for entry in include:
+            # the normal relational attributes are properties
+            # we need to change the underlying attribute instead, hence the _ prefix
             if entry == "names" and not getattr(self, "names", True):
-                self.names = await Names.prisma().create(
-                    data={"guild_id": self.guild_id}
-                )
+                self._names = await Names.create(guild_id=self.guild_id)
             if entry == "bullets" and not getattr(self, "bullets", True):
-                self.bullets = await BulletConfig.prisma().create(
-                    data={"guild_id": self.guild_id}
-                )
+                self._bullets = await BulletConfig.create(guild_id=self.guild_id)
             if entry == "gacha" and not getattr(self, "gacha", True):
-                self.gacha = await GachaConfig.prisma().create(
-                    data={"guild_id": self.guild_id}
-                )
+                self._gacha = await GachaConfig.create(guild_id=self.guild_id)
             if entry == "messages" and not getattr(self, "messages", True):
-                self.messages = await MessageConfig.prisma().create(
-                    data={"guild_id": self.guild_id}
-                )
+                self._messages = await MessageConfig.create(guild_id=self.guild_id)
             if entry == "dice" and not getattr(self, "dice", True):
-                self.dice = await DiceConfig.prisma().create(
-                    data={"guild_id": self.guild_id}
-                )
+                self._dice = await DiceConfig.create(guild_id=self.guild_id)
             if entry == "items" and not getattr(self, "items", True):
-                self.items = await ItemsConfig.prisma().create(
-                    data={"guild_id": self.guild_id}
-                )
+                self._items = await ItemsConfig.create(guild_id=self.guild_id)
 
         return self
 
     @classmethod
-    async def get(
-        cls, guild_id: int, include: PrismaGuildConfigInclude | None = None
+    async def fetch_create(
+        cls, guild_id: int, include: GuildConfigInclude | None = None
     ) -> typing.Self:
-        config = await cls.prisma().find_unique_or_raise(
-            where={"guild_id": guild_id},
-            include=include,
-        )
+        queryset = cls.get_or_none(guild_id=guild_id)
+        if include:
+            queryset = queryset.prefetch_related(*include.keys())
+        config = await queryset
+
+        if not config:
+            config = await cls.create(guild_id=guild_id)
+            if include:
+                for field in include.keys():
+                    setattr(config, f"_{field}", None)
+
         return await config._fill_in_include(include)
 
     @classmethod
-    async def get_or_none(
-        cls, guild_id: int, include: PrismaGuildConfigInclude | None = None
-    ) -> typing.Optional[typing.Self]:
-        config = await cls.prisma().find_unique(
-            where={"guild_id": guild_id}, include=include
+    async def fetch(
+        cls, guild_id: int, include: GuildConfigInclude
+    ) -> typing.Self | None:
+        config = await cls.get_or_none(guild_id=guild_id).prefetch_related(
+            *include.keys()
         )
-
-        if config:
-            config = await config._fill_in_include(include)
-
-        return config
-
-    @classmethod
-    async def get_or_create(
-        cls, guild_id: int, include: PrismaGuildConfigInclude | None = None
-    ) -> typing.Self:
-        config = await cls.prisma().find_unique(
-            where={"guild_id": guild_id}, include=include
-        ) or await cls.prisma().create(data={"guild_id": guild_id})
-        return await config._fill_in_include(include)
-
-    async def save(self) -> None:
-        data = self.model_dump(
-            exclude={
-                "names",
-                "names_id",
-                "bullets",
-                "guild_id",
-                "gacha",
-                "messages",
-                "dice",
-                "items",
-            }
-        )
-        await self.prisma().update(where={"guild_id": self.guild_id}, data=data)  # type: ignore
-
-
-class GuildConfig(GuildConfigMixin, PrismaGuildConfig):
-    bullets: typing.Optional[BulletConfig] = None
-    gacha: typing.Optional[GachaConfig] = None
-    names: typing.Optional[Names] = None
-    dice: typing.Optional[DiceConfig] = None
-    messages: typing.Optional[MessageConfig] = None
-    items: typing.Optional[ItemsConfig] = None
+        return await config._fill_in_include(include) if config else config
 
 
 FIND_TRUTH_BULLET_STR: typing.Final[str] = (
     f"""
 SELECT
-    {', '.join(TruthBullet.model_fields)}
+    {', '.join(TruthBullet._meta.fields)}
 FROM
     thiatruthbullets
 WHERE
@@ -692,7 +673,7 @@ WHERE
 FIND_TRUTH_BULLET_EXACT_STR: typing.Final[str] = (
     f"""
 SELECT
-    {', '.join(TruthBullet.model_fields)}
+    {', '.join(TruthBullet._meta.fields)}
 FROM
     thiatruthbullets
 WHERE
@@ -707,51 +688,3 @@ WHERE
     );
 """.strip()  # noqa: S608
 )
-
-anyio.AnyIOBackend = AsyncioBackend
-
-with contextlib.suppress(ImportError):
-    import orjson  # type: ignore
-
-    class FastResponse(Response):
-        async def json(self, **kwargs: typing.Any) -> typing.Any:
-            return orjson.loads(await self.original.aread(), **kwargs)
-
-    Response.json = FastResponse.json  # type: ignore
-
-    def orjson_default(obj: typing.Any) -> typing.Any:
-        if isinstance(obj, Base64):
-            return str(obj)
-        if isinstance(obj, Json):
-            return orjson_dumps(obj.data)
-        if isinstance(obj, ipy.Timestamp):
-            if obj.tzinfo != datetime.timezone.utc:
-                obj = obj.astimezone(datetime.timezone.utc)
-
-            obj = obj.replace(microsecond=int(obj.microsecond / 1000) * 1000)
-            return obj.isoformat()
-        if isinstance(obj, ipy.Snowflake):
-            return int(obj)
-
-        raise NotImplementedError(f"Objects of type {type(obj)} are not supported")
-
-    def orjson_dumps(obj: typing.Any, **_: typing.Any) -> str:
-        return orjson.dumps(obj, default=orjson_default).decode()
-
-    if _builder.dumps != orjson_dumps:
-        _builder.dumps = orjson_dumps
-
-
-Names.model_rebuild()
-BulletConfig.model_rebuild()
-GachaItem.model_rebuild()
-GachaConfig.model_rebuild()
-GachaPlayer.model_rebuild()
-ItemToPlayer.model_rebuild()
-MessageLink.model_rebuild()
-MessageConfig.model_rebuild()
-DiceConfig.model_rebuild()
-DiceEntry.model_rebuild()
-ItemsConfig.model_rebuild()
-ItemsSystemItem.model_rebuild()
-ItemRelation.model_rebuild()

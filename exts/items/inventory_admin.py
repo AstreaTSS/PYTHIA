@@ -42,10 +42,9 @@ class InventoryManagement(utils.Extension):
             "The user to view the inventory of.",
         ),
     ) -> None:
-        user_items = await models.ItemRelation.prisma().find_many(
-            where={"object_id": user.id},
-            include={"item": True},
-        )
+        user_items = await models.ItemRelation.filter(
+            object_id=user.id,
+        ).prefetch_related("item")
         if not user_items:
             raise utils.CustomCheckFailure("This user has no items in their inventory.")
 
@@ -101,8 +100,8 @@ class InventoryManagement(utils.Extension):
             default=1,
         ),
     ) -> None:
-        item = await models.ItemsSystemItem.prisma().find_first(
-            where={"guild_id": ctx.guild_id, "name": name}
+        item = await models.ItemsSystemItem.get_or_none(
+            guild_id=ctx.guild_id, name=name
         )
         if not item:
             raise ipy.errors.BadArgument(
@@ -116,25 +115,22 @@ class InventoryManagement(utils.Extension):
             )
 
         if (
-            await models.ItemRelation.prisma().count(
-                where={"item_id": item.id, "object_id": user.id}
-            )
+            await models.ItemRelation.filter(item_id=item.id, object_id=user.id).count()
             >= 50
         ):
             raise utils.CustomCheckFailure(
                 "You cannot place more than 50 of the same item in a user's inventory."
             )
 
-        async with self.bot.db.batch_() as batch:
-            for _ in range(amount):
-                batch.prismaitemrelation.create(
-                    data={
-                        "item": {"connect": {"id": item.id}},
-                        "guild_id": ctx.guild_id,
-                        "object_id": int(user.id),
-                        "object_type": models.ItemsRelationType.USER,
-                    }
-                )
+        await models.ItemRelation.bulk_create(
+            models.ItemRelation(
+                item_id=item.id,
+                guild_id=ctx.guild_id,
+                object_id=int(user.id),
+                object_type=models.ItemsRelationType.USER,
+            )
+            for _ in range(amount)
+        )
 
         await ctx.send(
             embed=utils.make_embed(
@@ -164,8 +160,8 @@ class InventoryManagement(utils.Extension):
             default=1,
         ),
     ) -> None:
-        item = await models.ItemsSystemItem.prisma().find_first(
-            where={"guild_id": ctx.guild_id, "name": name}
+        item = await models.ItemsSystemItem.get_or_none(
+            guild_id=ctx.guild_id, name=name
         )
         if not item:
             raise ipy.errors.BadArgument(
@@ -173,28 +169,23 @@ class InventoryManagement(utils.Extension):
                 " server."
             )
 
-        total = await models.ItemRelation.prisma().count(
-            where={"item_id": item.id, "object_id": user.id}
-        )
+        total = await models.ItemRelation.filter(
+            item_id=item.id, object_id=user.id
+        ).count()
 
         if amount >= total:
             amount = total
-            # fast path
-            await models.ItemRelation.prisma().delete_many(
-                where={"item_id": item.id, "object_id": user.id}
-            )
+            await models.ItemRelation.filter(
+                item_id=item.id, object_id=user.id
+            ).delete()
         elif total == 0:
             raise utils.CustomCheckFailure(
                 "There are no items of this type in this user's inventory."
             )
         else:
-            to_delete = await models.ItemRelation.prisma().find_many(
-                where={"item_id": item.id, "object_id": user.id},
-                take=amount,
-            )
-            await models.ItemRelation.prisma().delete_many(
-                where={"id": {"in": [i.id for i in to_delete]}}
-            )
+            await models.ItemRelation.filter(item_id=item.id, object_id=user.id).limit(
+                amount
+            ).delete()
 
         await ctx.send(
             embed=utils.make_embed(
@@ -229,8 +220,8 @@ class InventoryManagement(utils.Extension):
             default=1,
         ),
     ) -> None:
-        item = await models.ItemsSystemItem.prisma().find_first(
-            where={"guild_id": ctx.guild_id, "name": name}
+        item = await models.ItemsSystemItem.get_or_none(
+            guild_id=ctx.guild_id, name=name
         )
         if not item:
             raise ipy.errors.BadArgument(
@@ -238,35 +229,26 @@ class InventoryManagement(utils.Extension):
                 " server."
             )
 
-        total = await models.ItemRelation.prisma().count(
-            where={"item_id": item.id, "object_id": user.id}
-        )
+        total = await models.ItemRelation.filter(
+            item_id=item.id, object_id=user.id
+        ).count()
 
         if amount >= total:
             amount = total
-            # fast path
-            await models.ItemRelation.prisma().update_many(
-                where={"item_id": item.id, "object_id": user.id},
-                data={
-                    "object_id": channel.id,
-                    "object_type": models.ItemsRelationType.CHANNEL,
-                },
+            await models.ItemRelation.filter(item_id=item.id, object_id=user.id).update(
+                object_id=channel.id,
+                object_type=models.ItemsRelationType.CHANNEL,
             )
         elif total == 0:
             raise utils.CustomCheckFailure(
                 "There are no items of this type in this user's inventory."
             )
         else:
-            to_delete = await models.ItemRelation.prisma().find_many(
-                where={"item_id": item.id, "object_id": user.id},
-                take=amount,
-            )
-            await models.ItemRelation.prisma().update_many(
-                where={"id": {"in": [i.id for i in to_delete]}},
-                data={
-                    "object_id": channel.id,
-                    "object_type": models.ItemsRelationType.CHANNEL,
-                },
+            await models.ItemRelation.filter(item_id=item.id, object_id=user.id).limit(
+                amount
+            ).update(
+                object_id=channel.id,
+                object_type=models.ItemsRelationType.CHANNEL,
             )
 
         await ctx.send(
@@ -287,9 +269,9 @@ class InventoryManagement(utils.Extension):
             "The user to clear the inventory of.",
         ),
     ) -> None:
-        count = await models.ItemRelation.prisma().delete_many(
-            where={"object_id": user.id}
-        )
+        count = await models.ItemRelation.filter(
+            object_id=user.id,
+        ).delete()
         if count == 0:
             raise utils.CustomCheckFailure("There are no items to clear for this user.")
 

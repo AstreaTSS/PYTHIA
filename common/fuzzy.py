@@ -15,12 +15,6 @@ from rapidfuzz import process
 import common.models as models
 import common.text_utils as text_utils
 
-if typing.TYPE_CHECKING:
-    from prisma.types import (
-        PrismaItemsSystemItemWhereInput,
-        PrismaTruthBulletWhereInput,
-    )
-
 T = typing.TypeVar("T")
 
 
@@ -28,12 +22,12 @@ def extract_from_list(
     argument: str,
     list_of_items: typing.Collection[T],
     processors: typing.Iterable[typing.Callable],
-    score_cutoff: float = 0.8,
+    score_cutoff: float = 75,
     scorers: typing.Iterable[typing.Callable] | None = None,
 ) -> list[list[T]]:
     """Uses multiple scorers and processors for a good mix of accuracy and fuzzy-ness"""
     if scorers is None:
-        scorers = [rapidfuzz.distance.JaroWinkler.similarity]
+        scorers = [rapidfuzz.fuzz.WRatio]
     combined_list = []
 
     for scorer in scorers:
@@ -66,17 +60,20 @@ async def autocomplete_bullets(
     if not channel:
         return await ctx.send([])
 
-    where: PrismaTruthBulletWhereInput = {"channel_id": int(channel)}
+    where: dict[str, typing.Any] = {"channel_id": int(channel)}
 
     if only_not_found:
         where["found"] = False
 
-    channel_bullets = await models.TruthBullet.prisma().find_many(where=where)
+    channel_bullets = await models.TruthBullet.filter(**where)
     if not channel_bullets:
         return await ctx.send([])
 
     if not trigger:
-        return await ctx.send([{"name": b.trigger, "value": b.trigger} for b in channel_bullets][:25])  # type: ignore
+        channel_bullets.sort(key=lambda b: b.trigger)
+        return await ctx.send(
+            [{"name": b.trigger, "value": b.trigger} for b in channel_bullets][:25]
+        )
 
     trigger = text_utils.replace_smart_punc(trigger)
 
@@ -84,9 +81,10 @@ async def autocomplete_bullets(
         argument=trigger.lower(),
         list_of_items=channel_bullets,
         processors=[get_bullet_name],
-        score_cutoff=0.6,
     )
-    return await ctx.send([{"name": b[0].trigger, "value": b[0].trigger} for b in query][:25])  # type: ignore
+    return await ctx.send(
+        [{"name": b[0].trigger, "value": b[0].trigger} for b in query][:25]
+    )
 
 
 def get_alias_name(alias: str) -> str:
@@ -110,17 +108,18 @@ async def autocomplete_aliases(
         return await ctx.send([])
 
     if not alias:
-        return await ctx.send([{"name": a, "value": a} for a in truth_bullet.aliases][:25])  # type: ignore
+        return await ctx.send(
+            [{"name": a, "value": a} for a in sorted(truth_bullet.aliases)][:25]
+        )
 
     alias = text_utils.replace_smart_punc(alias)
 
     query: list[list[str]] = extract_from_list(
         argument=trigger.lower(),
-        list_of_items=truth_bullet.aliases,
+        list_of_items=truth_bullet.aliases or [],
         processors=[get_alias_name],
-        score_cutoff=0.6,
     )
-    return await ctx.send([{"name": a[0], "value": a[0]} for a in query][:25])  # type: ignore
+    return await ctx.send([{"name": a[0], "value": a[0]} for a in query][:25])
 
 
 def get_gacha_item_name(item: models.GachaItem) -> str:
@@ -135,13 +134,12 @@ async def autocomplete_gacha_item(
     if not ctx.guild_id:
         return await ctx.send([])
 
-    gacha_items = await models.GachaItem.prisma().find_many(
-        where={"guild_id": ctx.guild_id}
-    )
+    gacha_items = await models.GachaItem.filter(guild_id=ctx.guild_id)
     if not gacha_items:
         return await ctx.send([])
 
     if not name:
+        gacha_items.sort(key=lambda g: g.name)
         return await ctx.send(
             [{"name": g.name, "value": g.name} for g in gacha_items][:25]
         )
@@ -150,9 +148,8 @@ async def autocomplete_gacha_item(
         argument=name.lower(),
         list_of_items=gacha_items,
         processors=[get_gacha_item_name],
-        score_cutoff=0.6,
     )
-    return await ctx.send([{"name": g[0].name, "value": g[0].name} for g in query][:25])  # type: ignore
+    return await ctx.send([{"name": g[0].name, "value": g[0].name} for g in query][:25])
 
 
 async def autocomplete_gacha_user_item(
@@ -163,22 +160,19 @@ async def autocomplete_gacha_user_item(
     if not ctx.guild_id:
         return await ctx.send([])
 
-    gacha_items = await models.GachaItem.prisma().find_many(
-        where={
-            "guild_id": ctx.guild_id,
-            "players": {
-                "some": {
-                    "player": {
-                        "is": {"guild_id": ctx.guild_id, "user_id": ctx.author.id}
-                    }
-                }
-            },
-        }
+    unfiltered_items = await models.GachaItem.filter(
+        guild_id=ctx.guild_id,
+        players__player__guild_id=ctx.guild_id,
+        players__player__user_id=ctx.author.id,
     )
-    if not gacha_items:
+    if not unfiltered_items:
         return await ctx.send([])
 
+    filtered_items = list({models.GachaHash(i) for i in unfiltered_items})
+    gacha_items = [i.item for i in filtered_items]
+
     if not name:
+        gacha_items.sort(key=lambda g: g.name)
         return await ctx.send(
             [{"name": g.name, "value": g.name} for g in gacha_items][:25]
         )
@@ -187,9 +181,8 @@ async def autocomplete_gacha_user_item(
         argument=name.lower(),
         list_of_items=gacha_items,
         processors=[get_gacha_item_name],
-        score_cutoff=0.6,
     )
-    return await ctx.send([{"name": g[0].name, "value": g[0].name} for g in query][:25])  # type: ignore
+    return await ctx.send([{"name": g[0].name, "value": g[0].name} for g in query][:25])
 
 
 async def autocomplete_gacha_optional_user_item(
@@ -201,20 +194,19 @@ async def autocomplete_gacha_optional_user_item(
     if not ctx.guild_id or not user:
         return await ctx.send([])
 
-    gacha_items = await models.GachaItem.prisma().find_many(
-        where={
-            "guild_id": ctx.guild_id,
-            "players": {
-                "some": {
-                    "player": {"is": {"guild_id": ctx.guild_id, "user_id": int(user)}}
-                }
-            },
-        }
+    unfiltered_items = await models.GachaItem.filter(
+        guild_id=ctx.guild_id,
+        players__player__guild_id=ctx.guild_id,
+        players__player__user_id=int(user),
     )
-    if not gacha_items:
+    if not unfiltered_items:
         return await ctx.send([])
 
+    filtered_items = list({models.GachaHash(i) for i in unfiltered_items})
+    gacha_items = [i.item for i in filtered_items]
+
     if not name:
+        gacha_items.sort(key=lambda g: g.name)
         return await ctx.send(
             [{"name": g.name, "value": g.name} for g in gacha_items][:25]
         )
@@ -223,9 +215,8 @@ async def autocomplete_gacha_optional_user_item(
         argument=name.lower(),
         list_of_items=gacha_items,
         processors=[get_gacha_item_name],
-        score_cutoff=0.6,
     )
-    return await ctx.send([{"name": g[0].name, "value": g[0].name} for g in query][:25])  # type: ignore
+    return await ctx.send([{"name": g[0].name, "value": g[0].name} for g in query][:25])
 
 
 def get_dice_name(entry: models.DiceEntry) -> str:
@@ -241,13 +232,14 @@ async def autocomplete_dice_entries_admin(
     if not ctx.guild_id or not user:
         return await ctx.send([])
 
-    dice_entries = await models.DiceEntry.prisma().find_many(
-        where={"guild_id": ctx.guild_id, "user_id": int(user)}
+    dice_entries = await models.DiceEntry.filter(
+        guild_id=ctx.guild_id, user_id=int(user)
     )
     if not dice_entries:
         return await ctx.send([])
 
     if not name:
+        dice_entries.sort(key=lambda d: d.name)
         return await ctx.send(
             [{"name": d.name, "value": d.name} for d in dice_entries][:25]
         )
@@ -256,9 +248,8 @@ async def autocomplete_dice_entries_admin(
         argument=name.lower(),
         list_of_items=dice_entries,
         processors=[get_dice_name],
-        score_cutoff=0.6,
     )
-    return await ctx.send([{"name": g[0].name, "value": g[0].name} for g in query][:25])  # type: ignore
+    return await ctx.send([{"name": g[0].name, "value": g[0].name} for g in query][:25])
 
 
 async def autocomplete_dice_entries_user(
@@ -269,13 +260,14 @@ async def autocomplete_dice_entries_user(
     if not ctx.guild_id:
         return await ctx.send([])
 
-    dice_entries = await models.DiceEntry.prisma().find_many(
-        where={"guild_id": ctx.guild_id, "user_id": ctx.author.id}
+    dice_entries = await models.DiceEntry.filter(
+        guild_id=ctx.guild_id, user_id=ctx.author_id
     )
     if not dice_entries:
         return await ctx.send([])
 
     if not name:
+        dice_entries.sort(key=lambda d: d.name)
         return await ctx.send(
             [{"name": d.name, "value": d.name} for d in dice_entries][:25]
         )
@@ -284,9 +276,8 @@ async def autocomplete_dice_entries_user(
         argument=name.lower(),
         list_of_items=dice_entries,
         processors=[get_dice_name],
-        score_cutoff=0.6,
     )
-    return await ctx.send([{"name": g[0].name, "value": g[0].name} for g in query][:25])  # type: ignore
+    return await ctx.send([{"name": g[0].name, "value": g[0].name} for g in query][:25])
 
 
 def get_vesti_item_name(item: models.ItemsSystemItem) -> str:
@@ -298,14 +289,15 @@ async def autocomplete_item(
     name: str,
     **_: typing.Any,
 ) -> None:
-    guild_items = await models.ItemsSystemItem.prisma().find_many(
-        where={"guild_id": int(ctx.guild_id)}
-    )
+    guild_items = await models.ItemsSystemItem.filter(guild_id=ctx.guild_id)
     if not guild_items:
         return await ctx.send([])
 
     if not name:
-        return await ctx.send([{"name": i.name, "value": i.name} for i in guild_items][:25])  # type: ignore
+        guild_items.sort(key=lambda i: i.name)
+        return await ctx.send(
+            [{"name": i.name, "value": i.name} for i in guild_items][:25]
+        )
 
     name = text_utils.replace_smart_punc(name)
 
@@ -313,9 +305,8 @@ async def autocomplete_item(
         argument=name.lower(),
         list_of_items=guild_items,
         processors=[get_vesti_item_name],
-        score_cutoff=0.6,
     )
-    return await ctx.send([{"name": i[0].name, "value": i[0].name} for i in query][:25])  # type: ignore
+    return await ctx.send([{"name": i[0].name, "value": i[0].name} for i in query][:25])
 
 
 async def autocomplete_item_channel(
@@ -330,20 +321,18 @@ async def autocomplete_item_channel(
         return await ctx.send([])
 
     if investigate_variant:
-        config = await models.ItemsConfig.get_or_none(ctx.guild_id)
+        config = await models.ItemsConfig.get_or_none(guild_id=ctx.guild_id)
         if not config:
             return await ctx.send([])
 
         if not config.autosuggest:
             return await ctx.send([])
 
-    where: PrismaItemsSystemItemWhereInput = {
-        "relations": {"some": {"object_id": int(channel)}}
-    }
+    where: dict[str, typing.Any] = {"relations__object_id": int(channel)}
     if check_takeable:
         where["takeable"] = True
 
-    channel_items = await models.ItemsSystemItem.prisma().find_many(where=where)
+    channel_items = await models.ItemsSystemItem.filter(**where)
     if not channel_items:
         return await ctx.send([])
 
@@ -352,9 +341,7 @@ async def autocomplete_item_channel(
             [
                 {"name": i.name, "value": i.name}
                 for i in sorted(channel_items, key=lambda i: i.name)
-            ][
-                :25
-            ]  # type: ignore
+            ][:25]
         )
 
     name = text_utils.replace_smart_punc(name)
@@ -363,10 +350,23 @@ async def autocomplete_item_channel(
         argument=name.lower(),
         list_of_items=channel_items,
         processors=[get_vesti_item_name],
-        score_cutoff=0.6,
     )
 
-    return await ctx.send([{"name": i[0].name, "value": i[0].name} for i in query][:25])  # type: ignore
+    return await ctx.send([{"name": i[0].name, "value": i[0].name} for i in query][:25])
+
+
+class _ItemHash:
+    __slots__ = ("id", "item")
+
+    def __init__(self, item: "models.ItemsSystemItem") -> None:
+        self.item = item
+        self.id = item.id
+
+    def __hash__(self) -> int:
+        return self.id
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, _ItemHash) and self.id == other.id
 
 
 async def autocomplete_item_user(
@@ -378,20 +378,21 @@ async def autocomplete_item_user(
     if not user:
         return await ctx.send([])
 
-    user_items = await models.ItemsSystemItem.prisma().find_many(
-        where={"relations": {"some": {"object_id": int(user)}}}
+    unfiltered_items = await models.ItemsSystemItem.filter(
+        relations__object_id=int(user),
     )
-    if not user_items:
+    if not unfiltered_items:
         return await ctx.send([])
+
+    filtered_items = list({_ItemHash(i) for i in unfiltered_items})
+    user_items = [i.item for i in filtered_items]
 
     if not name:
         return await ctx.send(
             [
                 {"name": i.name, "value": i.name}
                 for i in sorted(user_items, key=lambda i: i.name)
-            ][
-                :25
-            ]  # type: ignore
+            ][:25]
         )
 
     name = text_utils.replace_smart_punc(name)
@@ -400,7 +401,6 @@ async def autocomplete_item_user(
         argument=name.lower(),
         list_of_items=user_items,
         processors=[get_vesti_item_name],
-        score_cutoff=0.6,
     )
 
-    return await ctx.send([{"name": i[0].name, "value": i[0].name} for i in query][:25])  # type: ignore
+    return await ctx.send([{"name": i[0].name, "value": i[0].name} for i in query][:25])

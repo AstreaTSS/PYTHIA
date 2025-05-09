@@ -35,6 +35,7 @@ class ItemsCommands(utils.Extension):
         "here",
         sub_cmd_description="Views an item in the current channel.",
     )
+    @ipy.auto_defer(enabled=False)
     async def items_here(
         self,
         ctx: utils.THIASlashContext,
@@ -43,7 +44,7 @@ class ItemsCommands(utils.Extension):
             autocomplete=True,
             converter=text_utils.ReplaceSmartPuncConverter,
         ),
-        hidden: bool = tansy.Option(
+        hidden: str = tansy.Option(
             "Should the result be shown only to you? Defaults to no.",
             choices=[
                 ipy.SlashCommandChoice("yes", "yes"),
@@ -52,6 +53,8 @@ class ItemsCommands(utils.Extension):
             default="no",
         ),
     ) -> None:
+        await ctx.defer(ephemeral=hidden == "yes")
+
         config = await ctx.fetch_config({"items": True, "names": True})
         if typing.TYPE_CHECKING:
             assert config.items is not None
@@ -63,11 +66,9 @@ class ItemsCommands(utils.Extension):
         if not ctx.author.has_role(config.player_role):
             raise utils.CustomCheckFailure("You do not have the Player role.")
 
-        item = await models.ItemsSystemItem.prisma().find_first(
-            where={
-                "name": name,
-                "relations": {"some": {"object_id": int(ctx.channel_id)}},
-            },
+        item = await models.ItemsSystemItem.get_or_none(
+            name=name,
+            relations__object_id=int(ctx.channel_id),
         )
         if not item:
             raise ipy.errors.BadArgument(
@@ -75,9 +76,9 @@ class ItemsCommands(utils.Extension):
                 " channel."
             )
 
-        count = await models.ItemRelation.prisma().count(
-            where={"object_id": int(ctx.channel_id), "item_id": item.id},
-        )
+        count = await models.ItemRelation.filter(
+            object_id=int(ctx.channel_id), item_id=item.id
+        ).count()
 
         embeds = item.embeds(count=count)
         await ctx.send(embeds=embeds, ephemeral=hidden == "yes")
@@ -86,6 +87,7 @@ class ItemsCommands(utils.Extension):
         "take",
         sub_cmd_description="Takes an item from the current channel.",
     )
+    @ipy.auto_defer(enabled=False)
     async def items_take(
         self,
         ctx: utils.THIASlashContext,
@@ -100,7 +102,7 @@ class ItemsCommands(utils.Extension):
             max_value=50,
             default=1,
         ),
-        hidden: bool = tansy.Option(
+        hidden: str = tansy.Option(
             "Should the result be shown only to you? Defaults to no.",
             choices=[
                 ipy.SlashCommandChoice("yes", "yes"),
@@ -109,6 +111,8 @@ class ItemsCommands(utils.Extension):
             default="no",
         ),
     ) -> None:
+        await ctx.defer(ephemeral=hidden == "yes")
+
         config = await ctx.fetch_config({"items": True, "names": True})
         if typing.TYPE_CHECKING:
             assert config.items is not None
@@ -120,10 +124,10 @@ class ItemsCommands(utils.Extension):
         if not ctx.author.has_role(config.player_role):
             raise utils.CustomCheckFailure("You do not have the Player role.")
 
-        item_relations = await models.ItemRelation.prisma().find_many(
-            where={"object_id": int(ctx.channel_id), "item": {"is": {"name": name}}},
-            include={"item": True},
-        )
+        item_relations = await models.ItemRelation.filter(
+            object_id=int(ctx.channel_id),
+            item__name=name,
+        ).prefetch_related("item")
         if not item_relations:
             raise ipy.errors.BadArgument(
                 f"Item `{text_utils.escape_markdown(name)}` does not exist in this"
@@ -140,29 +144,22 @@ class ItemsCommands(utils.Extension):
             )
 
         if amount == len(item_relations):
-            # fast path
-            await models.ItemRelation.prisma().update_many(
-                where={"item_id": item.id, "object_id": int(ctx.channel_id)},
-                data={
-                    "object_id": ctx.author.id,
-                    "object_type": models.ItemsRelationType.USER,
-                },
+            await models.ItemRelation.filter(
+                item_id=item.id, object_id=int(ctx.channel_id)
+            ).update(
+                object_id=ctx.author.id,
+                object_type=models.ItemsRelationType.USER,
             )
         elif amount > len(item_relations):
             raise utils.CustomCheckFailure(
                 "You cannot take more items than there are in the channel."
             )
         else:
-            to_take = await models.ItemRelation.prisma().find_many(
-                where={"item_id": item.id, "object_id": int(ctx.channel_id)},
-                take=amount,
-            )
-            await models.ItemRelation.prisma().update_many(
-                where={"id": {"in": [i.id for i in to_take]}},
-                data={
-                    "object_id": ctx.author.id,
-                    "object_type": models.ItemsRelationType.USER,
-                },
+            await models.ItemRelation.filter(
+                item_id=item.id, object_id=int(ctx.channel_id)
+            ).limit(amount).update(
+                object_id=ctx.author.id,
+                object_type=models.ItemsRelationType.USER,
             )
 
         await ctx.send(
@@ -177,15 +174,22 @@ class ItemsCommands(utils.Extension):
         "view-inventory",
         sub_cmd_description="Views your inventory.",
     )
+    @ipy.auto_defer(ephemeral=True)
     async def view_inventory(
         self,
         ctx: utils.THIASlashContext,
     ) -> None:
-        user_items = await models.ItemRelation.prisma().find_many(
-            where={"object_id": ctx.author.id},
-            include={"item": True},
-        )
+        user_items = await models.ItemRelation.filter(
+            object_id=ctx.author.id,
+        ).prefetch_related("item")
         if not user_items:
+            if ctx._command_name == "inventory view":
+                raise utils.CustomCheckFailure(
+                    "You have no items in your inventory. If you want to look at your"
+                    " items from the gacha, please use"
+                    f" {self.bot.mention_command('gacha profile')}."
+                )
+
             raise utils.CustomCheckFailure("You have no items in your inventory.")
 
         items_counter: collections.Counter[str] = collections.Counter()
@@ -222,6 +226,7 @@ class ItemsCommands(utils.Extension):
         "view-item",
         sub_cmd_description="Views an item in your inventory.",
     )
+    @ipy.auto_defer(ephemeral=True)
     async def view_item(
         self,
         ctx: utils.THIASlashContext,
@@ -231,17 +236,18 @@ class ItemsCommands(utils.Extension):
             converter=text_utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
-        item = await models.ItemsSystemItem.prisma().find_first(
-            where={"name": name, "relations": {"some": {"object_id": ctx.author.id}}},
+        item = await models.ItemsSystemItem.get_or_none(
+            name=name,
+            relations__object_id=ctx.author.id,
         )
         if not item:
             raise ipy.errors.BadArgument(
                 f"Item `{text_utils.escape_markdown(name)}` is not in your inventory."
             )
 
-        count = await models.ItemRelation.prisma().count(
-            where={"object_id": ctx.author.id, "item_id": item.id},
-        )
+        count = await models.ItemRelation.filter(
+            object_id=ctx.author.id, item_id=item.id
+        ).count()
 
         embeds = item.embeds(count=count)
         embeds[0].footer = None
@@ -268,8 +274,9 @@ class ItemsCommands(utils.Extension):
             default=1,
         ),
     ) -> None:
-        item = await models.ItemsSystemItem.prisma().find_first(
-            where={"guild_id": ctx.guild_id, "name": name}
+        item = await models.ItemsSystemItem.get_or_none(
+            guild_id=ctx.guild_id,
+            name=name,
         )
         if not item:
             raise ipy.errors.BadArgument(
@@ -277,19 +284,19 @@ class ItemsCommands(utils.Extension):
                 " server."
             )
 
-        total = await models.ItemRelation.prisma().count(
-            where={"item_id": item.id, "object_id": ctx.author.id}
-        )
+        total = await models.ItemRelation.filter(
+            item_id=item.id,
+            object_id=ctx.author.id,
+        ).count()
 
         if not amount:
             amount = total
-            # fast path
-            await models.ItemRelation.prisma().update_many(
-                where={"item_id": item.id, "object_id": ctx.author.id},
-                data={
-                    "object_id": ctx.channel.id,
-                    "object_type": models.ItemsRelationType.CHANNEL,
-                },
+            await models.ItemRelation.filter(
+                item_id=item.id,
+                object_id=ctx.author.id,
+            ).update(
+                object_id=ctx.channel.id,
+                object_type=models.ItemsRelationType.CHANNEL,
             )
         elif total == 0:
             raise utils.CustomCheckFailure(
@@ -300,16 +307,12 @@ class ItemsCommands(utils.Extension):
                 "You cannot drop more items than are in your inventory."
             )
         else:
-            to_delete = await models.ItemRelation.prisma().find_many(
-                where={"item_id": item.id, "object_id": ctx.author.id},
-                take=amount,
-            )
-            await models.ItemRelation.prisma().update_many(
-                where={"id": {"in": [i.id for i in to_delete]}},
-                data={
-                    "object_id": ctx.channel.id,
-                    "object_type": models.ItemsRelationType.CHANNEL,
-                },
+            await models.ItemRelation.filter(
+                item_id=item.id,
+                object_id=ctx.author.id,
+            ).limit(amount).update(
+                object_id=ctx.channel.id,
+                object_type=models.ItemsRelationType.CHANNEL,
             )
 
         await ctx.send(
@@ -331,6 +334,7 @@ class ItemsCommands(utils.Extension):
             "Views an item in the current channel. Alias for /items here."
         ),
     )
+    @ipy.auto_defer(enabled=False)
     async def investigate_here(
         self,
         ctx: utils.THIASlashContext,
@@ -339,7 +343,7 @@ class ItemsCommands(utils.Extension):
             autocomplete=True,
             converter=text_utils.ReplaceSmartPuncConverter,
         ),
-        hidden: bool = tansy.Option(
+        hidden: str = tansy.Option(
             "Should the result be shown only to you? Defaults to no.",
             choices=[
                 ipy.SlashCommandChoice("yes", "yes"),
@@ -358,6 +362,7 @@ class ItemsCommands(utils.Extension):
             "Takes an item from the current channel. Alias for /items take."
         ),
     )
+    @ipy.auto_defer(enabled=False)
     async def investigate_take(
         self,
         ctx: utils.THIASlashContext,
@@ -372,7 +377,7 @@ class ItemsCommands(utils.Extension):
             max_value=50,
             default=1,
         ),
-        hidden: bool = tansy.Option(
+        hidden: str = tansy.Option(
             "Should the result be shown only to you? Defaults to no.",
             choices=[
                 ipy.SlashCommandChoice("yes", "yes"),
@@ -393,8 +398,12 @@ class ItemsCommands(utils.Extension):
 
     @inventory.subcommand(
         "view",
-        sub_cmd_description="Views your inventory. Alias for /items view-inventory.",
+        sub_cmd_description=(
+            "Views your inventory for the items system. Alias for /items"
+            " view-inventory."
+        ),
     )
+    @ipy.auto_defer(ephemeral=True)
     async def alias_view_inventory(
         self,
         ctx: utils.THIASlashContext,
@@ -407,6 +416,7 @@ class ItemsCommands(utils.Extension):
             "Views an item in your inventory. Alias for /items view-item."
         ),
     )
+    @ipy.auto_defer(ephemeral=True)
     async def alias_view_item(
         self,
         ctx: utils.THIASlashContext,
