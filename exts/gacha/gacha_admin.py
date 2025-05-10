@@ -13,8 +13,8 @@ import io
 
 import aiohttp
 import interactions as ipy
+import msgspec
 import orjson
-import pydantic
 import tansy
 import typing_extensions as typing
 from interactions.api.http.route import Route
@@ -1067,23 +1067,27 @@ class GachaManagement(utils.Extension):
         self,
         ctx: utils.THIASlashContext,
     ) -> None:
-        items = await models.GachaItem.prisma().find_many(
-            where={"guild_id": ctx.guild_id}
-        )
-
+        items = await models.GachaItem.filter(guild_id=ctx.guild_id)
         if not items:
             raise utils.CustomCheckFailure("This server has no items to export.")
 
-        items_dict = [
-            item.model_dump(
-                mode="json",
-                exclude={"gacha_config", "players", "rarity", "id", "guild_id"},
-            )
+        items_dict: list[exports.GachaItemv1Dict] = [
+            {
+                "name": item.name,
+                "description": item.description,
+                "amount": item.amount,
+                "image": item.image,
+            }
             for item in items
         ]
         items_json = orjson.dumps(
             {"version": 1, "items": items_dict}, option=orjson.OPT_INDENT_2
         )
+
+        if len(items_json) > 10000000:
+            raise utils.CustomCheckFailure(
+                "The file is too large to send. Please try again with fewer items."
+            )
 
         items_io = io.BytesIO(items_json)
         items_file = ipy.File(
@@ -1107,10 +1111,10 @@ class GachaManagement(utils.Extension):
     async def gacha_import_items(
         self,
         ctx: utils.THIASlashContext,
-        file: ipy.Attachment = tansy.Option("The JSON file to import."),
+        json_file: ipy.Attachment = tansy.Option("The JSON file to import."),
         _override: str = tansy.Option(
             "Should pre-existing items with the same name be overriden?",
-            name="send_button",
+            name="override",
             choices=[
                 ipy.SlashCommandChoice("yes", "yes"),
                 ipy.SlashCommandChoice("no", "no"),
@@ -1120,11 +1124,13 @@ class GachaManagement(utils.Extension):
     ) -> None:
         override = _override == "yes"
 
-        if file.content_type != "application/json":
+        if not json_file.content_type or not json_file.content_type.startswith(
+            "application/json"
+        ):
             raise ipy.errors.BadArgument("The file must be a JSON file.")
 
         async with aiohttp.ClientSession() as session:
-            async with session.get(file.url) as response:
+            async with session.get(json_file.url) as response:
                 if response.status != 200:
                     raise ipy.errors.BadArgument("Failed to fetch the file.")
 
@@ -1132,36 +1138,30 @@ class GachaManagement(utils.Extension):
 
         try:
             items = exports.handle_gacha_item_data(items_json)
-        except pydantic.ValidationError:
+        except msgspec.DecodeError:
             raise ipy.errors.BadArgument(
                 "The file is not in the correct format."
             ) from None
 
-        if (
-            await models.GachaItem.prisma().count(
-                where={
-                    "guild_id": ctx.guild_id,
-                    "name": {"in": [item.name for item in items]},
-                }
-            )
-            >= 0
-        ):
-            if override:
-                await models.GachaItem.prisma().delete_many(
-                    where={
-                        "guild_id": ctx.guild_id,
-                        "name": {"in": [item.name for item in items]},
-                    }
-                )
-            else:
-                raise ipy.errors.BadArgument(
-                    "One or more items in the file has a name with an item already in"
-                    " this server."
-                )
+        async with in_transaction():
+            if await models.GachaItem.exists(
+                guild_id=ctx.guild_id,
+                name__in=[item.name for item in items],
+            ):
+                if override:
+                    await models.GachaItem.filter(
+                        guild_id=ctx.guild_id,
+                        name__in=[item.name for item in items],
+                    ).delete()
+                else:
+                    raise ipy.errors.BadArgument(
+                        "One or more items in the file has a name with an item already"
+                        " in this server."
+                    )
 
-        async with self.bot.db.batch_() as batch:
+            to_create: list[models.GachaItem] = []
+
             for item in items:
-
                 if item.amount < -1:
                     raise ipy.errors.BadArgument(
                         f"The amount for `{text_utils.escape_markdown(item.name)}` must"
@@ -1172,7 +1172,7 @@ class GachaManagement(utils.Extension):
                     raise ipy.errors.BadArgument(
                         f"The amount for `{text_utils.escape_markdown(item.name)}` is"
                         " too high. Please set an amount at or lower than 999, or mark"
-                        " the value as -1 to make it unlimited.."
+                        " the value as -1 to make it unlimited."
                     )
 
                 if item.image and not text_utils.HTTP_URL_REGEX.fullmatch(item.image):
@@ -1181,16 +1181,18 @@ class GachaManagement(utils.Extension):
                         " must be a valid URL."
                     )
 
-                batch.prismagachaitem.create(
-                    data={
-                        "guild_id": ctx.guild_id,
-                        "name": item.name,
-                        "description": item.description,
-                        "amount": item.amount,
-                        "image": item.image,
-                        "rarity": models.Rarity.COMMON,
-                    }
+                to_create.append(
+                    models.GachaItem(
+                        guild_id=ctx.guild_id,
+                        name=item.name,
+                        description=item.description,
+                        amount=item.amount,
+                        image=item.image,
+                        rarity=models.Rarity.COMMON,
+                    )
                 )
+
+            await models.GachaItem.bulk_create(to_create)
 
         await ctx.send(embed=utils.make_embed("Imported items from JSON file."))
 

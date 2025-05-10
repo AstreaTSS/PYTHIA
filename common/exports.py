@@ -9,25 +9,31 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 import typing
 
-from pydantic import BaseModel
+import msgspec
 
 
-class GachaItemv1(BaseModel):
+class GachaItemv1(msgspec.Struct):
     name: str
     description: str
     amount: int
     image: typing.Optional[str] = None
 
 
-class GachaItemv1Container(BaseModel):
-    version: typing.Literal[1]
+class GachaItemv1Dict(typing.TypedDict):
+    name: str
+    description: str
+    amount: int
+    image: typing.Optional[str]
+
+
+class GachaItemv1Container(msgspec.Struct, tag=1, tag_field="version"):
     items: list[GachaItemv1]
 
 
-class GachaItemContainer(BaseModel):
-    data: GachaItemv1Container  # make this a union of all versions when more are added
+GachaItemContainer = GachaItemv1Container  # will become a union with additions
+dec = msgspec.json.Decoder(GachaItemContainer)
 
 
 def handle_gacha_item_data(json_data: str | bytes) -> list[GachaItemv1]:
-    container = GachaItemContainer.model_validate_json(json_data)
-    return container.data.items
+    container = dec.decode(json_data)
+    return container.items
