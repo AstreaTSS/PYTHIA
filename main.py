@@ -110,7 +110,7 @@ class PYTHIA(utils.THIABase):
         activity = ipy.Activity(
             name="Status",
             type=ipy.ActivityType.CUSTOM,
-            state="Assisting servers | pythia.astrea.cc",
+            state="Updates and bug fixes: check bio",
         )
         await self.change_presence(activity=activity)
 
@@ -119,7 +119,7 @@ class PYTHIA(utils.THIABase):
         activity = ipy.Activity(
             name="Status",
             type=ipy.ActivityType.CUSTOM,
-            state="Assisting servers | pythia.astrea.cc",
+            state="Updates and bug fixes: check bio",
         )
         await self.change_presence(activity=activity)
 
