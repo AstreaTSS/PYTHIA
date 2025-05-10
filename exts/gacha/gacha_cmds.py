@@ -159,6 +159,7 @@ class GachaCommands(utils.Extension):
             player = await models.GachaPlayer.create(
                 guild_id=ctx.guild_id, user_id=ctx.author.id
             )
+            await player.fetch_related("items__item")
 
         embeds = player.create_profile(ctx.author.display_name, config.names)
 

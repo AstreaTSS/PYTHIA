@@ -349,7 +349,11 @@ class GachaPlayer(Model):
             "\n**Items:**",
         ]
 
-        if self.items and all(entry.item for entry in self.items):
+        if (
+            self.items
+            and isinstance(self.items, list)
+            and all(entry.item for entry in self.items)
+        ):
             counter: Counter[GachaHash] = Counter()
             for item in self.items:
                 counter[GachaHash(item.item)] += 1
