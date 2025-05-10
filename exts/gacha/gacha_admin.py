@@ -1134,7 +1134,13 @@ class GachaManagement(utils.Extension):
                 if response.status != 200:
                     raise ipy.errors.BadArgument("Failed to fetch the file.")
 
-                items_json = await response.read()
+                try:
+                    await response.content.readexactly(10485760 + 1)
+                    raise utils.CustomCheckFailure(
+                        "This file is over 10 MiB, which is not supported by this bot."
+                    )
+                except asyncio.IncompleteReadError as e:
+                    items_json = e.partial
 
         try:
             items = exports.handle_gacha_item_data(items_json)
