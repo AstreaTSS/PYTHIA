@@ -903,17 +903,18 @@ class GachaManagement(utils.Extension):
         if not items:
             raise utils.CustomCheckFailure("This server has no items to export.")
 
-        items_dict: list[exports.GachaItemv1Dict] = [
+        items_dict: list[exports.GachaItemDict] = [
             {
                 "name": item.name,
                 "description": item.description,
+                "rarity": item.rarity.value,
                 "amount": item.amount,
                 "image": item.image,
             }
             for item in items
         ]
         items_json = orjson.dumps(
-            {"version": 1, "items": items_dict}, option=orjson.OPT_INDENT_2
+            {"version": 2, "items": items_dict}, option=orjson.OPT_INDENT_2
         )
 
         if len(items_json) > 10000000:
@@ -1015,6 +1016,12 @@ class GachaManagement(utils.Extension):
                         " the value as -1 to make it unlimited."
                     )
 
+                if item.rarity < 1 or item.rarity > 5:
+                    raise ipy.errors.BadArgument(
+                        f"The rarity for `{text_utils.escape_markdown(item.name)}` must"
+                        " be a number between 1 and 5."
+                    )
+
                 if item.image and not text_utils.HTTP_URL_REGEX.fullmatch(item.image):
                     raise ipy.errors.BadArgument(
                         f"The image given for `{text_utils.escape_markdown(item.name)}`"
@@ -1026,9 +1033,9 @@ class GachaManagement(utils.Extension):
                         guild_id=ctx.guild_id,
                         name=item.name,
                         description=item.description,
+                        rarity=item.rarity,
                         amount=item.amount,
                         image=item.image,
-                        rarity=models.Rarity.COMMON,
                     )
                 )
 

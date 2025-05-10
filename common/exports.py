@@ -19,9 +19,18 @@ class GachaItemv1(msgspec.Struct):
     image: typing.Optional[str] = None
 
 
-class GachaItemv1Dict(typing.TypedDict):
+class GachaItemv2(msgspec.Struct):
     name: str
     description: str
+    rarity: int
+    amount: int
+    image: typing.Optional[str] = None
+
+
+class GachaItemDict(typing.TypedDict):
+    name: str
+    description: str
+    rarity: int
     amount: int
     image: typing.Optional[str]
 
@@ -30,10 +39,28 @@ class GachaItemv1Container(msgspec.Struct, tag=1, tag_field="version"):
     items: list[GachaItemv1]
 
 
-GachaItemContainer = GachaItemv1Container  # will become a union with additions
+class GachaItemv2Container(msgspec.Struct, tag=2, tag_field="version"):
+    items: list[GachaItemv2]
+
+
+GachaItemContainer = GachaItemv1Container | GachaItemv2Container
 dec = msgspec.json.Decoder(GachaItemContainer)
 
 
-def handle_gacha_item_data(json_data: str | bytes) -> list[GachaItemv1]:
-    container = dec.decode(json_data)
+def handle_gacha_item_data(json_data: str | bytes) -> list[GachaItemv2]:
+    container: GachaItemv1Container | GachaItemv2Container = dec.decode(json_data)
+
+    if isinstance(container, GachaItemv1Container):
+        items = [
+            GachaItemv2(
+                name=item.name,
+                description=item.description,
+                rarity=1,  # default rarity for v1 items - common
+                amount=item.amount,
+                image=item.image,
+            )
+            for item in container.items
+        ]
+        container = GachaItemv2Container(items=items)
+
     return container.items
