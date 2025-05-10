@@ -9,10 +9,13 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 import collections
 import os
+import random
 import re
 import textwrap
 from collections import Counter
+from decimal import Decimal
 from enum import Enum, IntEnum
+from fractions import Fraction
 
 import interactions as ipy
 import typing_extensions as typing
@@ -51,12 +54,21 @@ class ItemsRelationType(str, Enum):
     USER = "USER"
 
 
-class Rarity(str, Enum):
-    COMMON = "COMMON"
-    UNCOMMON = "UNCOMMON"
-    RARE = "RARE"
-    SUPER_RARE = "SUPER_RARE"
-    LEGENDARY = "LEGENDARY"
+class Rarity(IntEnum):
+    COMMON = 1
+    UNCOMMON = 2
+    RARE = 3
+    EPIC = 4
+    LEGENDARY = 5
+
+
+GACHA_RARITIES_LIST: typing.Final[list[Rarity]] = [
+    Rarity.COMMON,
+    Rarity.UNCOMMON,
+    Rarity.RARE,
+    Rarity.EPIC,
+    Rarity.LEGENDARY,
+]
 
 
 class InvestigationType(IntEnum):
@@ -94,12 +106,32 @@ class Names(Model):
     best_bullet_finder = fields.TextField(default="Best {{bullet_finder}}")
     singular_currency_name = fields.TextField(default="Coin")
     plural_currency_name = fields.TextField(default="Coins")
+    gacha_common_name = fields.TextField(default="Common")
+    gacha_uncommon_name = fields.TextField(default="Uncommon")
+    gacha_rare_name = fields.TextField(default="Rare")
+    gacha_epic_name = fields.TextField(default="Epic")
+    gacha_legendary_name = fields.TextField(default="***__Legendary__***")
 
     class Meta:
         table = "thianames"
 
     def currency_name(self, amount: int) -> str:
         return self.singular_currency_name if amount == 1 else self.plural_currency_name
+
+    def rarity_name(self, rarity: "Rarity") -> str:
+        match rarity:
+            case Rarity.COMMON:
+                return self.gacha_common_name
+            case Rarity.UNCOMMON:
+                return self.gacha_uncommon_name
+            case Rarity.RARE:
+                return self.gacha_rare_name
+            case Rarity.EPIC:
+                return self.gacha_epic_name
+            case Rarity.LEGENDARY:
+                return self.gacha_legendary_name
+            case _:
+                raise ValueError(f"Invalid rarity: {rarity}")
 
 
 class BulletConfig(Model):
@@ -262,9 +294,69 @@ class GachaConfig(Model):
 
     items: fields.ReverseRelation["GachaItem"]
     players: fields.ReverseRelation["GachaPlayer"]
+    rarities: fields.OneToOneNullableRelation["GachaRarities"]
 
     class Meta:
         table = "thiagachaconfig"
+
+
+@guild_id_model
+class GachaRarities(Model):
+    guild: fields.OneToOneRelation["GachaConfig"] = fields.OneToOneField(
+        "models.GachaConfig", "rarities", pk=True
+    )
+    common_color = fields.CharField(max_length=7, default="#979797")
+    uncommon_color = fields.CharField(max_length=7, default="#6aad0f")
+    rare_color = fields.CharField(max_length=7, default="#109db9")
+    epic_color = fields.CharField(max_length=7, default="#ab47b9")
+    legendary_color = fields.CharField(max_length=7, default="#f4d046")
+    common_odds = fields.DecimalField(
+        max_digits=5, decimal_places=4, default=Decimal("0.6")
+    )
+    uncommon_odds = fields.DecimalField(
+        max_digits=5, decimal_places=4, default=Decimal("0.25")
+    )
+    rare_odds = fields.DecimalField(
+        max_digits=5, decimal_places=4, default=Decimal("0.1")
+    )
+    epic_odds = fields.DecimalField(
+        max_digits=5, decimal_places=4, default=Decimal("0.04")
+    )
+    legendary_odds = fields.DecimalField(
+        max_digits=5, decimal_places=4, default=Decimal("0.01")
+    )
+
+    def color(self, rarity: Rarity) -> ipy.Color:
+        match rarity:
+            case Rarity.COMMON:
+                return ipy.Color.from_hex(self.common_color)
+            case Rarity.UNCOMMON:
+                return ipy.Color.from_hex(self.uncommon_color)
+            case Rarity.RARE:
+                return ipy.Color.from_hex(self.rare_color)
+            case Rarity.EPIC:
+                return ipy.Color.from_hex(self.epic_color)
+            case Rarity.LEGENDARY:
+                return ipy.Color.from_hex(self.legendary_color)
+            case _:
+                raise ValueError(f"Invalid rarity: {rarity}")
+
+    def roll_rarity(self) -> Rarity:
+        value = random.choices(  # noqa: S311
+            GACHA_RARITIES_LIST,
+            (
+                Fraction(self.common_odds),
+                Fraction(self.uncommon_odds),
+                Fraction(self.rare_odds),
+                Fraction(self.epic_odds),
+                Fraction(self.legendary_odds),
+            ),
+            k=1,
+        )
+        return value[0]
+
+    class Meta:
+        table = "thiagachararities"
 
 
 @guild_id_model
@@ -276,7 +368,7 @@ class GachaItem(Model):
     name = fields.TextField()
     description = fields.TextField()
     image: fields.Field[str | None] = fields.TextField(null=True)
-    rarity = fields.CharEnumField(Rarity, default=Rarity.COMMON)
+    rarity = fields.IntEnumField(Rarity, default=Rarity.COMMON, db_index=True)
     amount = fields.IntField(default=-1, db_index=True)
 
     players: fields.ReverseRelation["ItemToPlayer"]
@@ -284,15 +376,23 @@ class GachaItem(Model):
     class Meta:
         table = "thiagachaitems"
 
-    def embed(self, *, show_amount: bool = False) -> ipy.Embed:
+    def embed(
+        self,
+        names: "Names",
+        rarities: "GachaRarities",
+        *,
+        show_amount: bool = False,
+    ) -> ipy.Embed:
         embed = ipy.Embed(
             title=self.name,
             description=self.description,
-            color=ipy.Color(int(os.environ["BOT_COLOR"])),
+            color=rarities.color(self.rarity),
             timestamp=ipy.Timestamp.utcnow(),
         )
         if self.image:
             embed.set_thumbnail(self.image)
+
+        embed.add_field("Rarity", names.rarity_name(self.rarity))
 
         if show_amount:
             embed.add_field(
@@ -302,6 +402,24 @@ class GachaItem(Model):
             )
 
         return embed
+
+    @classmethod
+    async def roll(cls, guild_id: int, rarity: Rarity) -> typing.Self | None:
+        conn = connections.get("default")
+        data = await conn.execute_query_dict(
+            GACHA_ROLL_STR, values=[guild_id, rarity.value]
+        )
+        return cls(**data[0]) if data else None
+
+    @classmethod
+    async def roll_no_duplicates(
+        cls, guild_id: int, player_id: int, rarity: Rarity
+    ) -> typing.Self | None:
+        conn = connections.get("default")
+        data = await conn.execute_query_dict(
+            GACHA_ROLL_NO_DUPS_STR, values=[guild_id, player_id, rarity.value]
+        )
+        return cls(**data[0]) if data else None
 
 
 class GachaHash:
@@ -685,3 +803,21 @@ WHERE
     );
 """.strip()  # noqa: S608
 )
+
+
+# the weird rarity stuff ensures that items with the same rarity are favored first,
+# then rarities lower than the picked rarity, and finally rarities higher than the picked rarity
+GACHA_ROLL_STR = (
+    f"SELECT {', '.join(GachaItem._meta.fields_db_projection)} FROM thiagachaitems"  # noqa: S608
+    " WHERE guild_id = $1 AND amount != 0 ORDER BY (CASE WHEN rarity<=$2 THEN $2-rarity"
+    " ELSE rarity+$2 END) ASC, RANDOM()"
+    " LIMIT 1;"
+).strip()
+
+GACHA_ROLL_NO_DUPS_STR = (
+    f"SELECT {', '.join(GachaItem._meta.fields_db_projection)} FROM thiagachaitems"  # noqa: S608
+    " WHERE guild_id = $1 AND amount != 0 AND id NOT IN (SELECT item_id FROM"
+    " thiagachaitemtoplayer WHERE player_id = $2) ORDER BY (CASE WHEN rarity<=$2 THEN"
+    " $2-rarity ELSE rarity+$2 END) ASC, RANDOM()"
+    " LIMIT 1;"
+).strip()
