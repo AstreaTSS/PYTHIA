@@ -804,20 +804,48 @@ WHERE
 """.strip()  # noqa: S608
 )
 
-
 # the weird rarity stuff ensures that items with the same rarity are favored first,
 # then rarities lower than the picked rarity, and finally rarities higher than the picked rarity
-GACHA_ROLL_STR = (
-    f"SELECT {', '.join(GachaItem._meta.fields_db_projection)} FROM thiagachaitems"  # noqa: S608
-    " WHERE guild_id = $1 AND amount != 0 ORDER BY (CASE WHEN rarity<=$2 THEN $2-rarity"
-    " ELSE rarity+$2 END) ASC, RANDOM()"
-    " LIMIT 1;"
-).strip()
+GACHA_ROLL_STR: typing.Final[str] = (
+    f"""
+SELECT
+    {', '.join(GachaItem._meta.fields_db_projection)}
+FROM
+    thiagachaitems
+WHERE
+    guild_id = $1
+    AND amount != 0
+ORDER BY
+    (
+        CASE WHEN rarity <= $2 THEN $2 - rarity ELSE rarity + $2 END
+    ) ASC,
+    RANDOM()
+    LIMIT 1;
+""".strip()  # noqa: S608
+)
 
-GACHA_ROLL_NO_DUPS_STR = (
-    f"SELECT {', '.join(GachaItem._meta.fields_db_projection)} FROM thiagachaitems"  # noqa: S608
-    " WHERE guild_id = $1 AND amount != 0 AND id NOT IN (SELECT item_id FROM"
-    " thiagachaitemtoplayer WHERE player_id = $2) ORDER BY (CASE WHEN rarity<=$2 THEN"
-    " $2-rarity ELSE rarity+$2 END) ASC, RANDOM()"
-    " LIMIT 1;"
-).strip()
+GACHA_ROLL_NO_DUPS_STR: typing.Final[str] = (
+    f"""
+SELECT
+    {', '.join(GachaItem._meta.fields_db_projection)}
+FROM
+    thiagachaitems
+WHERE
+    guild_id = $1
+    AND amount != 0
+    AND id NOT IN (
+    SELECT
+        item_id
+    FROM
+        thiagachaitemtoplayer
+    WHERE
+        player_id = $2
+    )
+ORDER BY
+    (
+        CASE WHEN rarity <= $3 THEN $3 - rarity ELSE rarity + $3 END
+    ) ASC,
+    RANDOM()
+    LIMIT 1;
+""".strip()  # noqa: S608
+)
