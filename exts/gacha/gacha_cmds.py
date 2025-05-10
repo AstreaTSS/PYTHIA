@@ -23,16 +23,6 @@ import common.help_tools as help_tools
 import common.models as models
 import common.utils as utils
 
-QUERY_GACHA_ROLL = (
-    f"SELECT {', '.join(models.GachaItem._meta.fields_db_projection)} FROM"  # noqa: S608
-    " thiagachaitems WHERE guild_id = $1 AND amount != 0 ORDER BY RANDOM() LIMIT 1;"
-)
-QUERY_GACHA_ROLL_NO_DUPS = (
-    f"SELECT {', '.join(models.GachaItem._meta.fields_db_projection)} FROM"  # noqa: S608
-    " thiagachaitems WHERE guild_id = $1 AND amount != 0 AND id NOT IN (SELECT item_id"
-    " FROM thiagachaitemtoplayer WHERE player_id = $2) ORDER BY RANDOM() LIMIT 1;"
-)
-
 
 class GachaCommands(utils.Extension):
     def __init__(self, _: utils.THIABase) -> None:
@@ -79,27 +69,25 @@ class GachaCommands(utils.Extension):
                     " do so."
                 )
 
-            # technically, this is sql injection
-            # but our input is safe
+            rarities, _ = await models.GachaRarities.get_or_create(
+                guild_id=ctx.guild_id
+            )
+            rarity = rarities.roll_rarity()
+
             if config.gacha.draw_duplicates:
-                items = await models.GachaItem.raw(
-                    QUERY_GACHA_ROLL.replace("$1", str(ctx.guild.id))
-                )
+                item = await models.GachaItem.roll(ctx.guild_id, rarity)
             else:
-                items = await models.GachaItem.raw(
-                    QUERY_GACHA_ROLL_NO_DUPS.replace("$1", str(ctx.guild.id)).replace(
-                        "$2", str(player.id)
-                    )
+                item = await models.GachaItem.roll_no_duplicates(
+                    ctx.guild_id, player.id, rarity
                 )
 
-            if not items:
+            if not item:
                 raise utils.CustomCheckFailure(
                     f"There are no items available to {name_for_action}."
                 )
-            item: models.GachaItem = items[0]
 
             new_count = player.currency_amount - config.gacha.currency_cost
-            embed = item.embed()
+            embed = item.embed(config.names, rarities)
             embed.set_footer(
                 f"{new_count} {config.names.currency_name(new_count)} left"
             )
@@ -249,7 +237,13 @@ class GachaCommands(utils.Extension):
                 "Item either does not exist or you do not have it."
             )
 
-        await ctx.send(embed=item.embed(), ephemeral=True)
+        config = await ctx.fetch_config({"gacha": True, "names": True})
+        if typing.TYPE_CHECKING:
+            assert config.gacha is not None
+            assert config.names is not None
+
+        rarities, _ = await models.GachaRarities.get_or_create(guild_id=ctx.guild_id)
+        await ctx.send(embed=item.embed(config.names, rarities), ephemeral=True)
 
     @gacha_user_view_item.autocomplete("name")
     async def _autocomplete_gacha_user_item(self, ctx: ipy.AutocompleteContext) -> None:
