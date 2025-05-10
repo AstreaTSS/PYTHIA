@@ -48,7 +48,7 @@ dec = msgspec.json.Decoder(GachaItemContainer)
 
 
 def handle_gacha_item_data(json_data: str | bytes) -> list[GachaItemv2]:
-    container: GachaItemv1Container | GachaItemv2Container = dec.decode(json_data)
+    container: GachaItemContainer = dec.decode(json_data)
 
     if isinstance(container, GachaItemv1Container):
         items = [
