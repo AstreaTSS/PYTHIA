@@ -183,9 +183,12 @@ class InventoryManagement(utils.Extension):
                 "There are no items of this type in this user's inventory."
             )
         else:
-            await models.ItemRelation.filter(item_id=item.id, object_id=user.id).limit(
-                amount
-            ).delete()
+            to_delete = (
+                await models.ItemRelation.filter(item_id=item.id, object_id=user.id)
+                .limit(amount)
+                .values_list("id", flat=True)
+            )
+            await models.ItemRelation.filter(id__in=to_delete).delete()
 
         await ctx.send(
             embed=utils.make_embed(
@@ -244,9 +247,12 @@ class InventoryManagement(utils.Extension):
                 "There are no items of this type in this user's inventory."
             )
         else:
-            await models.ItemRelation.filter(item_id=item.id, object_id=user.id).limit(
-                amount
-            ).update(
+            to_update = (
+                await models.ItemRelation.filter(item_id=item.id, object_id=user.id)
+                .limit(amount)
+                .values_list("id", flat=True)
+            )
+            await models.ItemRelation.filter(id__in=to_update).update(
                 object_id=channel.id,
                 object_type=models.ItemsRelationType.CHANNEL,
             )

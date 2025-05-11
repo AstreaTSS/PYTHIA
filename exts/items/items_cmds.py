@@ -155,9 +155,14 @@ class ItemsCommands(utils.Extension):
                 "You cannot take more items than there are in the channel."
             )
         else:
-            await models.ItemRelation.filter(
-                item_id=item.id, object_id=int(ctx.channel_id)
-            ).limit(amount).update(
+            to_update = (
+                await models.ItemRelation.filter(
+                    item_id=item.id, object_id=int(ctx.channel_id)
+                )
+                .limit(amount)
+                .values_list("id", flat=True)
+            )
+            await models.ItemRelation.filter(id__in=to_update).update(
                 object_id=ctx.author.id,
                 object_type=models.ItemsRelationType.USER,
             )
@@ -307,10 +312,14 @@ class ItemsCommands(utils.Extension):
                 "You cannot drop more items than are in your inventory."
             )
         else:
-            await models.ItemRelation.filter(
-                item_id=item.id,
-                object_id=ctx.author.id,
-            ).limit(amount).update(
+            to_update = (
+                await models.ItemRelation.filter(
+                    item_id=item.id, object_id=int(ctx.channel_id)
+                )
+                .limit(amount)
+                .values_list("id", flat=True)
+            )
+            await models.ItemRelation.filter(id__in=to_update).update(
                 object_id=ctx.channel.id,
                 object_type=models.ItemsRelationType.CHANNEL,
             )

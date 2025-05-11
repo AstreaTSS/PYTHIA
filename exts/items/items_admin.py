@@ -621,9 +621,12 @@ class ItemsManagement(utils.Extension):
                 "There are no items of this type in the channel."
             )
         else:
-            await models.ItemRelation.filter(
-                item_id=item.id, object_id=channel.id
-            ).limit(amount).delete()
+            to_delete = (
+                await models.ItemRelation.filter(item_id=item.id, object_id=channel.id)
+                .limit(amount)
+                .values_list("id", flat=True)
+            )
+            await models.ItemRelation.filter(id__in=to_delete).delete()
 
         await ctx.send(
             embed=utils.make_embed(
