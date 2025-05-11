@@ -961,11 +961,12 @@ class GachaManagement(utils.Extension):
         if item is None:
             raise ipy.errors.BadArgument("No item with that name exists.")
 
-        items_count = await models.ItemToPlayer.filter(
+        items = await models.ItemToPlayer.filter(
             player__user_id=user.id, player__guild_id=ctx.guild_id, item_id=item.id
-        ).count()
-        if not items_count:
+        )
+        if not items:
             raise ipy.errors.BadArgument("The user does not have that item.")
+        items_count = len(items)
 
         if amount is None:
             amount = items_count
@@ -976,8 +977,8 @@ class GachaManagement(utils.Extension):
             )
 
         await models.ItemToPlayer.filter(
-            player__user_id=user.id, player__guild_id=ctx.guild_id, item_id=item.id
-        ).limit(amount).delete()
+            id__in=[item.id for item in items[:amount]]
+        ).delete()
 
         if replenish_gacha and item.amount != -1:
             await models.GachaItem.filter(id=item.id).update(
