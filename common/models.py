@@ -186,7 +186,7 @@ class ItemsSystemItem(Model):
 
         embeds.append(embed)
 
-        if isinstance(self.relations, list) and self.relations:
+        if self.relations and self.relations._fetched:
             relation_counter: collections.Counter[_ItemRelationHash] = (
                 collections.Counter()
             )
@@ -351,8 +351,8 @@ class GachaPlayer(Model):
 
         if (
             self.items
-            and isinstance(self.items, list)
-            and all(entry.item for entry in self.items)
+            and self.items._fetched
+            and all(isinstance(entry.item, GachaItem) for entry in self.items)
         ):
             counter: Counter[GachaHash] = Counter()
             for item in self.items:
