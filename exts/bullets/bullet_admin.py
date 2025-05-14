@@ -444,7 +444,7 @@ class BulletManagement(utils.Extension):
             bullet.description = ctx.responses["truth_bullet_desc"]
             bullet.hidden = hidden
             bullet.image = image
-            await bullet.save()
+            await bullet.save(force_update=True)
 
             if bullet.trigger != trigger:
                 await ctx.send(
@@ -488,7 +488,7 @@ class BulletManagement(utils.Extension):
 
         possible_bullet.found = False
         possible_bullet.finder = None
-        await possible_bullet.save()
+        await possible_bullet.save(force_update=True)
 
         await ctx.send(embed=utils.make_embed("Truth Bullet un-found!"))
 
@@ -521,7 +521,7 @@ class BulletManagement(utils.Extension):
 
         possible_bullet.found = True
         possible_bullet.finder = user.id
-        await possible_bullet.save()
+        await possible_bullet.save(force_update=True)
 
         await ctx.send(embed=utils.make_embed("Truth Bullet overrided and found!"))
 
@@ -582,7 +582,7 @@ class BulletManagement(utils.Extension):
             )
 
         possible_bullet.aliases.append(alias)
-        await possible_bullet.save()
+        await possible_bullet.save(force_update=True)
 
         await ctx.send(
             embed=utils.make_embed(
@@ -630,7 +630,7 @@ class BulletManagement(utils.Extension):
                 f"Alias `{alias}` does not exists for this Truth Bullet!"
             ) from None
 
-        await possible_bullet.save()
+        await possible_bullet.save(force_update=True)
 
         await ctx.send(
             embed=utils.make_embed(

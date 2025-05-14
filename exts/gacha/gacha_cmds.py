@@ -109,7 +109,7 @@ class GachaCommands(utils.Extension):
             async with in_transaction():
                 if item.amount != -1:
                     item.amount -= 1
-                    await item.save()
+                    await item.save(force_update=True)
 
                 await models.GachaPlayer.filter(id=player.id).update(
                     currency_amount=F("currency_amount") - config.gacha.currency_cost
