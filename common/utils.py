@@ -11,6 +11,7 @@ import functools
 import logging
 import os
 import traceback
+from copy import copy
 from pathlib import Path
 
 import aiohttp
@@ -36,6 +37,9 @@ BOT_COLOR = ipy.Color(int(os.environ["BOT_COLOR"]))
 logger = logging.getLogger("pythiabot")
 
 
+SlashCommandT = typing.TypeVar("SlashCommandT", bound=ipy.SlashCommand)
+
+
 @functools.wraps(tansy.slash_command)
 def manage_guild_slash_cmd(
     name: str,
@@ -46,6 +50,42 @@ def manage_guild_slash_cmd(
         description=description,
         default_member_permissions=ipy.Permissions.MANAGE_GUILD,
     )
+
+
+def alias(
+    command: SlashCommandT,
+    name: str,
+    description: str,
+    *,
+    base_command: typing.Optional[ipy.SlashCommand] = None,
+) -> SlashCommandT:
+    alias = copy(command)
+
+    if base_command:
+        alias.description = base_command.description
+        alias.dm_permission = base_command.dm_permission
+        alias.default_member_permissions = base_command.default_member_permissions
+        alias.scopes = base_command.scopes
+        alias.integration_types = base_command.integration_types
+        alias.contexts = base_command.contexts
+        alias.checks = base_command.checks.copy()
+
+    names = name.split()
+
+    if len(names) == 1:
+        alias.name = name
+        alias.description = description
+    elif len(names) == 2:
+        alias.name = names[0]
+        alias.sub_cmd_name = name[1]
+        alias.sub_cmd_description = description
+    else:
+        alias.name = names[0]
+        alias.group_name = name[1]
+        alias.sub_cmd_name = name[2]
+        alias.sub_cmd_description = description
+
+    return alias
 
 
 def error_embed_generate(error_msg: str) -> ipy.Embed:

@@ -863,22 +863,11 @@ class GachaManagement(utils.Extension):
 
         await ctx.send(embed=utils.make_embed(f"Deleted {name}."))
 
-    @manage.subcommand(
-        "remove-item",
-        sub_cmd_description=(
-            "Removes an item from the gacha. Alias of /gacha delete-item."
-        ),
+    gacha_item_remove = utils.alias(
+        gacha_item_delete,
+        "gacha-manage remove-item",
+        "Removes an item from the gacha. Alias of /gacha-manage delete-item.",
     )
-    async def gacha_item_remove(
-        self,
-        ctx: utils.THIASlashContext,
-        name: str = tansy.Option("The name of the item to remove.", autocomplete=True),
-    ) -> None:
-        await self.gacha_item_delete.call_with_binding(
-            self.gacha_item_delete.callback,
-            ctx,
-            name,
-        )
 
     @manage.subcommand("view-item", sub_cmd_description="Views an item in the gacha.")
     async def gacha_view_single_item(
