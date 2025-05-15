@@ -120,19 +120,16 @@ class GachaCommands(utils.Extension):
                     player_id=player.id,
                 )
 
-    @gacha.subcommand(
-        "pull",
-        sub_cmd_description="Pulls for an item in the gacha. Alias of /gacha roll.",
+    gacha_pull = utils.alias(
+        gacha_roll,
+        "gacha pull",
+        "Pulls for an item in the gacha. Alias of /gacha roll.",
     )
-    async def gacha_pull(self, ctx: utils.THIASlashContext) -> None:
-        await self.gacha_roll.call_with_binding(self.gacha_roll.callback, ctx)
-
-    @gacha.subcommand(
-        "draw",
-        sub_cmd_description="Draws for an item in the gacha. Alias of /gacha draw.",
+    gacha_draw = utils.alias(
+        gacha_roll,
+        "gacha draw",
+        "Draws for an item in the gacha. Alias of /gacha draw.",
     )
-    async def gacha_draw(self, ctx: utils.THIASlashContext) -> None:
-        await self.gacha_roll.call_with_binding(self.gacha_roll.callback, ctx)
 
     @gacha.subcommand(
         "profile",
@@ -172,15 +169,11 @@ class GachaCommands(utils.Extension):
         else:
             await ctx.send(embeds=embeds, ephemeral=True)
 
-    @gacha.subcommand(
-        "inventory",
-        sub_cmd_description=(
-            "Shows your gacha currency and items. Alias of /gacha profile."
-        ),
+    gacha_inventory = utils.alias(
+        gacha_profile,
+        "gacha inventory",
+        "Shows your gacha currency and items. Alias of /gacha profile.",
     )
-    @ipy.auto_defer(ephemeral=True)
-    async def gacha_inventory(self, ctx: utils.THIASlashContext) -> None:
-        await self.gacha_profile.call_with_binding(self.gacha_profile.callback, ctx)
 
     @gacha.subcommand(
         "give-currency",

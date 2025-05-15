@@ -337,67 +337,19 @@ class ItemsCommands(utils.Extension):
         dm_permission=False,
     )
 
-    @investigate.subcommand(
-        "here",
-        sub_cmd_description=(
-            "Views an item in the current channel. Alias for /items here."
-        ),
+    investigate_here = utils.alias(
+        items_here,
+        "investigate here",
+        "Views an item in the current channel. Alias for /items here.",
+        base_command=investigate,
     )
-    @ipy.auto_defer(enabled=False)
-    async def investigate_here(
-        self,
-        ctx: utils.THIASlashContext,
-        name: str = tansy.Option(
-            "The name of the item to view.",
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
-        ),
-        hidden: str = tansy.Option(
-            "Should the result be shown only to you? Defaults to no.",
-            choices=[
-                ipy.SlashCommandChoice("yes", "yes"),
-                ipy.SlashCommandChoice("no", "no"),
-            ],
-            default="no",
-        ),
-    ) -> None:
-        await self.items_here.call_with_binding(
-            self.items_here.callback, ctx, name, hidden
-        )
 
-    @investigate.subcommand(
-        "take",
-        sub_cmd_description=(
-            "Takes an item from the current channel. Alias for /items take."
-        ),
+    investigate_take = utils.alias(
+        items_take,
+        "investigate take",
+        "Takes an item from the current channel. Alias for /items take.",
+        base_command=investigate,
     )
-    @ipy.auto_defer(enabled=False)
-    async def investigate_take(
-        self,
-        ctx: utils.THIASlashContext,
-        name: str = tansy.Option(
-            "The name of the item to take.",
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
-        ),
-        amount: int = tansy.Option(
-            "The amount of the item to take. Defaults to 1.",
-            min_value=1,
-            max_value=50,
-            default=1,
-        ),
-        hidden: str = tansy.Option(
-            "Should the result be shown only to you? Defaults to no.",
-            choices=[
-                ipy.SlashCommandChoice("yes", "yes"),
-                ipy.SlashCommandChoice("no", "no"),
-            ],
-            default="no",
-        ),
-    ) -> None:
-        await self.items_take.call_with_binding(
-            self.items_take.callback, ctx, name, amount, hidden
-        )
 
     inventory = tansy.SlashCommand(
         name="inventory",
@@ -405,63 +357,27 @@ class ItemsCommands(utils.Extension):
         dm_permission=False,
     )
 
-    @inventory.subcommand(
-        "view",
-        sub_cmd_description=(
-            "Views your inventory for the items system. Alias for /items"
-            " view-inventory."
-        ),
+    alias_view_inventory = utils.alias(
+        view_inventory,
+        "inventory view",
+        "Views your inventory for the items system. Alias for /items view-inventory.",
+        base_command=inventory,
     )
-    @ipy.auto_defer(ephemeral=True)
-    async def alias_view_inventory(
-        self,
-        ctx: utils.THIASlashContext,
-    ) -> None:
-        await self.view_inventory.call_with_binding(self.view_inventory.callback, ctx)
 
-    @inventory.subcommand(
-        "view-item",
-        sub_cmd_description=(
-            "Views an item in your inventory. Alias for /items view-item."
-        ),
+    alias_view_item = utils.alias(
+        view_item,
+        "inventory view-item",
+        "Views an item in your inventory. Alias for /items view-item.",
+        base_command=inventory,
     )
-    @ipy.auto_defer(ephemeral=True)
-    async def alias_view_item(
-        self,
-        ctx: utils.THIASlashContext,
-        name: str = tansy.Option(
-            "The name of the item to view.",
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
-        ),
-    ) -> None:
-        await self.view_item.call_with_binding(self.view_item.callback, ctx, name)
 
-    @inventory.subcommand(
-        "drop",
-        sub_cmd_description=(
-            "Drops an item from your inventory into the current channel. Alias for"
-            " /items drop."
-        ),
+    alias_item_drop = utils.alias(
+        item_drop,
+        "inventory drop",
+        "Drops an item from your inventory into the current channel. Alias for /items"
+        " drop.",
+        base_command=inventory,
     )
-    async def alias_item_drop(
-        self,
-        ctx: utils.THIASlashContext,
-        name: str = tansy.Option(
-            "The name of the item to drop.",
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
-        ),
-        amount: typing.Optional[int] = tansy.Option(
-            "The amount of the item to drop. Defaults to 1.",
-            min_value=1,
-            max_value=50,
-            default=1,
-        ),
-    ) -> None:
-        await self.item_drop.call_with_binding(
-            self.item_drop.callback, ctx, name, amount
-        )
 
     @items_here.autocomplete("name")
     @investigate_here.autocomplete("name")
@@ -476,7 +392,6 @@ class ItemsCommands(utils.Extension):
         )
 
     @items_take.autocomplete("name")
-    @investigate_take.autocomplete("name")
     async def _channel_item_name_takeable_autocomplete(
         self, ctx: ipy.AutocompleteContext
     ) -> None:
@@ -490,8 +405,6 @@ class ItemsCommands(utils.Extension):
 
     @view_item.autocomplete("name")
     @item_drop.autocomplete("name")
-    @alias_view_item.autocomplete("name")
-    @alias_item_drop.autocomplete("name")
     async def _user_item_name_autocomplete(
         self,
         ctx: ipy.AutocompleteContext,

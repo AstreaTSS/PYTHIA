@@ -11,6 +11,7 @@ import functools
 import logging
 import os
 import traceback
+from copy import copy
 from pathlib import Path
 
 import aiohttp
@@ -20,6 +21,7 @@ import tansy
 import typing_extensions as typing
 from interactions.ext import hybrid_commands as hybrid
 from interactions.ext import prefixed_commands as prefixed
+from tansy.slash_commands import tansy_parse_parameters
 
 import common.models as models
 
@@ -36,6 +38,9 @@ BOT_COLOR = ipy.Color(int(os.environ["BOT_COLOR"]))
 logger = logging.getLogger("pythiabot")
 
 
+SlashCommandT = typing.TypeVar("SlashCommandT", bound=ipy.SlashCommand)
+
+
 @functools.wraps(tansy.slash_command)
 def manage_guild_slash_cmd(
     name: str,
@@ -46,6 +51,69 @@ def manage_guild_slash_cmd(
         description=description,
         default_member_permissions=ipy.Permissions.MANAGE_GUILD,
     )
+
+
+def _generate_parse_parameters(
+    command: tansy.TansySlashCommand,
+    other_cmd: tansy.TansySlashCommand,
+) -> typing.Callable[[], None]:
+    def _parse_parameters() -> None:
+        if other_cmd._inspect_signature:
+            command._inspect_signature = other_cmd._inspect_signature
+        if other_cmd.options:
+            command.options = other_cmd.options
+        tansy_parse_parameters(command)
+
+    return _parse_parameters
+
+
+def alias(
+    command: SlashCommandT,
+    name: str,
+    description: str,
+    *,
+    base_command: typing.Optional[ipy.SlashCommand] = None,
+) -> SlashCommandT:
+    alias = copy(command)
+
+    if base_command:
+        alias.description = base_command.description
+        alias.dm_permission = base_command.dm_permission
+        alias.default_member_permissions = base_command.default_member_permissions
+        alias.scopes = base_command.scopes
+        alias.integration_types = base_command.integration_types
+        alias.contexts = base_command.contexts
+
+    names = name.split()
+
+    if len(names) == 1:
+        alias.name = name
+        alias.description = description
+    elif len(names) == 2:
+        alias.name = names[0]
+        alias.sub_cmd_name = names[1]
+        alias.sub_cmd_description = description
+    else:
+        alias.name = names[0]
+        alias.group_name = names[1]
+        alias.sub_cmd_name = names[2]
+        alias.sub_cmd_description = description
+
+    # i heard you like references
+    # here we're abusing them so editing the original version's attributes
+    # also affects the alias, which is nice
+    alias.checks = command.checks
+    alias.options = command.options
+    alias.autocomplete_callbacks = command.autocomplete_callbacks
+
+    if isinstance(command, tansy.TansySlashCommand):
+        alias.parameters = command.parameters
+        alias._parse_parameters = _generate_parse_parameters(alias, command)
+        command._parse_parameters = _generate_parse_parameters(command, alias)
+    else:
+        alias.parameters = command.parameters.copy()
+
+    return alias
 
 
 def error_embed_generate(error_msg: str) -> ipy.Embed:
