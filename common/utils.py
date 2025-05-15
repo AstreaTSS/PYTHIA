@@ -21,6 +21,7 @@ import tansy
 import typing_extensions as typing
 from interactions.ext import hybrid_commands as hybrid
 from interactions.ext import prefixed_commands as prefixed
+from tansy.slash_commands import tansy_parse_parameters
 
 import common.models as models
 
@@ -50,6 +51,19 @@ def manage_guild_slash_cmd(
         description=description,
         default_member_permissions=ipy.Permissions.MANAGE_GUILD,
     )
+
+
+def generate_parse_parameters(
+    other_cmd: tansy.TansySlashCommand, command: tansy.TansySlashCommand
+) -> typing.Callable[[], None]:
+    def _parse_parameters() -> None:
+        if other_cmd._inspect_signature:
+            command._inspect_signature = other_cmd._inspect_signature
+        if other_cmd.options:
+            command.options = other_cmd.options
+        tansy_parse_parameters(command)
+
+    return _parse_parameters
 
 
 def alias(
@@ -91,8 +105,12 @@ def alias(
     alias.options = command.options
     alias.autocomplete_callbacks = command.autocomplete_callbacks
 
-    # tansy thing, making this a direct reference messes things up
-    alias.parameters = command.parameters.copy()
+    if isinstance(command, tansy.TansySlashCommand):
+        alias.parameters = command.parameters
+        alias._parse_parameters = generate_parse_parameters(command, alias)
+        command._parse_parameters = generate_parse_parameters(alias, command)
+    else:
+        alias.parameters = command.parameters.copy()
 
     return alias
 
