@@ -388,6 +388,7 @@ class GachaItem(Model):
         names: "Names",
         rarities: "GachaRarities",
         *,
+        show_rarity: bool = True,
         show_amount: bool = False,
     ) -> ipy.Embed:
         embed = ipy.Embed(
@@ -399,7 +400,8 @@ class GachaItem(Model):
         if self.image:
             embed.set_thumbnail(self.image)
 
-        embed.add_field("Rarity", names.rarity_name(self.rarity))
+        if show_rarity:
+            embed.add_field("Rarity", names.rarity_name(self.rarity))
 
         if show_amount:
             embed.add_field(
