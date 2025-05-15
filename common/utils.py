@@ -53,8 +53,9 @@ def manage_guild_slash_cmd(
     )
 
 
-def generate_parse_parameters(
-    other_cmd: tansy.TansySlashCommand, command: tansy.TansySlashCommand
+def _generate_parse_parameters(
+    command: tansy.TansySlashCommand,
+    other_cmd: tansy.TansySlashCommand,
 ) -> typing.Callable[[], None]:
     def _parse_parameters() -> None:
         if other_cmd._inspect_signature:
@@ -107,8 +108,8 @@ def alias(
 
     if isinstance(command, tansy.TansySlashCommand):
         alias.parameters = command.parameters
-        alias._parse_parameters = generate_parse_parameters(command, alias)
-        command._parse_parameters = generate_parse_parameters(alias, command)
+        alias._parse_parameters = _generate_parse_parameters(alias, command)
+        command._parse_parameters = _generate_parse_parameters(command, alias)
     else:
         alias.parameters = command.parameters.copy()
 
