@@ -394,7 +394,7 @@ class GachaItem(Model):
             embed.set_thumbnail(self.image)
 
         if show_rarity:
-            embed.add_field("Rarity", names.rarity_name(self.rarity))
+            embed.add_field("Rarity", names.rarity_name(self.rarity), inline=True)
 
         if show_amount:
             embed.add_field(
