@@ -1194,7 +1194,6 @@ class GachaManagement(utils.Extension):
 
     @gacha_item_edit.autocomplete("name")
     @gacha_item_delete.autocomplete("name")
-    @gacha_item_remove.autocomplete("name")
     @gacha_view_single_item.autocomplete("name")
     @gacha_add_item_to.autocomplete("name")
     async def _autocomplete_gacha_items(

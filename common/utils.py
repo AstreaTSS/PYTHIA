@@ -68,7 +68,6 @@ def alias(
         alias.scopes = base_command.scopes
         alias.integration_types = base_command.integration_types
         alias.contexts = base_command.contexts
-        alias.checks = base_command.checks.copy()
 
     names = name.split()
 
@@ -77,13 +76,23 @@ def alias(
         alias.description = description
     elif len(names) == 2:
         alias.name = names[0]
-        alias.sub_cmd_name = name[1]
+        alias.sub_cmd_name = names[1]
         alias.sub_cmd_description = description
     else:
         alias.name = names[0]
-        alias.group_name = name[1]
-        alias.sub_cmd_name = name[2]
+        alias.group_name = names[1]
+        alias.sub_cmd_name = names[2]
         alias.sub_cmd_description = description
+
+    # i heard you like references
+    # here we're abusing them so editing the original version's attributes
+    # also affects the alias, which is nice
+    alias.checks = command.checks
+    alias.options = command.options
+    alias.autocomplete_callbacks = command.autocomplete_callbacks
+
+    # tansy thing, making this a direct reference messes things up
+    alias.parameters = command.parameters.copy()
 
     return alias
 

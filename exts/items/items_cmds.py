@@ -392,7 +392,6 @@ class ItemsCommands(utils.Extension):
         )
 
     @items_take.autocomplete("name")
-    @investigate_take.autocomplete("name")
     async def _channel_item_name_takeable_autocomplete(
         self, ctx: ipy.AutocompleteContext
     ) -> None:
@@ -406,8 +405,6 @@ class ItemsCommands(utils.Extension):
 
     @view_item.autocomplete("name")
     @item_drop.autocomplete("name")
-    @alias_view_item.autocomplete("name")
-    @alias_item_drop.autocomplete("name")
     async def _user_item_name_autocomplete(
         self,
         ctx: ipy.AutocompleteContext,
