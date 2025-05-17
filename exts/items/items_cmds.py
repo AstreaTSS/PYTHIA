@@ -66,10 +66,10 @@ class ItemsCommands(utils.Extension):
         if not ctx.author.has_role(config.player_role):
             raise utils.CustomCheckFailure("You do not have the Player role.")
 
-        item = await models.ItemsSystemItem.get_or_none(
+        item = await models.ItemsSystemItem.filter(
             name=name,
             relations__object_id=int(ctx.channel_id),
-        )
+        ).first()
         if not item:
             raise ipy.errors.BadArgument(
                 f"Item `{text_utils.escape_markdown(name)}` does not exist in this"
@@ -241,10 +241,10 @@ class ItemsCommands(utils.Extension):
             converter=text_utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
-        item = await models.ItemsSystemItem.get_or_none(
+        item = await models.ItemsSystemItem.filter(
             name=name,
             relations__object_id=ctx.author.id,
-        )
+        ).first()
         if not item:
             raise ipy.errors.BadArgument(
                 f"Item `{text_utils.escape_markdown(name)}` is not in your inventory."
