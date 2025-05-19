@@ -815,7 +815,7 @@ class GachaManagement(utils.Extension):
         str_amount: str = ctx.kwargs.get("item_amount", "-1").strip() or "-1"
         image: typing.Optional[str] = ctx.kwargs.get("item_image", "").strip() or None
 
-        if not await models.GachaItem.exists(id=item_id):
+        if not await models.GachaItem.exists(id=item_id, guild_id=ctx.guild_id):
             raise ipy.errors.BadArgument("The item no longer exists.")
 
         try:

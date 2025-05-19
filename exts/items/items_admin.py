@@ -323,7 +323,9 @@ class ItemsManagement(utils.Extension):
         if ctx.custom_id.startswith("thia:edit_item-"):
             item_id = int(ctx.custom_id.removeprefix("thia:edit_item-"))
 
-            item = await models.ItemsSystemItem.get_or_none(id=item_id)
+            item = await models.ItemsSystemItem.get_or_none(
+                id=item_id, guild_id=ctx.guild_id
+            )
             if not item:
                 raise ipy.errors.BadArgument("This item no longer exists.")
 
