@@ -85,6 +85,14 @@ class GachaManagement(utils.Extension):
                 max_length=1024,
             ),
             ipy.InputText(
+                label="Item Rarity",
+                style=ipy.TextStyles.SHORT,
+                custom_id="item_rarity",
+                max_length=10,
+                value="Common",
+                placeholder="Common, uncommon, rare, epic, legendary.",
+            ),
+            ipy.InputText(
                 label="Item Quantity",
                 style=ipy.TextStyles.SHORT,
                 custom_id="item_amount",
@@ -102,207 +110,6 @@ class GachaManagement(utils.Extension):
             title="Add Gacha Item",
             custom_id="add_gacha_item",
         )
-
-    config = tansy.SlashCommand(
-        name="gacha-config",
-        description="Handles configuration of gacha mechanics.",
-        default_member_permissions=ipy.Permissions.MANAGE_GUILD,
-        dm_permission=False,
-    )
-
-    @config.subcommand(
-        "info",
-        sub_cmd_description=(
-            "Lists out the gacha configuration settings for the server."
-        ),
-    )
-    async def gacha_info(self, ctx: utils.THIASlashContext) -> None:
-        config = await ctx.fetch_config({"gacha": True, "names": True})
-        if typing.TYPE_CHECKING:
-            assert config.gacha is not None
-            assert config.names is not None
-
-        str_builder = [
-            (
-                "Player role:"
-                f" {f'<@&{config.player_role}>' if config.player_role else 'N/A'}"
-            ),
-            f"Gacha status: {utils.toggle_friendly_str(config.gacha.enabled)}",
-            f"Gacha use cost: {config.gacha.currency_cost}",
-            (
-                "Draw duplicates:"
-                f" {utils.toggle_friendly_str(config.gacha.draw_duplicates)}"
-            ),
-        ]
-
-        embed = utils.make_embed(
-            "\n".join(str_builder),
-            title=f"Gacha config for {ctx.guild.name}",
-        )
-
-        names = (
-            f"Singular Currency Name: {config.names.singular_currency_name}\nPlural"
-            f" Currency Name: {config.names.plural_currency_name}"
-        )
-
-        embed.add_field("Names", names, inline=True)
-        await ctx.send(embed=embed)
-
-    @config.subcommand(
-        "toggle", sub_cmd_description="Enables or disables the entire gacha system."
-    )
-    async def gacha_toggle(
-        self,
-        ctx: utils.THIASlashContext,
-        _toggle: str = tansy.Option(
-            "Should the gacha system be turned on or off?",
-            name="toggle",
-            choices=[
-                ipy.SlashCommandChoice("on", "on"),
-                ipy.SlashCommandChoice("off", "off"),
-            ],
-        ),
-    ) -> None:
-        toggle = _toggle == "on"
-        config = await ctx.fetch_config({"gacha": True})
-
-        if toggle and not config.player_role:
-            raise utils.CustomCheckFailure(
-                "Player role not set. Please set it with"
-                f" {self.bot.mention_command('config player')} first."
-            )
-
-        await models.GachaConfig.filter(guild_id=ctx.guild_id).update(enabled=toggle)
-
-        await ctx.send(
-            embed=utils.make_embed(
-                f"Gacha system turned {utils.toggle_friendly_str(toggle)}!"
-            )
-        )
-
-    @config.subcommand(
-        "names",
-        sub_cmd_description="Sets the name of the currency to be used.",
-    )
-    @ipy.auto_defer(enabled=False)
-    async def gacha_name(self, ctx: utils.THIASlashContext) -> None:
-        config = await ctx.fetch_config({"names": True})
-        if typing.TYPE_CHECKING:
-            assert config.names is not None
-
-        modal = ipy.Modal(
-            ipy.InputText(
-                label="Singular Currency Name",
-                style=ipy.TextStyles.SHORT,
-                custom_id="singular_currency_name",
-                value=config.names.singular_currency_name,
-                max_length=40,
-            ),
-            ipy.InputText(
-                label="Plural Currency Name",
-                style=ipy.TextStyles.SHORT,
-                custom_id="plural_currency_name",
-                value=config.names.plural_currency_name,
-                max_length=40,
-            ),
-            title="Edit Currency Names",
-            custom_id="currency_names",
-        )
-
-        await ctx.send_modal(modal)
-
-    @ipy.modal_callback("currency_names")
-    async def currency_names_edit(self, ctx: utils.THIAModalContext) -> None:
-        config = await ctx.fetch_config({"names": True})
-        if typing.TYPE_CHECKING:
-            assert config.names is not None
-
-        names = config.names
-
-        names.singular_currency_name = ctx.kwargs["singular_currency_name"]
-        names.plural_currency_name = ctx.kwargs["plural_currency_name"]
-        await names.save()
-
-        await ctx.send(
-            embed=utils.make_embed(
-                "Updated! Please note this will only affect public-facing"
-                f" aspects.\nSingular: {names.singular_currency_name}\nPlural:"
-                f" {names.plural_currency_name}"
-            )
-        )
-
-    @config.subcommand(
-        "cost", sub_cmd_description="Sets the cost of a single gacha use."
-    )
-    async def gacha_cost(
-        self,
-        ctx: utils.THIASlashContext,
-        cost: int = tansy.Option(
-            "The cost of a single gacha use.", min_value=1, max_value=2147483647
-        ),
-    ) -> None:
-        if cost > 2147483647:  # just in case
-            raise ipy.errors.BadArgument(
-                "This amount is too high. Please set an amount at or lower than"
-                " 2,147,483,647 (signed 32-bit integer limit)."
-            )
-
-        await ctx.fetch_config({"gacha": True})
-        await models.GachaConfig.filter(guild_id=ctx.guild_id).update(
-            currency_cost=cost
-        )
-
-        await ctx.send(
-            embed=utils.make_embed(
-                f"Updated! The cost of a single gacha use is now {cost}."
-            )
-        )
-
-    @config.subcommand(
-        "draw-duplicates",
-        sub_cmd_description=(
-            "Toggles the ability for players draw items they already own."
-        ),
-    )
-    async def gacha_draw_duplicates(
-        self,
-        ctx: utils.THIASlashContext,
-        _toggle: str = tansy.Option(
-            "Should players be allowed to draw items they already own?",
-            name="toggle",
-            choices=[
-                ipy.SlashCommandChoice("yes", "yes"),
-                ipy.SlashCommandChoice("no", "no"),
-            ],
-        ),
-    ) -> None:
-        toggle = _toggle == "yes"
-
-        await ctx.fetch_config({"gacha": True})
-        await models.GachaConfig.filter(guild_id=ctx.guild_id).update(
-            draw_duplicates=toggle
-        )
-
-        await ctx.send(
-            embed=utils.make_embed(
-                f"Drawing duplicates turned {utils.toggle_friendly_str(toggle)}!"
-            )
-        )
-
-    @config.subcommand(
-        "help", sub_cmd_description="Tells you how to set up the gacha system."
-    )
-    async def gacha_help(self, ctx: utils.THIASlashContext) -> None:
-        embed = utils.make_embed(
-            "To set up the gacha system, follow the gacha setup guide below.",
-            title="Setup Bot",
-        )
-        button = ipy.Button(
-            style=ipy.ButtonStyle.LINK,
-            label="Gacha Setup Guide",
-            url="https://pythia.astrea.cc/setup/gacha_setup",
-        )
-        await ctx.send(embeds=embed, components=button)
 
     manage = tansy.SlashCommand(
         name="gacha-manage",
@@ -714,11 +521,20 @@ class GachaManagement(utils.Extension):
     async def add_gacha_item_modal(self, ctx: utils.THIAModalContext) -> None:
         name: str = ctx.kwargs["item_name"]
         description: str = ctx.kwargs["item_description"]
+        str_rarity: str = ctx.kwargs["item_rarity"]
         str_amount: str = ctx.kwargs.get("item_amount", "-1").strip() or "-1"
         image: typing.Optional[str] = ctx.kwargs.get("item_image", "").strip() or None
 
         if await models.GachaItem.exists(guild_id=ctx.guild_id, name=name):
             raise ipy.errors.BadArgument("An item with that name already exists.")
+
+        try:
+            rarity = models.Rarity[str_rarity.upper()]
+        except (KeyError, ValueError):
+            raise ipy.errors.BadArgument(
+                "Invalid rarity. Rarity must be one of: common, uncommon, rare, epic,"
+                " legendary."
+            ) from None
 
         try:
             amount = int(str_amount)
@@ -745,6 +561,7 @@ class GachaManagement(utils.Extension):
             guild_id=ctx.guild_id,
             name=name,
             description=description,
+            rarity=rarity,
             amount=amount,
             image=image,
         )
@@ -781,6 +598,14 @@ class GachaManagement(utils.Extension):
                 value=item.description,
             ),
             ipy.InputText(
+                label="Item Rarity",
+                style=ipy.TextStyles.SHORT,
+                custom_id="item_rarity",
+                max_length=10,
+                value=item.rarity.name.title(),
+                placeholder="Common, uncommon, rare, epic, legendary.",
+            ),
+            ipy.InputText(
                 label="Item Quantity",
                 style=ipy.TextStyles.SHORT,
                 custom_id="item_amount",
@@ -812,11 +637,20 @@ class GachaManagement(utils.Extension):
         item_id = int(ctx.custom_id.split("-")[1])
         name: str = ctx.kwargs["item_name"]
         description: str = ctx.kwargs["item_description"]
+        str_rarity: str = ctx.kwargs["item_rarity"]
         str_amount: str = ctx.kwargs.get("item_amount", "-1").strip() or "-1"
         image: typing.Optional[str] = ctx.kwargs.get("item_image", "").strip() or None
 
         if not await models.GachaItem.exists(id=item_id, guild_id=ctx.guild_id):
             raise ipy.errors.BadArgument("The item no longer exists.")
+
+        try:
+            rarity = models.Rarity[str_rarity.upper()]
+        except (KeyError, ValueError):
+            raise ipy.errors.BadArgument(
+                "Invalid rarity. Rarity must be one of: common, uncommon, rare, epic,"
+                " legendary."
+            ) from None
 
         try:
             amount = int(str_amount)
@@ -839,6 +673,7 @@ class GachaManagement(utils.Extension):
         await models.GachaItem.filter(id=item_id).update(
             name=name,
             description=description,
+            rarity=rarity,
             amount=amount,
             image=image,
         )
@@ -879,7 +714,14 @@ class GachaManagement(utils.Extension):
         if item is None:
             raise ipy.errors.BadArgument("No item with that name exists.")
 
-        await ctx.send(embed=item.embed(show_amount=True))
+        config = await ctx.fetch_config({"gacha": True, "names": True})
+        if typing.TYPE_CHECKING:
+            assert config.gacha is not None
+            assert config.names is not None
+
+        rarities, _ = await models.GachaRarities.get_or_create(guild_id=ctx.guild_id)
+
+        await ctx.send(embed=item.embed(config.names, rarities, show_amount=True))
 
     @manage.subcommand(
         "list-items", sub_cmd_description="Lists all gacha items for this server."
@@ -1061,17 +903,18 @@ class GachaManagement(utils.Extension):
         if not items:
             raise utils.CustomCheckFailure("This server has no items to export.")
 
-        items_dict: list[exports.GachaItemv1Dict] = [
+        items_dict: list[exports.GachaItemDict] = [
             {
                 "name": item.name,
                 "description": item.description,
+                "rarity": item.rarity.value,
                 "amount": item.amount,
                 "image": item.image,
             }
             for item in items
         ]
         items_json = orjson.dumps(
-            {"version": 1, "items": items_dict}, option=orjson.OPT_INDENT_2
+            {"version": 2, "items": items_dict}, option=orjson.OPT_INDENT_2
         )
 
         if len(items_json) > 10000000:
@@ -1139,6 +982,8 @@ class GachaManagement(utils.Extension):
                 "The file is not in the correct format."
             ) from None
 
+        await ctx.fetch_config({"gacha": True})
+
         async with in_transaction():
             if await models.GachaItem.exists(
                 guild_id=ctx.guild_id,
@@ -1171,6 +1016,12 @@ class GachaManagement(utils.Extension):
                         " the value as -1 to make it unlimited."
                     )
 
+                if item.rarity < 1 or item.rarity > 5:
+                    raise ipy.errors.BadArgument(
+                        f"The rarity for `{text_utils.escape_markdown(item.name)}` must"
+                        " be a number between 1 and 5."
+                    )
+
                 if item.image and not text_utils.HTTP_URL_REGEX.fullmatch(item.image):
                     raise ipy.errors.BadArgument(
                         f"The image given for `{text_utils.escape_markdown(item.name)}`"
@@ -1182,9 +1033,9 @@ class GachaManagement(utils.Extension):
                         guild_id=ctx.guild_id,
                         name=item.name,
                         description=item.description,
+                        rarity=item.rarity,
                         amount=item.amount,
                         image=item.image,
-                        rarity=models.Rarity.COMMON,
                     )
                 )
 
