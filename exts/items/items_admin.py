@@ -57,6 +57,41 @@ class ItemsManagement(utils.Extension):
             custom_id="thia-modal:create_item",
         )
 
+    @staticmethod
+    def create_item_edit_modal(item: models.ItemsSystemItem) -> ipy.Modal:
+        return ipy.Modal(
+            ipy.InputText(
+                label="Item Name",
+                style=ipy.TextStyles.SHORT,
+                custom_id="item_name",
+                max_length=64,
+                value=item.name,
+            ),
+            ipy.InputText(
+                label="Item Description",
+                style=ipy.TextStyles.PARAGRAPH,
+                custom_id="item_description",
+                max_length=1024,
+                value=item.description,
+            ),
+            ipy.InputText(
+                label="Item Image",
+                style=ipy.TextStyles.SHORT,
+                custom_id="item_image",
+                placeholder="The image URL of the item.",
+                required=False,
+                value=item.image,
+            ),
+            ipy.ShortText(
+                label="Is this item takeable?",
+                custom_id="item_takeable",
+                value=utils.yesno_friendly_str(item.takeable),
+                max_length=10,
+            ),
+            title="Edit Item",
+            custom_id=f"thia:edit_item-{item.id}",
+        )
+
     config = tansy.SlashCommand(
         name="items-config",
         description="Handles configuration of items.",
@@ -282,38 +317,7 @@ class ItemsManagement(utils.Extension):
                 " server."
             )
 
-        modal = ipy.Modal(
-            ipy.InputText(
-                label="Item Name",
-                style=ipy.TextStyles.SHORT,
-                custom_id="item_name",
-                max_length=64,
-                value=item.name,
-            ),
-            ipy.InputText(
-                label="Item Description",
-                style=ipy.TextStyles.PARAGRAPH,
-                custom_id="item_description",
-                max_length=1024,
-                value=item.description,
-            ),
-            ipy.InputText(
-                label="Item Image",
-                style=ipy.TextStyles.SHORT,
-                custom_id="item_image",
-                placeholder="The image URL of the item.",
-                required=False,
-                value=item.image,
-            ),
-            ipy.ShortText(
-                label="Is this item takeable?",
-                custom_id="item_takeable",
-                value=utils.yesno_friendly_str(item.takeable),
-                max_length=10,
-            ),
-            title="Edit Item",
-            custom_id=f"thia:edit_item-{item.id}",
-        )
+        modal = self.create_item_edit_modal(item)
         await ctx.send_modal(modal)
 
     @ipy.listen("modal_completion")
@@ -682,7 +686,29 @@ class ItemsManagement(utils.Extension):
             pag.show_callback_button = False
             await pag.send(ctx)
         else:
-            await ctx.send(embeds=embeds)
+            await ctx.send(
+                embeds=embeds,
+                components=ipy.Button(
+                    style=ipy.ButtonStyle.SECONDARY,
+                    label="Edit Item",
+                    custom_id=f"thia:edit_item-{item.id}",
+                ),
+            )
+
+    @ipy.listen(ipy.events.Component)
+    async def on_edit_item(self, event: ipy.events.Component) -> None:
+        ctx = event.ctx
+
+        if not ctx.custom_id.startswith("thia:edit_item-"):
+            return
+
+        item_id = int(ctx.custom_id.removeprefix("thia:edit_item-"))
+        item = await models.ItemsSystemItem.get_or_none(id=item_id)
+        if item is None:
+            raise ipy.errors.BadArgument("The item no longer exists.")
+
+        modal = self.create_item_edit_modal(item)
+        await ctx.send_modal(modal)
 
     @manage.subcommand(
         "delete-item",

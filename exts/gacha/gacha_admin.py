@@ -103,6 +103,44 @@ class GachaManagement(utils.Extension):
             custom_id="add_gacha_item",
         )
 
+    @staticmethod
+    def edit_gacha_item_modal(item: models.GachaItem) -> ipy.Modal:
+        return ipy.Modal(
+            ipy.InputText(
+                label="Item Name",
+                style=ipy.TextStyles.SHORT,
+                custom_id="item_name",
+                max_length=64,
+                value=item.name,
+            ),
+            ipy.InputText(
+                label="Item Description",
+                style=ipy.TextStyles.PARAGRAPH,
+                custom_id="item_description",
+                max_length=1024,
+                value=item.description,
+            ),
+            ipy.InputText(
+                label="Item Quantity",
+                style=ipy.TextStyles.SHORT,
+                custom_id="item_amount",
+                max_length=10,
+                placeholder="Defaults to being unlimited.",
+                required=False,
+                value=str(item.amount) if item.amount != -1 else ipy.MISSING,
+            ),
+            ipy.InputText(
+                label="Item Image",
+                style=ipy.TextStyles.SHORT,
+                custom_id="item_image",
+                placeholder="The image URL of the item.",
+                required=False,
+                value=item.image if item.image else ipy.MISSING,
+            ),
+            title="Edit Gacha Item",
+            custom_id=f"edit_gacha_item-{item.id}",
+        )
+
     config = tansy.SlashCommand(
         name="gacha-config",
         description="Handles configuration of gacha mechanics.",
@@ -765,41 +803,7 @@ class GachaManagement(utils.Extension):
         if item is None:
             raise ipy.errors.BadArgument("No item with that name exists.")
 
-        modal = ipy.Modal(
-            ipy.InputText(
-                label="Item Name",
-                style=ipy.TextStyles.SHORT,
-                custom_id="item_name",
-                max_length=64,
-                value=item.name,
-            ),
-            ipy.InputText(
-                label="Item Description",
-                style=ipy.TextStyles.PARAGRAPH,
-                custom_id="item_description",
-                max_length=1024,
-                value=item.description,
-            ),
-            ipy.InputText(
-                label="Item Quantity",
-                style=ipy.TextStyles.SHORT,
-                custom_id="item_amount",
-                max_length=10,
-                placeholder="Defaults to being unlimited.",
-                required=False,
-                value=str(item.amount) if item.amount != -1 else ipy.MISSING,
-            ),
-            ipy.InputText(
-                label="Item Image",
-                style=ipy.TextStyles.SHORT,
-                custom_id="item_image",
-                placeholder="The image URL of the item.",
-                required=False,
-                value=item.image if item.image else ipy.MISSING,
-            ),
-            title="Edit Gacha Item",
-            custom_id=f"edit_gacha_item-{item.id}",
-        )
+        modal = self.edit_gacha_item_modal(item)
         await ctx.send_modal(modal)
 
     @ipy.listen("modal_completion")
@@ -879,7 +883,29 @@ class GachaManagement(utils.Extension):
         if item is None:
             raise ipy.errors.BadArgument("No item with that name exists.")
 
-        await ctx.send(embed=item.embed(show_amount=True))
+        await ctx.send(
+            embed=item.embed(show_amount=True),
+            components=ipy.Button(
+                style=ipy.ButtonStyle.SECONDARY,
+                label="Edit Item",
+                custom_id=f"edit_gacha_item-{item.id}",
+            ),
+        )
+
+    @ipy.listen(ipy.events.Component)
+    async def on_edit_gacha_item(self, event: ipy.events.Component) -> None:
+        ctx = event.ctx
+
+        if not ctx.custom_id.startswith("edit_gacha_item-"):
+            return
+
+        item_id = int(ctx.custom_id.removeprefix("edit_gacha_item-"))
+        item = await models.GachaItem.get_or_none(id=item_id)
+        if item is None:
+            raise ipy.errors.BadArgument("The item no longer exists.")
+
+        modal = self.edit_gacha_item_modal(item)
+        await ctx.send_modal(modal)
 
     @manage.subcommand(
         "list-items", sub_cmd_description="Lists all gacha items for this server."

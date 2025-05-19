@@ -73,6 +73,49 @@ class BulletManagement(utils.Extension):
             custom_id=f"ui-modal:add_bullets-{channel.id}",
         )
 
+    @staticmethod
+    def edit_truth_bullets_modal(
+        bullet: models.TruthBullet,
+        channel_name: str,
+    ) -> ipy.Modal:
+        return ipy.Modal(
+            ipy.InputText(
+                label="Truth Bullet Trigger",
+                style=ipy.TextStyles.SHORT,
+                custom_id="truth_bullet_trigger",
+                value=bullet.trigger,
+                max_length=60,
+            ),
+            ipy.InputText(
+                label="Truth Bullet Description",
+                style=ipy.TextStyles.PARAGRAPH,
+                custom_id="truth_bullet_desc",
+                value=bullet.description,
+                max_length=3800,
+            ),
+            ipy.InputText(
+                label="Truth Bullet Image",
+                style=ipy.TextStyles.SHORT,
+                custom_id="truth_bullet_image",
+                placeholder="The image URL of the Truth Bullet.",
+                value=bullet.image or ipy.MISSING,
+                max_length=1000,
+                required=False,
+            ),
+            ipy.InputText(
+                label="Hide this Truth Bullet only to the finder?",
+                style=ipy.TextStyles.SHORT,
+                custom_id="truth_bullet_hidden",
+                value=utils.yesno_friendly_str(bullet.hidden),
+                max_length=10,
+            ),
+            title=(
+                f"Edit {text_utils.name_shorten(bullet.trigger, 10)} for"
+                f" #{text_utils.name_shorten(channel_name, 14)}"
+            ),
+            custom_id=f"ui:edit-bullet-{bullet.channel_id}|{bullet.trigger}",
+        )
+
     @config.subcommand(
         sub_cmd_name="add",
         sub_cmd_description=(
@@ -339,7 +382,14 @@ class BulletManagement(utils.Extension):
         if possible_bullet.image:
             embed.add_image(possible_bullet.image)
 
-        await ctx.send(embeds=embed, allowed_mentions=utils.deny_mentions(ctx.author))
+        await ctx.send(
+            embeds=embed,
+            components=ipy.Button(
+                style=ipy.ButtonStyle.SECONDARY,
+                label="Edit Truth Bullet",
+                custom_id=f"thia-editbullet:{possible_bullet.id}|{channel.name}",
+            ),
+        )
 
     @config.subcommand(
         "edit", sub_cmd_description="Sends a prompt to edit a Truth Bullet."
@@ -363,44 +413,29 @@ class BulletManagement(utils.Extension):
                 f"Truth Bullet with trigger `{trigger}` does not exist!"
             )
 
-        modal = ipy.Modal(
-            ipy.InputText(
-                label="Truth Bullet Trigger",
-                style=ipy.TextStyles.SHORT,
-                custom_id="truth_bullet_trigger",
-                value=bullet.trigger,
-                max_length=60,
-            ),
-            ipy.InputText(
-                label="Truth Bullet Description",
-                style=ipy.TextStyles.PARAGRAPH,
-                custom_id="truth_bullet_desc",
-                value=bullet.description,
-                max_length=3800,
-            ),
-            ipy.InputText(
-                label="Truth Bullet Image",
-                style=ipy.TextStyles.SHORT,
-                custom_id="truth_bullet_image",
-                placeholder="The image URL of the Truth Bullet.",
-                value=bullet.image or ipy.MISSING,
-                max_length=1000,
-                required=False,
-            ),
-            ipy.InputText(
-                label="Hide this Truth Bullet only to the finder?",
-                style=ipy.TextStyles.SHORT,
-                custom_id="truth_bullet_hidden",
-                value=utils.yesno_friendly_str(bullet.hidden),
-                max_length=10,
-            ),
-            title=(
-                f"Edit {text_utils.name_shorten(bullet.trigger, 10)} for"
-                f" #{text_utils.name_shorten(channel.name, 14)}"
-            ),
-            custom_id=f"ui:edit-bullet-{channel.id}|{trigger}",
-        )
+        modal = self.edit_truth_bullets_modal(bullet, str(channel.name))
         await ctx.send_modal(modal)
+
+    @ipy.listen("component")
+    async def on_edit_bullet_button(self, event: ipy.events.Component) -> None:
+        ctx = event.ctx
+
+        if ctx.custom_id.startswith("thia-editbullet:"):
+            bullet_id, channel_name = ctx.custom_id.removeprefix(
+                "thia-editbullet:"
+            ).split("|", maxsplit=1)
+
+            bullet = await models.TruthBullet.get_or_none(id=int(bullet_id))
+            if bullet is None:
+                await ctx.send(
+                    embed=utils.error_embed_generate(
+                        "This Truth Bullet no longer exists!"
+                    )
+                )
+                return
+
+            modal = self.edit_truth_bullets_modal(bullet, channel_name)
+            await ctx.send_modal(modal)
 
     @ipy.listen("modal_completion")
     async def on_modal_edit_bullet(self, event: ipy.events.ModalCompletion) -> None:
