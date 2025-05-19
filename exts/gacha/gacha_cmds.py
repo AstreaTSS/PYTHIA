@@ -238,12 +238,12 @@ class GachaCommands(utils.Extension):
         ctx: utils.THIASlashContext,
         name: str = tansy.Option("The name of the item to view.", autocomplete=True),
     ) -> None:
-        item = await models.GachaItem.get_or_none(
+        item = await models.GachaItem.filter(
             guild_id=ctx.guild_id,
             name=name,
             players__player__guild_id=ctx.guild_id,
             players__player__user_id=ctx.author.id,
-        )
+        ).first()
         if item is None:
             raise ipy.errors.BadArgument(
                 "Item either does not exist or you do not have it."
