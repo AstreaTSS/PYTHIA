@@ -231,7 +231,7 @@ class BulletManagement(utils.Extension):
     ) -> None:
         num_deleted = await models.TruthBullet.filter(
             channel_id=channel.id,
-            trigger__iexact=models.escape_ilike(trigger),
+            trigger__iexact=trigger,
         ).delete()
 
         if num_deleted > 0:
@@ -547,7 +547,7 @@ class BulletManagement(utils.Extension):
 
         if await models.TruthBullet.exists(
             channel_id=channel.id,
-            trigger__iexact=models.escape_ilike(alias),
+            trigger__iexact=alias,
         ):
             raise ipy.errors.BadArgument(
                 f"Alias `{alias}` is used as a trigger for another Truth Bullet for"

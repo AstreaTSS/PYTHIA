@@ -32,13 +32,6 @@ def generate_regexp(attribute: str) -> str:
     return rf"regexp_replace({attribute}, '([\%_])', '\\\1', 'g')"
 
 
-ILIKE_ESCAPE = re.compile(r"([\%_])")
-
-
-def escape_ilike(value: str) -> str:
-    return ILIKE_ESCAPE.sub(r"\\\1", value)
-
-
 TEMPLATE_MARKDOWN = re.compile(r"({{(.*)}})")
 
 
@@ -551,7 +544,7 @@ class TruthBullet(Model):
     ) -> typing.Self | None:
         return await cls.filter(
             channel_id=int(channel_id),
-            trigger__iexact=escape_ilike(trigger),
+            trigger__iexact=trigger,
         ).first()
 
     @classmethod
