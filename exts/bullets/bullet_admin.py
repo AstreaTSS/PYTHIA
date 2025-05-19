@@ -325,9 +325,7 @@ class BulletManagement(utils.Extension):
             converter=text_utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
-        possible_bullet = await models.TruthBullet.find_possible_bullet(
-            channel.id, trigger
-        )
+        possible_bullet = await models.TruthBullet.find_via_trigger(channel.id, trigger)
         if not possible_bullet:
             raise ipy.errors.BadArgument(
                 f"Truth Bullet with trigger `{trigger}` does not exist in"
@@ -357,7 +355,7 @@ class BulletManagement(utils.Extension):
             converter=text_utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
-        bullet = await models.TruthBullet.find_possible_bullet(channel.id, trigger)
+        bullet = await models.TruthBullet.find_via_trigger(channel.id, trigger)
         if not bullet:
             raise ipy.errors.BadArgument(
                 f"Truth Bullet with trigger `{trigger}` does not exist!"
@@ -412,7 +410,7 @@ class BulletManagement(utils.Extension):
             )
             channel_id = int(channel_id)
 
-            bullet = await models.TruthBullet.find_possible_bullet(channel_id, trigger)
+            bullet = await models.TruthBullet.find_via_trigger(channel_id, trigger)
             if bullet is None:
                 await ctx.send(
                     embed=utils.error_embed_generate(
@@ -473,9 +471,7 @@ class BulletManagement(utils.Extension):
             converter=text_utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
-        possible_bullet = await models.TruthBullet.find_possible_bullet(
-            channel.id, trigger
-        )
+        possible_bullet = await models.TruthBullet.find_via_trigger(channel.id, trigger)
 
         if not possible_bullet:
             raise ipy.errors.BadArgument(
@@ -511,9 +507,7 @@ class BulletManagement(utils.Extension):
         ),
         user: ipy.Member = tansy.Option("The user who will find the Truth Bullet."),
     ) -> None:
-        possible_bullet = await models.TruthBullet.find_possible_bullet(
-            channel.id, trigger
-        )
+        possible_bullet = await models.TruthBullet.find_via_trigger(channel.id, trigger)
         if not possible_bullet:
             raise ipy.errors.BadArgument(
                 f"Truth Bullet with `{trigger}` does not exist!"
@@ -560,9 +554,7 @@ class BulletManagement(utils.Extension):
                 " this channel!"
             )
 
-        possible_bullet = await models.TruthBullet.find_possible_bullet(
-            channel.id, trigger
-        )
+        possible_bullet = await models.TruthBullet.find_via_trigger(channel.id, trigger)
         if not possible_bullet:
             raise ipy.errors.BadArgument(
                 f"Truth Bullet with trigger `{trigger}` does not exist!"
@@ -612,9 +604,7 @@ class BulletManagement(utils.Extension):
             converter=text_utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
-        possible_bullet = await models.TruthBullet.find_possible_bullet(
-            channel.id, trigger
-        )
+        possible_bullet = await models.TruthBullet.find_via_trigger(channel.id, trigger)
         if not possible_bullet:
             raise ipy.errors.BadArgument(
                 f"Truth Bullet with `{trigger}` does not exist!"

@@ -103,7 +103,7 @@ async def autocomplete_aliases(
 
     trigger = text_utils.replace_smart_punc(trigger)
 
-    truth_bullet = await models.TruthBullet.find_possible_bullet(channel, trigger)
+    truth_bullet = await models.TruthBullet.find_via_trigger(channel, trigger)
     if not truth_bullet:
         return await ctx.send([])
 

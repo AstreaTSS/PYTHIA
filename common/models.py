@@ -546,12 +546,12 @@ class TruthBullet(Model):
         return cls(**data[0]) if data else None
 
     @classmethod
-    async def find_possible_bullet(
+    async def find_via_trigger(
         cls, channel_id: ipy.Snowflake_Type, trigger: str
     ) -> typing.Self | None:
         return await cls.filter(
             channel_id=int(channel_id),
-            trigger__icontains=escape_ilike(trigger),
+            trigger__iexact=escape_ilike(trigger),
         ).first()
 
     @classmethod
