@@ -244,13 +244,21 @@ class GachaCommands(utils.Extension):
                 "Item either does not exist or you do not have it."
             )
 
+        show_rarity = await models.GachaItem.filter(
+            guild_id=ctx.guild_id,
+            rarity__not=item.rarity,
+        ).exists()
+
         config = await ctx.fetch_config({"gacha": True, "names": True})
         if typing.TYPE_CHECKING:
             assert config.gacha is not None
             assert config.names is not None
 
         rarities, _ = await models.GachaRarities.get_or_create(guild_id=ctx.guild_id)
-        await ctx.send(embed=item.embed(config.names, rarities), ephemeral=True)
+        await ctx.send(
+            embed=item.embed(config.names, rarities, show_rarity=show_rarity),
+            ephemeral=True,
+        )
 
     @gacha_user_view_item.autocomplete("name")
     async def _autocomplete_gacha_user_item(self, ctx: ipy.AutocompleteContext) -> None:
