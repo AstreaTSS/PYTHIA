@@ -398,7 +398,7 @@ class GachaItem(Model):
 
         if show_amount:
             embed.add_field(
-                name="Quantity Remaining",
+                name="Quantity",
                 value=self.amount if self.amount != -1 else "Unlimited",
                 inline=True,
             )

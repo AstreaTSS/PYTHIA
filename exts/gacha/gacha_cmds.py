@@ -88,9 +88,9 @@ class GachaCommands(utils.Extension):
 
             # if there are no items of other rarities, there's no point in showing rarity
             # in the embed
-            show_rarity = not await models.GachaItem.filter(
+            show_rarity = await models.GachaItem.filter(
                 guild_id=ctx.guild_id,
-                rarity__not=rarity,
+                rarity__not=item.rarity,
             ).exists()
 
             new_count = player.currency_amount - config.gacha.currency_cost
