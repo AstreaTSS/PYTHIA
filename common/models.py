@@ -11,8 +11,6 @@ import collections
 import os
 import random
 import re
-import textwrap
-from collections import Counter
 from decimal import Decimal
 from enum import Enum, IntEnum
 from fractions import Fraction
@@ -40,13 +38,6 @@ TEMPLATE_MARKDOWN = re.compile(r"({{(.*)}})")
 
 def code_template(value: str) -> str:
     return TEMPLATE_MARKDOWN.sub(r"`\1`", value)
-
-
-def short_desc(description: str, length: int = 25) -> str:
-    new_description = textwrap.shorten(description, length, placeholder="...")
-    if new_description == "...":  # word is too long, lets manually cut it
-        return f"{description[:length-3].strip()}..."
-    return new_description
 
 
 class ItemsRelationType(str, Enum):
@@ -452,58 +443,6 @@ class GachaPlayer(Model):
     class Meta:
         table = "thiagachaplayers"
         indexes: typing.ClassVar[list[tuple[str, ...]]] = [("guild_id", "user_id")]
-
-    def create_profile(self, user_display_name: str, names: "Names") -> list[ipy.Embed]:
-        str_builder = [
-            (
-                "Currency:"
-                f" {self.currency_amount} {names.currency_name(self.currency_amount)}"
-            ),
-            "\n**Items:**",
-        ]
-
-        if (
-            self.items._fetched
-            and self.items
-            and all(isinstance(entry.item, GachaItem) for entry in self.items)
-        ):
-            counter: Counter[GachaHash] = Counter()
-            for item in self.items:
-                counter[GachaHash(item.item)] += 1
-
-            counter_data = sorted(
-                ((name, count) for name, count in counter.items()),
-                key=lambda x: x[0].item.name.lower(),
-            )
-
-            str_builder.extend(
-                f"**{entry.item.name}**{f' (x{count})' if count > 1 else ''} -"
-                f" {short_desc(entry.item.description)}"
-                for entry, count in counter_data
-            )
-        else:
-            str_builder.append("*No items.*")
-
-        if len(str_builder) <= 30:
-            return [
-                ipy.Embed(
-                    title=f"{user_display_name}'s Gacha Data",
-                    description="\n".join(str_builder),
-                    color=ipy.Color(int(os.environ["BOT_COLOR"])),
-                    timestamp=ipy.Timestamp.utcnow(),
-                )
-            ]
-
-        chunks = [str_builder[x : x + 30] for x in range(0, len(str_builder), 30)]
-        return [
-            ipy.Embed(
-                title=f"{user_display_name}'s Gacha Data",
-                description="\n".join(chunk),
-                color=ipy.Color(int(os.environ["BOT_COLOR"])),
-                timestamp=ipy.Timestamp.utcnow(),
-            )
-            for chunk in chunks
-        ]
 
 
 class ItemToPlayer(Model):

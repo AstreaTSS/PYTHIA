@@ -20,6 +20,7 @@ from tortoise.transactions import in_transaction
 
 import common.fuzzy as fuzzy
 import common.help_tools as help_tools
+import common.model_utils as model_utils
 import common.models as models
 import common.utils as utils
 
@@ -131,7 +132,18 @@ class GachaCommands(utils.Extension):
         sub_cmd_description="Shows your gacha currency and items.",
     )
     @ipy.auto_defer(ephemeral=True)
-    async def gacha_profile(self, ctx: utils.THIASlashContext) -> None:
+    async def gacha_profile(
+        self,
+        ctx: utils.THIASlashContext,
+        mode: str = tansy.Option(
+            "The mode to show the profile in.",
+            choices=[
+                ipy.SlashCommandChoice("Cozy", "cozy"),
+                ipy.SlashCommandChoice("Compact/Legacy", "compact"),
+            ],
+            default="cozy",
+        ),
+    ) -> None:
         config = await ctx.fetch_config({"gacha": True, "names": True})
         if typing.TYPE_CHECKING:
             assert config.gacha is not None
@@ -153,16 +165,37 @@ class GachaCommands(utils.Extension):
             )
             await player.fetch_related("items__item")
 
-        embeds = player.create_profile(ctx.author.display_name, config.names)
-
-        if len(embeds) > 1:
-            pag = help_tools.HelpPaginator.create_from_embeds(
-                self.bot, *embeds, timeout=120
+        if mode == "compact":
+            embeds = model_utils.gacha_profile_compact(
+                player, ctx.author.display_name, config.names
             )
-            pag.show_callback_button = False
-            await pag.send(ctx, ephemeral=True)
+
+            if len(embeds) > 1:
+                pag = help_tools.HelpPaginator.create_from_embeds(
+                    self.bot, *embeds, timeout=120
+                )
+                pag.show_callback_button = False
+                await pag.send(ctx, ephemeral=True)
+            else:
+                await ctx.send(embeds=embeds, ephemeral=True)
         else:
-            await ctx.send(embeds=embeds, ephemeral=True)
+            show_rarity = await models.GachaItem.filter(
+                guild_id=ctx.guild_id,
+                rarity__not=models.Rarity.COMMON,
+            ).exists()
+
+            components = model_utils.gacha_profile_cozy(
+                player, ctx.author.display_name, config.names, show_rarity=show_rarity
+            )
+
+            if len(components) > 1:
+                pag = model_utils.Componentv2Paginator(
+                    self.bot,
+                    pages=components,
+                )
+                await pag.send(ctx, ephemeral=True)
+            else:
+                await ctx.send(components=components, ephemeral=True)
 
     gacha_inventory = utils.alias(
         gacha_profile,
@@ -269,4 +302,5 @@ def setup(bot: utils.THIABase) -> None:
     importlib.reload(utils)
     importlib.reload(help_tools)
     importlib.reload(fuzzy)
+    importlib.reload(model_utils)
     GachaCommands(bot)

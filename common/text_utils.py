@@ -8,6 +8,7 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """
 
 import re
+import textwrap
 
 import interactions as ipy
 
@@ -30,6 +31,13 @@ class ReplaceSmartPuncConverter(ipy.Converter):
 
 def name_shorten(name: str, shorten_amount: int = 16) -> str:
     return f"{name[:shorten_amount].strip()}..." if len(name) > shorten_amount else name
+
+
+def short_desc(description: str, length: int = 25) -> str:
+    new_description = textwrap.shorten(description, length, placeholder="...")
+    if new_description == "...":  # word is too long, lets manually cut it
+        return f"{description[:length-3].strip()}..."
+    return new_description
 
 
 """
