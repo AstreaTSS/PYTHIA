@@ -326,7 +326,7 @@ class BulletFinding(utils.Extension):
             autocomplete=True,
             converter=text_utils.ReplaceSmartPuncConverter,
         ),
-        finder: typing.Optional[ipy.Member] = tansy.Option(
+        finder: ipy.Member | None = tansy.Option(
             "The person who will find the Truth Bullet.", default=None
         ),
     ) -> None:

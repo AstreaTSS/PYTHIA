@@ -53,7 +53,7 @@ def get_bullet_name(bullet: models.TruthBullet) -> str:
 async def autocomplete_bullets(
     ctx: ipy.AutocompleteContext,
     trigger: str,
-    channel: typing.Optional[str] = None,
+    channel: str | None = None,
     only_not_found: bool = False,
     **kwargs: typing.Any,  # noqa: ARG001
 ) -> None:
@@ -94,8 +94,8 @@ def get_alias_name(alias: str) -> str:
 async def autocomplete_aliases(
     ctx: ipy.AutocompleteContext,
     alias: str,
-    channel: typing.Optional[str] = None,
-    trigger: typing.Optional[str] = None,
+    channel: str | None = None,
+    trigger: str | None = None,
     **kwargs: typing.Any,  # noqa: ARG001,
 ) -> None:
     if not channel or not trigger:
@@ -188,7 +188,7 @@ async def autocomplete_gacha_user_item(
 async def autocomplete_gacha_optional_user_item(
     ctx: ipy.AutocompleteContext,
     name: str,
-    user: typing.Optional[ipy.Snowflake_Type] = None,
+    user: ipy.Snowflake_Type | None = None,
     **kwargs: typing.Any,  # noqa: ARG001
 ) -> None:
     if not ctx.guild_id or not user:
@@ -225,7 +225,7 @@ def get_dice_name(entry: models.DiceEntry) -> str:
 
 async def autocomplete_dice_entries_admin(
     ctx: ipy.AutocompleteContext,
-    user: typing.Optional[ipy.Snowflake_Type],
+    user: ipy.Snowflake_Type | None,
     name: str,
     **kwargs: typing.Any,  # noqa: ARG001
 ) -> None:
@@ -312,7 +312,7 @@ async def autocomplete_item(
 async def autocomplete_item_channel(
     ctx: ipy.AutocompleteContext,
     name: str,
-    channel: typing.Optional[str] = None,
+    channel: str | None = None,
     investigate_variant: bool = False,
     check_takeable: bool = False,
     **_: typing.Any,
@@ -372,7 +372,7 @@ class _ItemHash:
 async def autocomplete_item_user(
     ctx: ipy.AutocompleteContext,
     name: str,
-    user: typing.Optional[ipy.Snowflake_Type] = None,
+    user: ipy.Snowflake_Type | None = None,
     **_: typing.Any,
 ) -> None:
     if not user:

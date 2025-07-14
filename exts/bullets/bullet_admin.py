@@ -9,7 +9,6 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 import collections
 import importlib
-import typing
 
 import interactions as ipy
 import tansy
@@ -186,7 +185,7 @@ class BulletManagement(utils.Extension):
                 )
                 return
 
-            image: typing.Optional[str] = (
+            image: str | None = (
                 ctx.kwargs.get("truth_bullet_image", "").strip() or None
             )
             if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):
@@ -430,7 +429,7 @@ class BulletManagement(utils.Extension):
                 )
                 return
 
-            image: typing.Optional[str] = (
+            image: str | None = (
                 ctx.kwargs.get("truth_bullet_image", "").strip() or None
             )
             if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):

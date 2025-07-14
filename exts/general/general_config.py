@@ -11,7 +11,6 @@ import importlib
 
 import interactions as ipy
 import tansy
-import typing_extensions as typing
 
 import common.utils as utils
 
@@ -53,7 +52,7 @@ class ConfigCMDs(utils.Extension):
     async def set_player_role(
         self,
         ctx: utils.THIASlashContext,
-        role: typing.Optional[ipy.Role] = tansy.Option(
+        role: ipy.Role | None = tansy.Option(
             "The Player role to use.",
             default=None,
         ),

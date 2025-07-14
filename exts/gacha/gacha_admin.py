@@ -523,7 +523,7 @@ class GachaManagement(utils.Extension):
         description: str = ctx.kwargs["item_description"]
         str_rarity: str = ctx.kwargs["item_rarity"]
         str_amount: str = ctx.kwargs.get("item_amount", "-1").strip() or "-1"
-        image: typing.Optional[str] = ctx.kwargs.get("item_image", "").strip() or None
+        image: str | None = ctx.kwargs.get("item_image", "").strip() or None
 
         if await models.GachaItem.exists(guild_id=ctx.guild_id, name=name):
             raise ipy.errors.BadArgument("An item with that name already exists.")
@@ -639,7 +639,7 @@ class GachaManagement(utils.Extension):
         description: str = ctx.kwargs["item_description"]
         str_rarity: str = ctx.kwargs["item_rarity"]
         str_amount: str = ctx.kwargs.get("item_amount", "-1").strip() or "-1"
-        image: typing.Optional[str] = ctx.kwargs.get("item_image", "").strip() or None
+        image: str | None = ctx.kwargs.get("item_image", "").strip() or None
 
         if not await models.GachaItem.exists(id=item_id, guild_id=ctx.guild_id):
             raise ipy.errors.BadArgument("The item no longer exists.")
@@ -771,7 +771,7 @@ class GachaManagement(utils.Extension):
         ctx: utils.THIASlashContext,
         user: ipy.Member = tansy.Option("The user to remove an item from."),
         name: str = tansy.Option("The name of the item to remove.", autocomplete=True),
-        amount: typing.Optional[int] = tansy.Option(
+        amount: int | None = tansy.Option(
             "The amount to remove. Defaults to the amount of that item they have.",
             min_value=1,
         ),
@@ -828,7 +828,7 @@ class GachaManagement(utils.Extension):
         ctx: utils.THIASlashContext,
         user: ipy.Member = tansy.Option("The user to add an item to."),
         name: str = tansy.Option("The name of the item to add.", autocomplete=True),
-        amount: typing.Optional[int] = tansy.Option(
+        amount: int | None = tansy.Option(
             "The amount to add. Defaults to 1.",
             min_value=1,
             max_value=500,

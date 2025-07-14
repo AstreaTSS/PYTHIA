@@ -237,7 +237,7 @@ class ItemsManagement(utils.Extension):
             )
             return
 
-        image: typing.Optional[str] = (
+        image: str | None = (
             ctx.responses.get("item_image", "").strip() or None
         )
         if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):
@@ -353,7 +353,7 @@ class ItemsManagement(utils.Extension):
                 )
                 return
 
-            image: typing.Optional[str] = (
+            image: str | None = (
                 ctx.responses.get("item_image", "").strip() or None
             )
             if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):
