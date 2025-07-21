@@ -345,13 +345,13 @@ class GachaManagement(utils.Extension):
 
         if (
             "COMMUNITY" in ctx.guild.features
-            and ipy.Permissions.MANAGE_GUILD in ctx.app_permissions
-        ):
+            or "ENABLED_MODERATION_EXPERIENCE_FOR_NON_COMMUNITY" in ctx.guild.features
+        ) and ipy.Permissions.MANAGE_GUILD in ctx.app_permissions:
             # fast path - can use an undocumented endpoint
             retry = 0
 
             while True:
-                # https://docs.discord.sex/resources/guild#search-guild-members
+                # https://docs.discord.food/resources/guild#search-guild-members
                 data = await ctx.bot.http.request(
                     route=Route("POST", f"/guilds/{ctx.guild_id}/members-search"),
                     payload={
