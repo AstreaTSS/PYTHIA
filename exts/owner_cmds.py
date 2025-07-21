@@ -144,7 +144,7 @@ def adjust_subcolumn(
 
 def make_table(
     rows: list[list[typing.Any]],
-    labels: typing.Optional[list[typing.Any]] = None,
+    labels: list[typing.Any] | None = None,
     centered: bool = False,
 ) -> str:
     """
@@ -382,14 +382,14 @@ class OwnerCMDs(ipy.Extension):
 
     @debug.subcommand()
     async def git(
-        self, ctx: prefixed.PrefixedContext, *, cmd: typing.Optional[str] = None
+        self, ctx: prefixed.PrefixedContext, *, cmd: str | None = None
     ) -> None:
         """Shortcut for 'debug shell git'. Invokes the system shell."""
         await self.shell.callback(ctx, cmd=f"git {cmd}" if cmd else "git")
 
     @debug.subcommand()
     async def pip(
-        self, ctx: prefixed.PrefixedContext, *, cmd: typing.Optional[str] = None
+        self, ctx: prefixed.PrefixedContext, *, cmd: str | None = None
     ) -> None:
         """Shortcut for 'debug shell pip'. Invokes the system shell."""
         await self.shell.callback(ctx, cmd=f"pip {cmd}" if cmd else "pip")

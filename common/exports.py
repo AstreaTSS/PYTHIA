@@ -16,7 +16,7 @@ class GachaItemv1(msgspec.Struct):
     name: str
     description: str
     amount: int
-    image: typing.Optional[str] = None
+    image: str | None = None
 
 
 class GachaItemv2(msgspec.Struct):
@@ -24,7 +24,7 @@ class GachaItemv2(msgspec.Struct):
     description: str
     rarity: int
     amount: int
-    image: typing.Optional[str] = None
+    image: str | None = None
 
 
 class GachaItemDict(typing.TypedDict):
@@ -32,7 +32,7 @@ class GachaItemDict(typing.TypedDict):
     description: str
     rarity: int
     amount: int
-    image: typing.Optional[str]
+    image: str | None
 
 
 class GachaItemv1Container(msgspec.Struct, tag=1, tag_field="version"):

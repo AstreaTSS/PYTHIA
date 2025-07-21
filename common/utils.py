@@ -72,7 +72,7 @@ def alias(
     name: str,
     description: str,
     *,
-    base_command: typing.Optional[ipy.SlashCommand] = None,
+    base_command: ipy.SlashCommand | None = None,
 ) -> SlashCommandT:
     alias = copy(command)
 
@@ -135,7 +135,7 @@ def make_embed(description: str, *, title: str | None = None) -> ipy.Embed:
 
 
 async def error_handle(
-    error: Exception, *, ctx: typing.Optional[ipy.BaseContext] = None
+    error: Exception, *, ctx: ipy.BaseContext | None = None
 ) -> None:
     if not isinstance(error, aiohttp.ServerDisconnectedError):
         if SENTRY_ENABLED:
@@ -359,7 +359,7 @@ else:
 
 
 class THIAContextMixin:
-    guild_config: typing.Optional[models.GuildConfig]
+    guild_config: models.GuildConfig | None
     guild_id: ipy.Snowflake
 
     def __init__(self, *args: typing.Any, **kwargs: typing.Any) -> None:

@@ -102,7 +102,7 @@ class BulletConfigCMDs(utils.Extension):
     async def set_bullet_channel(
         self,
         ctx: utils.THIASlashContext,
-        channel: typing.Optional[ipy.GuildText] = tansy.Option(
+        channel: ipy.GuildText | None = tansy.Option(
             "The channel to send Truth Bullets to.", default=None
         ),
         unset: bool = tansy.Option(
@@ -140,7 +140,7 @@ class BulletConfigCMDs(utils.Extension):
     async def set_best_truth_bullet_finder_role(
         self,
         ctx: utils.THIASlashContext,
-        role: typing.Optional[ipy.Role] = tansy.Option(
+        role: ipy.Role | None = tansy.Option(
             "The Best Detective role to use.",
             converter=utils.ValidRoleConverter,
             default=None,

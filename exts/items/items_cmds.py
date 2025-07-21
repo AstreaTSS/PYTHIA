@@ -272,7 +272,7 @@ class ItemsCommands(utils.Extension):
             autocomplete=True,
             converter=text_utils.ReplaceSmartPuncConverter,
         ),
-        amount: typing.Optional[int] = tansy.Option(
+        amount: int | None = tansy.Option(
             "The amount of the item to drop. Defaults to 1.",
             min_value=1,
             max_value=50,
