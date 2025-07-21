@@ -185,9 +185,7 @@ class BulletManagement(utils.Extension):
                 )
                 return
 
-            image: str | None = (
-                ctx.kwargs.get("truth_bullet_image", "").strip() or None
-            )
+            image: str | None = ctx.kwargs.get("truth_bullet_image", "").strip() or None
             if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):
                 raise ipy.errors.BadArgument("The image given must be a valid URL.")
 
@@ -429,9 +427,7 @@ class BulletManagement(utils.Extension):
                 )
                 return
 
-            image: str | None = (
-                ctx.kwargs.get("truth_bullet_image", "").strip() or None
-            )
+            image: str | None = ctx.kwargs.get("truth_bullet_image", "").strip() or None
             if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):
                 raise ipy.errors.BadArgument("The image given must be a valid URL.")
 

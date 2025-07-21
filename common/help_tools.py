@@ -89,7 +89,9 @@ class HelpPaginator(paginators.Paginator):
     )
     """The message to be sent when the wrong user uses this paginator."""
 
-    callback_button_emoji: typing.Union["ipy.PartialEmoji", dict, str] | None = attrs.field(default="❔", metadata=ipy.utils.export_converter(process_emoji))
+    callback_button_emoji: typing.Union["ipy.PartialEmoji", dict, str] | None = (
+        attrs.field(default="❔", metadata=ipy.utils.export_converter(process_emoji))
+    )
     """The emoji to use for the callback button."""
     show_callback_button: bool = attrs.field(default=True)
     """Show a button which will call the `callback`"""
@@ -251,9 +253,7 @@ class HelpPaginator(paginators.Paginator):
 class PermissionsResolver:
     """An attempt to make a class that can handle slash command permissions."""
 
-    default_member_permissions: ipy.Permissions | None = attrs.field(
-        default=None
-    )
+    default_member_permissions: ipy.Permissions | None = attrs.field(default=None)
 
     disabled_for_all_roles: bool = attrs.field(default=False)
     disabled_for_all_channels: bool = attrs.field(default=False)
@@ -452,9 +452,7 @@ class MiniCommand:
     signature: str = attrs.field()
     slash_command: ipy.SlashCommand = attrs.field()
     extension: ipy.Extension | None = attrs.field(default=None)
-    default_member_permissions: ipy.Permissions | None = attrs.field(
-        default=None
-    )
+    default_member_permissions: ipy.Permissions | None = attrs.field(default=None)
     subcommands: set["MiniCommand"] = attrs.field(factory=set)
 
     def __hash__(self) -> int:

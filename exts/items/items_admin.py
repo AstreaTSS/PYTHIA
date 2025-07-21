@@ -237,9 +237,7 @@ class ItemsManagement(utils.Extension):
             )
             return
 
-        image: str | None = (
-            ctx.responses.get("item_image", "").strip() or None
-        )
+        image: str | None = ctx.responses.get("item_image", "").strip() or None
         if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):
             raise ipy.errors.BadArgument("The image given must be a valid URL.")
 
@@ -353,9 +351,7 @@ class ItemsManagement(utils.Extension):
                 )
                 return
 
-            image: str | None = (
-                ctx.responses.get("item_image", "").strip() or None
-            )
+            image: str | None = ctx.responses.get("item_image", "").strip() or None
             if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):
                 raise ipy.errors.BadArgument("The image given must be a valid URL.")
 

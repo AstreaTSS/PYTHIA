@@ -134,9 +134,7 @@ def make_embed(description: str, *, title: str | None = None) -> ipy.Embed:
     )
 
 
-async def error_handle(
-    error: Exception, *, ctx: ipy.BaseContext | None = None
-) -> None:
+async def error_handle(error: Exception, *, ctx: ipy.BaseContext | None = None) -> None:
     if not isinstance(error, aiohttp.ServerDisconnectedError):
         if SENTRY_ENABLED:
             scope = sentry_sdk.Scope.get_current_scope()
