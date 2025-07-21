@@ -341,7 +341,10 @@ class GachaManagement(utils.Extension):
 
         members: list[GuildMemberEntry] = []
 
-        if "COMMUNITY" in ctx.guild.features:
+        if (
+            "COMMUNITY" in ctx.guild.features
+            and ipy.Permissions.MANAGE_GUILD in ctx.app_permissions
+        ):
             # fast path - can use an undocumented endpoint
             retry = 0
 
