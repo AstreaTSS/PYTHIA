@@ -227,12 +227,14 @@ class GachaManagement(utils.Extension):
             type=ipy.User,
         ),
     ) -> None:
-        amount = await models.ItemToPlayer.filter(
+        to_delete = await models.ItemToPlayer.filter(
             player__user_id=user.id, player__guild_id=ctx.guild_id
-        ).delete()
+        ).values_list("id", flat=True)
 
-        if not amount:
+        if not to_delete:
             raise ipy.errors.BadArgument("The user has no items to reset.")
+
+        await models.ItemToPlayer.filter(id__in=to_delete).delete()
 
         await ctx.send(embed=utils.make_embed(f"Reset items for {user.mention}."))
 
