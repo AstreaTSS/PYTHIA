@@ -156,6 +156,7 @@ class BulletManagement(utils.Extension):
             await ctx.send_modal(self.add_truth_bullets_modal(channel))
 
     @ipy.listen("modal_completion")
+    @utils.modal_event_error_handler
     async def on_modal_add_bullet(self, event: ipy.events.ModalCompletion) -> None:
         ctx = event.ctx
 
@@ -398,6 +399,7 @@ class BulletManagement(utils.Extension):
         await ctx.send_modal(modal)
 
     @ipy.listen("modal_completion")
+    @utils.modal_event_error_handler
     async def on_modal_edit_bullet(self, event: ipy.events.ModalCompletion) -> None:
         ctx = event.ctx
 

@@ -270,6 +270,28 @@ def role_check(ctx: ipy.BaseContext, role: ipy.Role) -> ipy.Role:
     return role
 
 
+AsyncT = typing.TypeVar("AsyncT", bound=ipy.const.AsyncCallable)
+
+
+def modal_event_error_handler(func: AsyncT) -> AsyncT:
+    async def wrapper(
+        self: typing.Any,
+        unknown: ipy.events.ModalCompletion,
+        *args: typing.Any,
+        **kwargs: typing.Any,
+    ) -> None:
+        ctx = unknown.ctx
+
+        try:
+            await func(self, unknown, *args, **kwargs)
+        except ipy.errors.BadArgument as e:
+            await ctx.send(embeds=error_embed_generate(str(e)), ephemeral=True)
+        except Exception as e:
+            await error_handle(e, ctx=ctx)
+
+    return wrapper  # type: ignore
+
+
 class ValidRoleConverter(ipy.Converter):
     async def convert(
         self, context: ipy.InteractionContext, argument: ipy.Role
