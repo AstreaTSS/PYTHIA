@@ -9,7 +9,7 @@ httpx[http2]==0.28.1
 aiodns==3.5.0
 humanize==4.12.3
 python-dotenv==1.1.0
-orjson==3.10.18; implementation_name == "cpython"
+orjson==3.11.1; implementation_name == "cpython"
 rapidfuzz==3.13.0
 sentry-sdk==2.33.0
 apollo-d20[numpy]==1.2.1
