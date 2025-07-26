@@ -177,8 +177,16 @@ class BulletFinding(utils.Extension):
                 self.bot.msg_enabled_bullets_guilds.discard(int(message.guild.id))
             return
 
+        if (
+            config.bullets.thread_behavior == models.BulletThreadBehavior.PARENT
+            and isinstance(message.channel, ipy.ThreadChannel)
+        ):
+            channel_id = message.channel.parent_id
+        else:
+            channel_id = message.channel.id
+
         bullet_found = await models.TruthBullet.find(
-            message.channel.id, text_utils.replace_smart_punc(message.content)
+            channel_id, text_utils.replace_smart_punc(message.content)
         )
         if not bullet_found:
             return
@@ -260,7 +268,15 @@ class BulletFinding(utils.Extension):
                 f"{config.names.plural_bullet} are not enabled in this server."
             )
 
-        truth_bullet = await models.TruthBullet.find_exact(ctx.channel_id, trigger)
+        if (
+            config.bullets.thread_behavior == models.BulletThreadBehavior.PARENT
+            and isinstance(ctx.channel, ipy.ThreadChannel)
+        ):
+            channel_id = ctx.channel.parent_id
+        else:
+            channel_id = ctx.channel_id
+
+        truth_bullet = await models.TruthBullet.find_exact(channel_id, trigger)
         if not truth_bullet:
             raise utils.CustomCheckFailure(
                 f"No {config.names.singular_bullet} found with this trigger."
@@ -334,8 +350,22 @@ class BulletFinding(utils.Extension):
 
     @manual_trigger.autocomplete("trigger")
     async def _bullet_trigger_autocomplete(self, ctx: ipy.AutocompleteContext) -> None:
+        if not ctx.guild_id:
+            return await ctx.send([])
+
+        config = await models.BulletConfig.get_or_none(guild_id=ctx.guild_id)
+
+        if (
+            config
+            and config.thread_behavior == models.BulletThreadBehavior.PARENT
+            and isinstance(ctx.channel, ipy.ThreadChannel)
+        ):
+            channel_id = ctx.channel.parent_id
+        else:
+            channel_id = ctx.channel_id
+
         return await fuzzy.autocomplete_bullets(
-            ctx, **ctx.kwargs, channel=str(ctx.channel_id), only_not_found=True
+            ctx, **ctx.kwargs, channel=str(channel_id), only_not_found=True
         )
 
 
