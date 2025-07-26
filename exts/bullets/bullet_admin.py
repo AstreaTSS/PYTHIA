@@ -9,6 +9,7 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 import collections
 import importlib
+import typing
 
 import interactions as ipy
 import tansy
@@ -94,6 +95,19 @@ class BulletManagement(utils.Extension):
             default="yes",
         ),
     ) -> None:
+        config = await ctx.fetch_config({"bullets": True})
+        if typing.TYPE_CHECKING:
+            assert config.bullets is not None
+
+        if (
+            config.bullets.thread_behavior == models.BulletThreadBehavior.PARENT
+            and isinstance(channel, ipy.ThreadChannel)
+        ):
+            raise utils.CustomCheckFailure(
+                "Cannot add Truth Bullets to a thread while thread behavior is set to"
+                " follow the parent channel."
+            )
+
         send_button = _send_button == "yes"
 
         count = await models.TruthBullet.filter(
@@ -165,7 +179,25 @@ class BulletManagement(utils.Extension):
         ctx = event.ctx
 
         if ctx.custom_id.startswith("ui-modal:add_bullets-"):
+            await ctx.defer()
+
+            config = await models.GuildConfig.fetch_create(
+                ctx.guild_id, {"bullets": True}
+            )
+            if typing.TYPE_CHECKING:
+                assert config.bullets is not None
+
             channel_id = int(ctx.custom_id.removeprefix("ui-modal:add_bullets-"))
+            channel = await self.bot.fetch_channel(channel_id)
+
+            if (
+                config.bullets.thread_behavior == models.BulletThreadBehavior.PARENT
+                and isinstance(channel, ipy.ThreadChannel)
+            ):
+                raise utils.CustomCheckFailure(
+                    "Cannot add Truth Bullets to a thread while thread behavior is set"
+                    " to follow the parent channel."
+                )
 
             if await models.TruthBullet.validate(
                 channel_id, ctx.responses["truth_bullet_trigger"]
