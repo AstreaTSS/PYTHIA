@@ -49,6 +49,16 @@ def short_desc(description: str, length: int = 25) -> str:
     return new_description
 
 
+class BulletThreadBehavior(IntEnum):
+    """
+    DISTINCT: Threads are treated distinctly from their parent channel.
+    PARENT: Threads are treated as their parent channel.
+    """
+
+    DISTINCT = 1
+    PARENT = 2
+
+
 class ItemsRelationType(str, Enum):
     CHANNEL = "CHANNEL"
     USER = "USER"
@@ -143,6 +153,19 @@ class BulletConfig(Model):
     bullets_enabled = fields.BooleanField(default=False)
     investigation_type = fields.SmallIntField(default=1)
     show_best_finders = fields.BooleanField(default=True)
+    thread_behavior = fields.IntEnumField(
+        BulletThreadBehavior, default=BulletThreadBehavior.DISTINCT
+    )
+
+    @property
+    def thread_behavior_desc(self) -> str:
+        match self.thread_behavior:
+            case BulletThreadBehavior.DISTINCT:
+                return "Distinct entity from parent channel"
+            case BulletThreadBehavior.PARENT:
+                return "Treated as the parent channel"
+            case _:
+                raise ValueError(f"Invalid thread behavior: {self.thread_behavior}")
 
     @property
     def investigation_type_enum(self) -> InvestigationType:

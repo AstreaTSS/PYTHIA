@@ -60,6 +60,7 @@ class BulletConfigCMDs(utils.Extension):
                 "BDA Investigation mode:"
                 f" {config.bullets.investigation_type_enum.name.replace('_', ' ').title()}"
             ),
+            f"Thread behavior: {config.bullets.thread_behavior_desc}",
             (
                 "Best Truth Bullet Finder role:"
                 f" {f'<@&{config.bullets.best_bullet_finder_role}>' if config.bullets.best_bullet_finder_role else 'N/A'}"
@@ -208,6 +209,48 @@ class BulletConfigCMDs(utils.Extension):
             embed=utils.make_embed(
                 "BDA investigation mode now set to"
                 f" {config.bullets.investigation_type.name.replace('_', ' ').title()}."
+            )
+        )
+
+    @config.subcommand(
+        sub_cmd_name="thread-behavior",
+        sub_cmd_description=(
+            "Change how Truth Bullets in threads behave in relation to their parent"
+            " channel."
+        ),
+    )
+    async def set_thread_behavior(
+        self,
+        ctx: utils.THIASlashContext,
+        behavior: int = tansy.Option(
+            "The thread behavior to set.",
+            choices=[
+                ipy.SlashCommandChoice(
+                    "Distinct entity from parent channel",
+                    models.BulletThreadBehavior.DISTINCT,
+                ),
+                ipy.SlashCommandChoice(
+                    "Treated as the parent channel",
+                    models.BulletThreadBehavior.PARENT,
+                ),
+            ],
+        ),
+    ) -> None:
+        try:
+            thread_behavior = models.BulletThreadBehavior(behavior)
+        except ValueError:
+            raise ipy.errors.BadArgument("Invalid thread behavior.") from None
+
+        config = await ctx.fetch_config({"bullets": True})
+        if typing.TYPE_CHECKING:
+            assert config.bullets is not None
+
+        config.bullets.thread_behavior = thread_behavior
+        await config.bullets.save()
+
+        await ctx.send(
+            embed=utils.make_embed(
+                f"Thread behavior now set to: {config.bullets.thread_behavior_desc}."
             )
         )
 
