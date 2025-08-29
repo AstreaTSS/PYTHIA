@@ -251,7 +251,19 @@ class BulletManagement(utils.Extension):
             " irreversible."
         ),
     )
-    async def clear_bullets(self, ctx: utils.THIASlashContext) -> None:
+    async def clear_bullets(
+        self,
+        ctx: utils.THIASlashContext,
+        confirm: bool = tansy.Option(
+            "Actually clear? Set this to true if you're sure.", default=False
+        ),
+    ) -> None:
+        if not confirm:
+            raise ipy.errors.BadArgument(
+                "Confirm option not set to true. Please set the option `confirm` to"
+                " true to continue."
+            )
+
         num_deleted = await models.TruthBullet.filter(guild_id=ctx.guild_id).delete()
         if num_deleted > 0:
             await ctx.send(
