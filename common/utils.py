@@ -21,6 +21,7 @@ import tansy
 import typing_extensions as typing
 from interactions.ext import hybrid_commands as hybrid
 from interactions.ext import prefixed_commands as prefixed
+from interactions.ext.hybrid_commands.hybrid_slash import RangeConverter
 from tansy.slash_commands import tansy_parse_parameters
 
 import common.models as models
@@ -435,3 +436,51 @@ class THIAHybridContext(THIAContextMixin, hybrid.HybridContext):
 
 class THIAPrefixedContext(THIAContextMixin, prefixed.PrefixedContext):
     pass
+
+
+class FixedRangeConverter(ipy.Converter[float | int]):
+    def __init__(
+        self,
+        number_type: int,
+        min_value: float | int | None,
+        max_value: float | int | None,
+    ) -> None:
+        self.number_type = number_type
+        self.min_value = min_value
+        self.max_value = max_value
+
+        self.number_convert = int if number_type == ipy.OptionType.INTEGER else float
+
+    async def convert(self, _: ipy.BaseContext, argument: str) -> float | int:
+        try:
+            converted: float | int = await ipy.utils.maybe_coroutine(
+                self.number_convert, argument
+            )
+
+            if self.min_value and converted < self.min_value:
+                raise ipy.errors.BadArgument(
+                    f'Value "{argument}" is less than {self.min_value}.'
+                )
+            if self.max_value and converted > self.max_value:
+                raise ipy.errors.BadArgument(
+                    f'Value "{argument}" is greater than {self.max_value}.'
+                )
+
+            return converted
+        except ValueError:
+            type_name = (
+                "number" if self.number_type == ipy.OptionType.NUMBER else "integer"
+            )
+
+            if type_name.startswith("i"):
+                raise ipy.errors.BadArgument(
+                    f'Argument "{argument}" is not an {type_name}.'
+                ) from None
+            raise ipy.errors.BadArgument(
+                f'Argument "{argument}" is not a {type_name}.'
+            ) from None
+        except ipy.errors.BadArgument:
+            raise
+
+
+RangeConverter.convert = FixedRangeConverter.convert
