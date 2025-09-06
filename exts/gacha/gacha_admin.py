@@ -118,50 +118,67 @@ class GachaManagement(utils.Extension):
         dm_permission=False,
     )
 
-    @manage.subcommand(
+    manage_hybrid = tansy.HybridSlashCommand(
+        name="gacha-manage",
+        description="Handles management of gacha mechanics.",
+        default_member_permissions=ipy.Permissions.MANAGE_GUILD,
+        dm_permission=False,
+    )
+
+    @manage_hybrid.subcommand(
         "add-currency",
         sub_cmd_description="Adds an amount of currency to a user.",
     )
+    @ipy.auto_defer(enabled=False)
     async def gacha_give_currency(
         self,
-        ctx: utils.THIASlashContext,
+        ctx: utils.THIAHybridContext,
         user: ipy.Member = tansy.Option("The user to add currency to."),
         amount: int = tansy.Option(
             "The amount of currency to add.", min_value=1, max_value=2147483647
         ),
     ) -> None:
-        config = await ctx.fetch_config({"names": True, "gacha": True})
-        if typing.TYPE_CHECKING:
-            assert config.names is not None
+        async with ctx.typing:
+            if not await help_tools.prefixed_check(ctx):
+                raise utils.CustomCheckFailure(
+                    "You do not have the proper permissions to use that command."
+                )
 
-        player, _ = await models.GachaPlayer.get_or_create(
-            guild_id=ctx.guild_id, user_id=user.id
-        )
-        player.currency_amount += amount
+            config = await ctx.fetch_config({"names": True, "gacha": True})
+            if typing.TYPE_CHECKING:
+                assert config.names is not None
 
-        if player.currency_amount > 2147483647:
-            raise ipy.errors.BadArgument(
-                '"Frankly, the fact that you wish to make a person have more than'
-                f" 2,147,483,647 {config.names.currency_name(amount)} is absurd. I seek"
-                ' to assist, but I will refuse to handle amounts like this." - PYTHIA'
+            player, _ = await models.GachaPlayer.get_or_create(
+                guild_id=ctx.guild_id, user_id=user.id
             )
+            player.currency_amount += amount
 
-        await player.save()
+            if player.currency_amount > 2147483647:
+                raise ipy.errors.BadArgument(
+                    '"Frankly, the fact that you wish to make a person have more than'
+                    f" 2,147,483,647 {config.names.currency_name(amount)} is absurd. I"
+                    ' seek to assist, but I will refuse to handle amounts like this."'
+                    " - PYTHIA"
+                )
 
-        await ctx.send(
+            await player.save()
+
+        await ctx.reply(
             embed=utils.make_embed(
                 f"Added {amount} {config.names.currency_name(amount)} to"
-                f" {user.mention}. New total: {player.currency_amount}."
+                f" {user.mention}. You now have"
+                f" {player.currency_amount} {config.names.currency_name(player.currency_amount)}."
             )
         )
 
-    @manage.subcommand(
+    @manage_hybrid.subcommand(
         "remove-currency",
         sub_cmd_description="Removes a certain amount of currency from a user.",
     )
+    @ipy.auto_defer(enabled=False)
     async def gacha_remove_currency(
         self,
-        ctx: utils.THIASlashContext,
+        ctx: utils.THIAHybridContext,
         user: ipy.Member = tansy.Option(
             "The user to remove currency from.",
         ),
@@ -169,28 +186,36 @@ class GachaManagement(utils.Extension):
             "The amount of currency to remove.", min_value=1, max_value=2147483647
         ),
     ) -> None:
-        config = await ctx.fetch_config({"names": True, "gacha": True})
-        if typing.TYPE_CHECKING:
-            assert config.names is not None
+        async with ctx.typing:
+            if not await help_tools.prefixed_check(ctx):
+                raise utils.CustomCheckFailure(
+                    "You do not have the proper permissions to use that command."
+                )
 
-        player, _ = await models.GachaPlayer.get_or_create(
-            guild_id=ctx.guild_id, user_id=user.id
-        )
-        player.currency_amount -= amount
+            config = await ctx.fetch_config({"names": True, "gacha": True})
+            if typing.TYPE_CHECKING:
+                assert config.names is not None
 
-        if player.currency_amount < -2147483647:
-            raise ipy.errors.BadArgument(
-                '"Frankly, the fact that you make a person have less than than'
-                f" -2,147,483,647 {config.names.currency_name(amount)} is absurd."
-                ' Surely, you only did so to test my capabilities, correct?" - PYTHIA'
+            player, _ = await models.GachaPlayer.get_or_create(
+                guild_id=ctx.guild_id, user_id=user.id
             )
+            player.currency_amount -= amount
 
-        await player.save()
+            if player.currency_amount < -2147483647:
+                raise ipy.errors.BadArgument(
+                    '"Frankly, the fact that you make a person have less than than'
+                    f" -2,147,483,647 {config.names.currency_name(amount)} is absurd."
+                    ' Surely, you only did so to test my capabilities, correct?" -'
+                    " PYTHIA"
+                )
 
-        await ctx.send(
+            await player.save()
+
+        await ctx.reply(
             embed=utils.make_embed(
                 f"Removed {amount} {config.names.currency_name(amount)} from"
-                f" {user.mention}. New total: {player.currency_amount}."
+                f" {user.mention}. You now have"
+                f" {player.currency_amount} {config.names.currency_name(player.currency_amount)}."
             )
         )
 

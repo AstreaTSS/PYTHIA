@@ -18,18 +18,6 @@ import common.models as models
 import common.utils as utils
 
 
-async def prefixed_check(ctx: utils.THIAHybridContext) -> bool:
-    if isinstance(ctx.inner_context, ipy.SlashContext):
-        return True
-
-    if not ctx.bot.slash_perms_cache[int(ctx.guild_id)]:
-        await help_tools.process_bulk_slash_perms(ctx.bot, int(ctx.guild_id))
-
-    cmds = help_tools.get_mini_commands_for_scope(ctx.bot, int(ctx.guild_id))
-
-    return await help_tools.can_run(ctx, cmds[ctx.command.resolved_name])
-
-
 class MessageCMDs(utils.Extension):
     def __init__(self, _: utils.THIABase) -> None:
         self.name = "Messaging Commands"
@@ -57,7 +45,7 @@ class MessageCMDs(utils.Extension):
     ) -> None:
         ctx.ephemeral = True
         async with ctx.typing:
-            if not await prefixed_check(ctx):
+            if not await help_tools.prefixed_check(ctx):
                 raise utils.CustomCheckFailure(
                     "You do not have the proper permissions to use that command."
                 )
@@ -130,7 +118,7 @@ class MessageCMDs(utils.Extension):
     ) -> None:
         ctx.ephemeral = True
         async with ctx.typing:
-            if not await prefixed_check(ctx):
+            if not await help_tools.prefixed_check(ctx):
                 raise utils.CustomCheckFailure(
                     "You do not have the proper permissions to use that command."
                 )

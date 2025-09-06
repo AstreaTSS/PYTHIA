@@ -631,3 +631,15 @@ async def can_run(
                 return False
 
     return True
+
+
+async def prefixed_check(ctx: utils.THIAHybridContext) -> bool:
+    if isinstance(ctx.inner_context, ipy.SlashContext):
+        return True
+
+    if not ctx.bot.slash_perms_cache[int(ctx.guild_id)]:
+        await process_bulk_slash_perms(ctx.bot, int(ctx.guild_id))
+
+    cmds = get_mini_commands_for_scope(ctx.bot, int(ctx.guild_id))
+
+    return await can_run(ctx, cmds[ctx.command.resolved_name])
