@@ -221,7 +221,8 @@ class GachaCommands(utils.Extension):
         await ctx.send(
             embed=utils.make_embed(
                 f"Gave {amount} {config.names.currency_name(amount)} to"
-                f" {recipient.mention}. New balance: {player.currency_amount}."
+                f" {recipient.mention}. You now have"
+                f" {player.currency_amount} {config.names.currency_name(player.currency_amount)}."
             )
         )
 
