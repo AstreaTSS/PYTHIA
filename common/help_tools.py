@@ -597,6 +597,8 @@ async def can_run(
         | hybrid.HybridContext[utils.THIABase]
     ),
     cmd: MiniCommand,
+    *,
+    do_checks: bool = True,
 ) -> bool:
     """
     Determines if this command can be run, but ignores cooldowns and concurrency.
@@ -621,9 +623,10 @@ async def can_run(
     if not slash_cmd.enabled:
         return False
 
-    for check in slash_cmd.checks:
-        if not await _check_wrapper(ctx, check):
-            return False
+    if do_checks:
+        for check in slash_cmd.checks:
+            if not await _check_wrapper(ctx, check):
+                return False
 
     if slash_cmd.extension and slash_cmd.extension.extension_checks:
         for check in slash_cmd.extension.extension_checks:
@@ -647,7 +650,7 @@ def prefixed_check() -> typing.Callable[[CommandT], CommandT]:
 
             cmds = get_mini_commands_for_scope(ctx.bot, int(ctx.guild_id))
 
-            if await can_run(ctx, cmds[ctx.command.resolved_name]):
+            if await can_run(ctx, cmds[ctx.command.resolved_name], do_checks=False):
                 return True
 
             raise utils.CustomCheckFailure(
