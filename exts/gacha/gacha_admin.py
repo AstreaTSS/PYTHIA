@@ -162,7 +162,7 @@ class GachaManagement(utils.Extension):
         await ctx.reply(
             embed=utils.make_embed(
                 f"Added {amount} {config.names.currency_name(amount)} to"
-                f" {user.mention}. You now have"
+                f" {user.mention}. They now have"
                 f" {player.currency_amount} {config.names.currency_name(player.currency_amount)}."
             )
         )
@@ -206,7 +206,7 @@ class GachaManagement(utils.Extension):
         await ctx.reply(
             embed=utils.make_embed(
                 f"Removed {amount} {config.names.currency_name(amount)} from"
-                f" {user.mention}. You now have"
+                f" {user.mention}. They now have"
                 f" {player.currency_amount} {config.names.currency_name(player.currency_amount)}."
             )
         )
