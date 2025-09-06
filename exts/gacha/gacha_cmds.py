@@ -52,7 +52,9 @@ class GachaCommands(utils.Extension):
             raise utils.CustomCheckFailure("Gacha is not enabled in this server.")
 
         if not ctx.author.has_role(config.player_role):
-            raise utils.CustomCheckFailure("You do not have the Player role.")
+            raise utils.CustomCheckFailure(
+                f"You do not have the <@&{config.player_role}> role."
+            )
 
         name_for_action = ctx._command_name.split(" ")[1]
 

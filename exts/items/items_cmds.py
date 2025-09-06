@@ -64,7 +64,9 @@ class ItemsCommands(utils.Extension):
             raise utils.CustomCheckFailure("Items are not enabled in this server.")
 
         if not ctx.author.has_role(config.player_role):
-            raise utils.CustomCheckFailure("You do not have the Player role.")
+            raise utils.CustomCheckFailure(
+                f"You do not have the <@&{config.player_role}> role."
+            )
 
         item = await models.ItemsSystemItem.filter(
             name=name,
@@ -122,7 +124,9 @@ class ItemsCommands(utils.Extension):
             raise utils.CustomCheckFailure("Items are not enabled in this server.")
 
         if not ctx.author.has_role(config.player_role):
-            raise utils.CustomCheckFailure("You do not have the Player role.")
+            raise utils.CustomCheckFailure(
+                f"You do not have the <@&{config.player_role}> role."
+            )
 
         item_relations = await models.ItemRelation.filter(
             object_id=int(ctx.channel_id),
