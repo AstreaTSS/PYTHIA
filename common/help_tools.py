@@ -633,13 +633,27 @@ async def can_run(
     return True
 
 
-async def prefixed_check(ctx: utils.THIAHybridContext) -> bool:
-    if isinstance(ctx.inner_context, ipy.SlashContext):
-        return True
+CommandT = typing.TypeVar("CommandT", ipy.BaseCommand, ipy.const.AsyncCallable)
 
-    if not ctx.bot.slash_perms_cache[int(ctx.guild_id)]:
-        await process_bulk_slash_perms(ctx.bot, int(ctx.guild_id))
 
-    cmds = get_mini_commands_for_scope(ctx.bot, int(ctx.guild_id))
+def prefixed_check() -> typing.Callable[[CommandT], CommandT]:
+    def wrapper(func: CommandT) -> CommandT:
+        async def actual_check(ctx: utils.THIAHybridContext) -> bool:
+            if isinstance(ctx.inner_context, ipy.SlashContext):
+                return True
 
-    return await can_run(ctx, cmds[ctx.command.resolved_name])
+            if not ctx.bot.slash_perms_cache[int(ctx.guild_id)]:
+                await process_bulk_slash_perms(ctx.bot, int(ctx.guild_id))
+
+            cmds = get_mini_commands_for_scope(ctx.bot, int(ctx.guild_id))
+
+            if await can_run(ctx, cmds[ctx.command.resolved_name]):
+                return True
+
+            raise utils.CustomCheckFailure(
+                "You do not have the proper permissions to use that command."
+            )
+
+        return ipy.check(actual_check)(func)
+
+    return wrapper

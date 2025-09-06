@@ -130,6 +130,7 @@ class GachaManagement(utils.Extension):
         sub_cmd_description="Adds an amount of currency to a user.",
     )
     @ipy.auto_defer(enabled=False)
+    @help_tools.prefixed_check()
     async def gacha_give_currency(
         self,
         ctx: utils.THIAHybridContext,
@@ -139,11 +140,6 @@ class GachaManagement(utils.Extension):
         ),
     ) -> None:
         async with ctx.typing:
-            if not await help_tools.prefixed_check(ctx):
-                raise utils.CustomCheckFailure(
-                    "You do not have the proper permissions to use that command."
-                )
-
             config = await ctx.fetch_config({"names": True, "gacha": True})
             if typing.TYPE_CHECKING:
                 assert config.names is not None
@@ -176,6 +172,7 @@ class GachaManagement(utils.Extension):
         sub_cmd_description="Removes a certain amount of currency from a user.",
     )
     @ipy.auto_defer(enabled=False)
+    @help_tools.prefixed_check()
     async def gacha_remove_currency(
         self,
         ctx: utils.THIAHybridContext,
@@ -187,11 +184,6 @@ class GachaManagement(utils.Extension):
         ),
     ) -> None:
         async with ctx.typing:
-            if not await help_tools.prefixed_check(ctx):
-                raise utils.CustomCheckFailure(
-                    "You do not have the proper permissions to use that command."
-                )
-
             config = await ctx.fetch_config({"names": True, "gacha": True})
             if typing.TYPE_CHECKING:
                 assert config.names is not None

@@ -37,6 +37,7 @@ class MessageCMDs(utils.Extension):
         aliases=["whisper"],
     )
     @ipy.auto_defer(enabled=False)
+    @help_tools.prefixed_check()
     async def message_whisper(
         self,
         ctx: utils.THIAHybridContext,
@@ -45,11 +46,6 @@ class MessageCMDs(utils.Extension):
     ) -> None:
         ctx.ephemeral = True
         async with ctx.typing:
-            if not await help_tools.prefixed_check(ctx):
-                raise utils.CustomCheckFailure(
-                    "You do not have the proper permissions to use that command."
-                )
-
             config = await ctx.fetch_config({"messages": True})
             if typing.TYPE_CHECKING:
                 assert config.messages is not None
@@ -110,6 +106,7 @@ class MessageCMDs(utils.Extension):
         sub_cmd_description="Anonymously message another player's designated channel.",
     )
     @ipy.auto_defer(enabled=False)
+    @help_tools.prefixed_check()
     async def message_anon(
         self,
         ctx: utils.THIAHybridContext,
@@ -118,11 +115,6 @@ class MessageCMDs(utils.Extension):
     ) -> None:
         ctx.ephemeral = True
         async with ctx.typing:
-            if not await help_tools.prefixed_check(ctx):
-                raise utils.CustomCheckFailure(
-                    "You do not have the proper permissions to use that command."
-                )
-
             config = await ctx.fetch_config({"messages": True})
             if typing.TYPE_CHECKING:
                 assert config.messages is not None
