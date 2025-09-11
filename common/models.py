@@ -490,7 +490,7 @@ class GachaPlayer(Model):
     ) -> list[ipy.Embed]:
         str_builder = [
             (
-                "Currency:"
+                "Balance:"
                 f" {self.currency_amount} {names.currency_name(self.currency_amount)}"
             ),
             "\n**Items:**",
@@ -517,7 +517,7 @@ class GachaPlayer(Model):
     ) -> list[ipy.Embed]:
         str_builder = [
             (
-                "Currency:"
+                "Balance:"
                 f" {self.currency_amount} {names.currency_name(self.currency_amount)}"
             ),
             "## Items",
