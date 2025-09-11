@@ -133,7 +133,21 @@ class GachaCommands(utils.Extension):
         sub_cmd_description="Shows your gacha currency and items.",
     )
     @ipy.auto_defer(ephemeral=True)
-    async def gacha_profile(self, ctx: utils.THIASlashContext) -> None:
+    async def gacha_profile(
+        self,
+        ctx: utils.THIASlashContext,
+        mode: str = tansy.Option(
+            "The mode to show the profile in.",
+            choices=[
+                ipy.SlashCommandChoice("Cozy", "cozy"),
+                ipy.SlashCommandChoice("Compact", "compact"),
+            ],
+            default="cozy",
+        ),
+    ) -> None:
+        if mode not in ("cozy", "compact"):
+            raise ipy.errors.BadArgument("Invalid mode.")
+
         config = await ctx.fetch_config({"gacha": True, "names": True})
         if typing.TYPE_CHECKING:
             assert config.gacha is not None
@@ -155,7 +169,12 @@ class GachaCommands(utils.Extension):
             )
             await player.fetch_related("items__item")
 
-        embeds = player.create_profile(ctx.author.display_name, config.names)
+        if mode == "cozy":
+            embeds = player.create_profile_cozy(ctx.author.display_name, config.names)
+        else:
+            embeds = player.create_profile_compact(
+                ctx.author.display_name, config.names
+            )
 
         if len(embeds) > 1:
             pag = help_tools.HelpPaginator.create_from_embeds(

@@ -477,7 +477,18 @@ class GachaManagement(utils.Extension):
             "The user to view currency amount and items for.",
             type=ipy.User,
         ),
+        mode: str = tansy.Option(
+            "The mode to show the profile in.",
+            choices=[
+                ipy.SlashCommandChoice("Cozy", "cozy"),
+                ipy.SlashCommandChoice("Compact", "compact"),
+            ],
+            default="cozy",
+        ),
     ) -> None:
+        if mode not in ("cozy", "compact"):
+            raise ipy.errors.BadArgument("Invalid mode.")
+
         config = await ctx.fetch_config({"names": True})
         if typing.TYPE_CHECKING:
             assert config.names is not None
@@ -491,7 +502,12 @@ class GachaManagement(utils.Extension):
         if player is None:
             raise ipy.errors.BadArgument("The user has no data for gacha.")
 
-        embeds = player.create_profile(user.display_name, config.names)
+        if mode == "cozy":
+            embeds = player.create_profile_cozy(ctx.author.display_name, config.names)
+        else:
+            embeds = player.create_profile_compact(
+                ctx.author.display_name, config.names
+            )
 
         if len(embeds) > 1:
             pag = help_tools.HelpPaginator.create_from_embeds(
@@ -752,23 +768,51 @@ class GachaManagement(utils.Extension):
     async def gacha_view_items(
         self,
         ctx: utils.THIASlashContext,
+        mode: str = tansy.Option(
+            "The mode to show the items in.",
+            choices=[
+                ipy.SlashCommandChoice("Cozy", "cozy"),
+                ipy.SlashCommandChoice("Compact", "compact"),
+            ],
+            default="cozy",
+        ),
     ) -> None:
+        if mode not in ("cozy", "compact"):
+            raise ipy.errors.BadArgument("Invalid mode.")
+
+        config = await ctx.fetch_config({"names": True})
+        if typing.TYPE_CHECKING:
+            assert config.names is not None
+
         items = await models.GachaItem.filter(guild_id=ctx.guild_id)
 
         if not items:
             raise utils.CustomCheckFailure("This server has no items to show.")
 
-        items_list = [
-            f"**{i.name}**{f' ({i.amount} remaining)' if i.amount != -1 else ''}:"
-            f" {models.short_desc(i.description)}"
-            for i in sorted(items, key=lambda i: i.name.lower())
-        ]
-        if len(items_list) > 30:
-            chunks = [items_list[x : x + 30] for x in range(0, len(items_list), 30)]
+        if mode == "cozy":
+            items_list = [
+                f"**{i.name}**{f' ({i.amount} remaining)' if i.amount != -1 else ''}\n-#"
+                f" {config.names.rarity_name(i.rarity)} ●"
+                f" {models.short_desc(i.description, length=50)}"
+                for i in sorted(items, key=lambda i: i.name.lower())
+            ]
+            max_num = 15
+        else:
+            items_list = [
+                f"**{i.name}**{f' ({i.amount} remaining)' if i.amount != -1 else ''}:"
+                f" {models.short_desc(i.description)}"
+                for i in sorted(items, key=lambda i: i.name.lower())
+            ]
+            max_num = 30
+
+        if len(items_list) > max_num:
+            chunks = [
+                items_list[x : x + max_num] for x in range(0, len(items_list), max_num)
+            ]
             embeds = [
                 utils.make_embed(
                     "\n".join(chunk),
-                    title="Items",
+                    title="Gacha Items",
                 )
                 for chunk in chunks
             ]
@@ -782,7 +826,7 @@ class GachaManagement(utils.Extension):
             await ctx.send(
                 embed=utils.make_embed(
                     "\n".join(items_list),
-                    title="Items",
+                    title="Gacha Items",
                 )
             )
 

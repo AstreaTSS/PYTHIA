@@ -453,7 +453,41 @@ class GachaPlayer(Model):
         table = "thiagachaplayers"
         indexes: typing.ClassVar[list[tuple[str, ...]]] = [("guild_id", "user_id")]
 
-    def create_profile(self, user_display_name: str, names: "Names") -> list[ipy.Embed]:
+    def _organize_gacha_items(self) -> list[tuple[GachaHash, int]]:
+        counter: Counter[GachaHash] = Counter()
+        for item in self.items:
+            counter[GachaHash(item.item)] += 1
+        return sorted(
+            ((name, count) for name, count in counter.items()),
+            key=lambda x: x[0].item.name.lower(),
+        )
+
+    def _embedize_str_builder(
+        self, str_builder: list[str], user_display_name: str, *, limit: int
+    ) -> list[ipy.Embed]:
+        if len(str_builder) <= limit:
+            return [
+                ipy.Embed(
+                    title=f"{user_display_name}'s Gacha Profile",
+                    description="\n".join(str_builder),
+                    color=ipy.Color(int(os.environ["BOT_COLOR"])),
+                    timestamp=ipy.Timestamp.utcnow(),
+                )
+            ]
+        chunks = [str_builder[x : x + limit] for x in range(0, len(str_builder), limit)]
+        return [
+            ipy.Embed(
+                title=f"{user_display_name}'s Gacha Profile",
+                description="\n".join(chunk),
+                color=ipy.Color(int(os.environ["BOT_COLOR"])),
+                timestamp=ipy.Timestamp.utcnow(),
+            )
+            for chunk in chunks
+        ]
+
+    def create_profile_compact(
+        self, user_display_name: str, names: "Names"
+    ) -> list[ipy.Embed]:
         str_builder = [
             (
                 "Currency:"
@@ -467,15 +501,7 @@ class GachaPlayer(Model):
             and self.items
             and all(isinstance(entry.item, GachaItem) for entry in self.items)
         ):
-            counter: Counter[GachaHash] = Counter()
-            for item in self.items:
-                counter[GachaHash(item.item)] += 1
-
-            counter_data = sorted(
-                ((name, count) for name, count in counter.items()),
-                key=lambda x: x[0].item.name.lower(),
-            )
-
+            counter_data = self._organize_gacha_items()
             str_builder.extend(
                 f"**{entry.item.name}**{f' (x{count})' if count > 1 else ''} -"
                 f" {short_desc(entry.item.description)}"
@@ -484,26 +510,35 @@ class GachaPlayer(Model):
         else:
             str_builder.append("*No items.*")
 
-        if len(str_builder) <= 30:
-            return [
-                ipy.Embed(
-                    title=f"{user_display_name}'s Gacha Data",
-                    description="\n".join(str_builder),
-                    color=ipy.Color(int(os.environ["BOT_COLOR"])),
-                    timestamp=ipy.Timestamp.utcnow(),
-                )
-            ]
+        return self._embedize_str_builder(str_builder, user_display_name, limit=30)
 
-        chunks = [str_builder[x : x + 30] for x in range(0, len(str_builder), 30)]
-        return [
-            ipy.Embed(
-                title=f"{user_display_name}'s Gacha Data",
-                description="\n".join(chunk),
-                color=ipy.Color(int(os.environ["BOT_COLOR"])),
-                timestamp=ipy.Timestamp.utcnow(),
-            )
-            for chunk in chunks
+    def create_profile_cozy(
+        self, user_display_name: str, names: "Names"
+    ) -> list[ipy.Embed]:
+        str_builder = [
+            (
+                "Currency:"
+                f" {self.currency_amount} {names.currency_name(self.currency_amount)}"
+            ),
+            "## Items",
         ]
+
+        if (
+            self.items._fetched
+            and self.items
+            and all(isinstance(entry.item, GachaItem) for entry in self.items)
+        ):
+            counter_data = self._organize_gacha_items()
+            str_builder.extend(
+                f"**{entry.item.name}**{f' (x{count})' if count > 1 else ''}\n-#"
+                f" {names.rarity_name(entry.item.rarity)} ●"
+                f" {short_desc(entry.item.description, length=50)}"
+                for entry, count in counter_data
+            )
+        else:
+            str_builder.append("*No items.*")
+
+        return self._embedize_str_builder(str_builder, user_display_name, limit=15)
 
 
 class ItemToPlayer(Model):
