@@ -73,38 +73,6 @@ class GachaConfig(utils.Extension):
     def __init__(self, _: utils.THIABase) -> None:
         self.name = "Gacha Config"
 
-        self.gacha_item_create_modal = ipy.Modal(
-            ipy.InputText(
-                label="Item Name",
-                style=ipy.TextStyles.SHORT,
-                custom_id="item_name",
-                max_length=64,
-            ),
-            ipy.InputText(
-                label="Item Description",
-                style=ipy.TextStyles.PARAGRAPH,
-                custom_id="item_description",
-                max_length=1024,
-            ),
-            ipy.InputText(
-                label="Item Quantity",
-                style=ipy.TextStyles.SHORT,
-                custom_id="item_amount",
-                max_length=10,
-                placeholder="Defaults to being unlimited.",
-                required=False,
-            ),
-            ipy.InputText(
-                label="Item Image",
-                style=ipy.TextStyles.SHORT,
-                custom_id="item_image",
-                placeholder="The image URL of the item.",
-                required=False,
-            ),
-            title="Add Gacha Item",
-            custom_id="add_gacha_item",
-        )
-
     config = tansy.SlashCommand(
         name="gacha-config",
         description="Handles configuration of gacha mechanics.",

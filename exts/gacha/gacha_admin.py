@@ -82,7 +82,7 @@ class GachaManagement(utils.Extension):
                 label="Item Description",
                 style=ipy.TextStyles.PARAGRAPH,
                 custom_id="item_description",
-                max_length=1024,
+                max_length=3500,
             ),
             ipy.InputText(
                 label="Item Rarity",
@@ -632,7 +632,7 @@ class GachaManagement(utils.Extension):
                 label="Item Description",
                 style=ipy.TextStyles.PARAGRAPH,
                 custom_id="item_description",
-                max_length=1024,
+                max_length=3500,
                 value=item.description,
             ),
             ipy.InputText(
