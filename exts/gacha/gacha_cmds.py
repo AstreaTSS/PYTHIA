@@ -144,9 +144,20 @@ class GachaCommands(utils.Extension):
             ],
             default="cozy",
         ),
+        sort_by: str = tansy.Option(
+            "What should the items be sorted by?",
+            choices=[
+                ipy.SlashCommandChoice("Name", "name"),
+                ipy.SlashCommandChoice("Rarity", "rarity"),
+                ipy.SlashCommandChoice("Time First Gotten", "time_gotten"),
+            ],
+            default="name",
+        ),
     ) -> None:
         if mode not in ("cozy", "compact"):
             raise ipy.errors.BadArgument("Invalid mode.")
+        if sort_by not in ("name", "rarity", "time_gotten"):
+            raise ipy.errors.BadArgument("Invalid option for sorting.")
 
         config = await ctx.fetch_config({"gacha": True, "names": True})
         if typing.TYPE_CHECKING:
@@ -170,10 +181,12 @@ class GachaCommands(utils.Extension):
             await player.fetch_related("items__item")
 
         if mode == "cozy":
-            embeds = player.create_profile_cozy(ctx.author.display_name, config.names)
+            embeds = player.create_profile_cozy(
+                ctx.author.display_name, config.names, sort_by=sort_by
+            )
         else:
             embeds = player.create_profile_compact(
-                ctx.author.display_name, config.names
+                ctx.author.display_name, config.names, sort_by=sort_by
             )
 
         if len(embeds) > 1:

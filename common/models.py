@@ -425,11 +425,12 @@ class GachaItem(Model):
 
 
 class GachaHash:
-    __slots__ = ("id", "item")
+    __slots__ = ("id", "item", "relation_id")
 
-    def __init__(self, item: "GachaItem") -> None:
+    def __init__(self, item: "GachaItem", relation_id: int | None = None) -> None:
         self.item = item
         self.id = item.id
+        self.relation_id = relation_id
 
     def __hash__(self) -> int:
         return self.id
@@ -453,10 +454,23 @@ class GachaPlayer(Model):
         table = "thiagachaplayers"
         indexes: typing.ClassVar[list[tuple[str, ...]]] = [("guild_id", "user_id")]
 
-    def _organize_gacha_items(self) -> list[tuple[GachaHash, int]]:
+    def _organize_gacha_items(
+        self, sort_by: typing.Literal["name", "rarity", "time_gotten"]
+    ) -> list[tuple[GachaHash, int]]:
         counter: Counter[GachaHash] = Counter()
         for item in self.items:
-            counter[GachaHash(item.item)] += 1
+            counter[GachaHash(item.item, item.id)] += 1
+
+        if sort_by == "rarity":
+            return sorted(
+                ((name, count) for name, count in counter.items()),
+                key=lambda x: (x[0].item.rarity, x[0].item.name.lower()),
+            )
+        if sort_by == "time_gotten":
+            return sorted(
+                ((name, count) for name, count in counter.items()),
+                key=lambda x: x[0].relation_id if x[0].relation_id is not None else 0,
+            )
         return sorted(
             ((name, count) for name, count in counter.items()),
             key=lambda x: x[0].item.name.lower(),
@@ -486,7 +500,11 @@ class GachaPlayer(Model):
         ]
 
     def create_profile_compact(
-        self, user_display_name: str, names: "Names"
+        self,
+        user_display_name: str,
+        names: "Names",
+        *,
+        sort_by: typing.Literal["name", "rarity", "time_gotten"],
     ) -> list[ipy.Embed]:
         str_builder = [
             (
@@ -501,7 +519,7 @@ class GachaPlayer(Model):
             and self.items
             and all(isinstance(entry.item, GachaItem) for entry in self.items)
         ):
-            counter_data = self._organize_gacha_items()
+            counter_data = self._organize_gacha_items(sort_by)
             str_builder.extend(
                 f"**{entry.item.name}**{f' (x{count})' if count > 1 else ''} -"
                 f" {short_desc(entry.item.description)}"
@@ -513,7 +531,11 @@ class GachaPlayer(Model):
         return self._embedize_str_builder(str_builder, user_display_name, limit=30)
 
     def create_profile_cozy(
-        self, user_display_name: str, names: "Names"
+        self,
+        user_display_name: str,
+        names: "Names",
+        *,
+        sort_by: typing.Literal["name", "rarity", "time_gotten"],
     ) -> list[ipy.Embed]:
         str_builder = [
             (
@@ -528,7 +550,7 @@ class GachaPlayer(Model):
             and self.items
             and all(isinstance(entry.item, GachaItem) for entry in self.items)
         ):
-            counter_data = self._organize_gacha_items()
+            counter_data = self._organize_gacha_items(sort_by)
             str_builder.extend(
                 f"**{entry.item.name}**{f' (x{count})' if count > 1 else ''}\n-#"
                 f" {names.rarity_name(entry.item.rarity)} ●"

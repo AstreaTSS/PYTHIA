@@ -485,9 +485,20 @@ class GachaManagement(utils.Extension):
             ],
             default="cozy",
         ),
+        sort_by: str = tansy.Option(
+            "What should the items be sorted by?",
+            choices=[
+                ipy.SlashCommandChoice("Name", "name"),
+                ipy.SlashCommandChoice("Rarity", "rarity"),
+                ipy.SlashCommandChoice("Time First Gotten", "time_gotten"),
+            ],
+            default="name",
+        ),
     ) -> None:
         if mode not in ("cozy", "compact"):
             raise ipy.errors.BadArgument("Invalid mode.")
+        if sort_by not in ("name", "rarity", "time_gotten"):
+            raise ipy.errors.BadArgument("Invalid option for sorting.")
 
         config = await ctx.fetch_config({"names": True})
         if typing.TYPE_CHECKING:
@@ -503,10 +514,12 @@ class GachaManagement(utils.Extension):
             raise ipy.errors.BadArgument("The user has no data for gacha.")
 
         if mode == "cozy":
-            embeds = player.create_profile_cozy(ctx.author.display_name, config.names)
+            embeds = player.create_profile_cozy(
+                ctx.author.display_name, config.names, sort_by=sort_by
+            )
         else:
             embeds = player.create_profile_compact(
-                ctx.author.display_name, config.names
+                ctx.author.display_name, config.names, sort_by=sort_by
             )
 
         if len(embeds) > 1:
@@ -776,32 +789,49 @@ class GachaManagement(utils.Extension):
             ],
             default="cozy",
         ),
+        sort_by: str = tansy.Option(
+            "What should the items be sorted by?",
+            choices=[
+                ipy.SlashCommandChoice("Name", "name"),
+                ipy.SlashCommandChoice("Rarity", "rarity"),
+                ipy.SlashCommandChoice("Time Created", "time_created"),
+            ],
+            default="name",
+        ),
     ) -> None:
         if mode not in ("cozy", "compact"):
             raise ipy.errors.BadArgument("Invalid mode.")
+        if sort_by not in ("name", "rarity", "time_created"):
+            raise ipy.errors.BadArgument("Invalid option for sorting.")
 
         config = await ctx.fetch_config({"names": True})
         if typing.TYPE_CHECKING:
             assert config.names is not None
 
         items = await models.GachaItem.filter(guild_id=ctx.guild_id)
-
         if not items:
             raise utils.CustomCheckFailure("This server has no items to show.")
+
+        if sort_by == "name":
+            sorted_items = sorted(items, key=lambda i: i.name.lower())
+        elif sort_by == "rarity":
+            sorted_items = sorted(items, key=lambda i: (i.rarity.value, i.name.lower()))
+        else:
+            sorted_items = sorted(items, key=lambda i: (i.id))
 
         if mode == "cozy":
             items_list = [
                 f"**{i.name}**{f' ({i.amount} remaining)' if i.amount != -1 else ''}\n-#"
                 f" {config.names.rarity_name(i.rarity)} ●"
                 f" {models.short_desc(i.description, length=50)}"
-                for i in sorted(items, key=lambda i: i.name.lower())
+                for i in sorted_items
             ]
             max_num = 15
         else:
             items_list = [
                 f"**{i.name}**{f' ({i.amount} remaining)' if i.amount != -1 else ''}:"
                 f" {models.short_desc(i.description)}"
-                for i in sorted(items, key=lambda i: i.name.lower())
+                for i in sorted_items
             ]
             max_num = 30
 
