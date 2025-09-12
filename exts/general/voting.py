@@ -40,18 +40,15 @@ class VoteHandler:
     base_url: str = attrs.field()
     headers: dict[str, str] = attrs.field()
     data_url: str = attrs.field()
-    data_callback: typing.Callable[[int], dict[str, typing.Any]] = attrs.field()
+    data_callback: typing.Callable[[int, int], dict[str, typing.Any]] = attrs.field()
     vote_url: str | None = attrs.field()
 
 
-class Voting(ipy.Extension):
+class Voting(utils.Extension):
     session: aiohttp.ClientSession
 
     def __init__(self, _: utils.THIABase) -> None:
-
         self.name = "Voting"
-
-        self.shard_count = 1
 
         self.handlers: list[VoteHandler] = []
 
@@ -62,9 +59,9 @@ class Voting(ipy.Extension):
                     base_url="https://top.gg/api",
                     headers={"Authorization": os.environ["TOP_GG_TOKEN"]},
                     data_url="/bots/{bot_id}/stats",
-                    data_callback=lambda guild_count: {
+                    data_callback=lambda guild_count, shard_count: {
                         "server_count": guild_count,
-                        "shard_count": self.shard_count,
+                        "shard_count": shard_count,
                     },
                     vote_url="https://top.gg/bot/{bot_id}/vote **(prefered)**",
                 )
@@ -90,11 +87,12 @@ class Voting(ipy.Extension):
     @ipy.Task.create(ipy.IntervalTrigger(minutes=30))
     async def autopost_guild_count(self) -> None:
         server_count = self.bot.guild_count
+        shard_count = len(self.bot.shards)
 
         for handler in self.handlers:
             async with self.session.post(
                 f"{handler.base_url}{handler.data_url.format(bot_id=self.bot.user.id)}",
-                json=handler.data_callback(server_count),
+                json=handler.data_callback(server_count, shard_count),
                 headers=handler.headers,
             ) as r:
                 try:
