@@ -164,8 +164,10 @@ class HelpPaginator(paginators.Paginator):
 
         if self.show_select_menu:
             current = self.pages[self.page_index]
+            lower_index = max(0, min(len(self.pages) - 25, self.page_index - 12))
+
             rows[0].components[0] = ipy.StringSelectMenu(
-                [
+                *(
                     ipy.StringSelectOption(
                         label=(
                             f"{i+1}:"
@@ -173,8 +175,10 @@ class HelpPaginator(paginators.Paginator):
                         ),
                         value=str(i),
                     )
-                    for i, p in enumerate(self.pages)
-                ],
+                    for i, p in enumerate(
+                        self.pages[lower_index : lower_index + 25], start=lower_index
+                    )
+                ),
                 custom_id=f"{self._uuid}|select",
                 placeholder=(
                     f"{self.page_index+1}:"
