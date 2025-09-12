@@ -358,11 +358,12 @@ if typing.TYPE_CHECKING:
     import asyncio
     import collections
 
-    from interactions.ext.prefixed_commands import PrefixedInjectedClient
+    from interactions.ext.prefixed_commands import PrefixedManager
 
     from .help_tools import MiniCommand, PermissionsResolver
 
-    class THIABase(PrefixedInjectedClient):
+    class THIABase(ipy.AutoShardedClient):
+        prefixed: PrefixedManager
         hybrid: hybrid.HybridManager
         owner: ipy.User
         color: ipy.Color

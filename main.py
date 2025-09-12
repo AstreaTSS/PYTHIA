@@ -19,6 +19,7 @@ from collections import defaultdict
 import interactions as ipy
 import sentry_sdk
 import typing_extensions as typing
+from interactions.api.gateway.state import ConnectionState
 from interactions.ext import hybrid_commands as hybrid
 from interactions.ext import prefixed_commands as prefixed
 from tortoise import Tortoise
@@ -122,6 +123,25 @@ class PYTHIA(utils.THIABase):
             state="Assisting servers | pythia.astrea.cc",
         )
         await self.change_presence(activity=activity)
+
+    @ipy.listen(ipy.events.ShardDisconnect)
+    async def shard_disconnect(self, event: ipy.events.ShardDisconnect) -> None:
+        # this usually means disconnect with an error, which is very unusual
+        # thus, we should log this and attempt to restart
+        try:
+            await self.wait_for(ipy.events.Disconnect, timeout=1)
+        except TimeoutError:
+            return
+
+        await self.owner.send(
+            f"Shard {event.shard_id} disconnected due to an error. Attempting restart."
+        )
+        await asyncio.sleep(5)
+
+        self._connection_states[event.shard_id] = ConnectionState(
+            self, self.intents, event.shard_id
+        )
+        self.create_task(self._connection_states[event.shard_id].start())
 
     # technically, this is in ipy itself now, but its easier for my purposes to do this
     @ipy.listen("raw_application_command_permissions_update")

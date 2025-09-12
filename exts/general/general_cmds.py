@@ -59,22 +59,29 @@ class OtherCMDs(utils.Extension):
     async def ping(self, ctx: utils.THIASlashContext) -> None:
         start_time = time.perf_counter()
         average_ping = round((self.bot.latency * 1000), 2)
+        shard_id = self.bot.get_shard_id(ctx.guild_id) if ctx.guild_id else 0
+        shard_ping = round((self.bot.latencies[shard_id] * 1000), 2)
 
         embed = ipy.Embed(
             "Pong!", color=self.bot.color, timestamp=ipy.Timestamp.utcnow()
         )
-        embed.description = f"Discord Ping: `{average_ping}` ms\nCalculating RTT..."
+        embed.set_footer(f"Shard ID: {shard_id}")
+        embed.description = (
+            f"Average Ping: `{average_ping}` ms\nShard Ping: `{shard_ping}`"
+            " ms\nCalculating RTT..."
+        )
 
-        mes = await ctx.send(embed=embed)
+        await ctx.send(embed=embed)
 
         end_time = time.perf_counter()
         # not really rtt ping but shh
         rtt_ping = round(((end_time - start_time) * 1000), 2)
         embed.description = (
-            f"Discord Ping: `{average_ping}` ms\nRTT Ping: `{rtt_ping}` ms"
+            f"Average Ping: `{average_ping}` ms\nShard Ping: `{shard_ping}` ms\nRTT"
+            f" Ping: `{rtt_ping}` ms"
         )
 
-        await ctx.edit(message=mes, embed=embed)
+        await ctx.edit(embed=embed)
 
     @ipy.slash_command(
         name="invite",
@@ -152,11 +159,14 @@ class OtherCMDs(utils.Extension):
             self.bot.prefixed.commands
         )
 
+        num_shards = len(self.bot.shards)
+        shards_str = f"{num_shards} shards" if num_shards != 1 else "1 shard"
+
         about_embed.add_field(
             name="Stats",
             value="\n".join(
                 (
-                    f"Servers: {self.bot.guild_count}",
+                    f"Servers: {self.bot.guild_count} ({shards_str})",
                     f"Commands: {command_num} ",
                     (
                         "Startup Time:"
@@ -208,6 +218,9 @@ class OtherCMDs(utils.Extension):
             inline=True,
         )
         about_embed.timestamp = ipy.Timestamp.utcnow()
+
+        shard_id = self.bot.get_shard_id(ctx.guild_id) if ctx.guild_id else 0
+        about_embed.set_footer(f"Shard ID: {shard_id}")
 
         await ctx.send(embed=about_embed)
 
