@@ -376,7 +376,7 @@ if typing.TYPE_CHECKING:
 
 else:
 
-    class THIABase(ipy.Client):
+    class THIABase(ipy.AutoShardedClient):
         pass
 
 
