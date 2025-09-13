@@ -201,17 +201,17 @@ class ItemsCommands(utils.Extension):
 
             raise utils.CustomCheckFailure("You have no items in your inventory.")
 
-        items_counter: collections.Counter[str] = collections.Counter()
+        items_counter: collections.Counter[models.ItemHash] = collections.Counter()
 
         for item in user_items:
-            items_counter[item.item.name] += 1
+            items_counter[models.ItemHash(item.item)] += 1
 
         str_builder: collections.deque[str] = collections.deque()
 
-        for k, v in sorted(items_counter.items(), key=lambda i: i[0].lower()):
+        for k, v in sorted(items_counter.items(), key=lambda i: i[0].item.name.lower()):
             str_builder.append(
-                f"**{k}**{f' (x{v})' if v > 1 else ''}:"
-                f" {models.short_desc(item.item.description)}"
+                f"**{k.item.name}**{f' (x{v})' if v > 1 else ''}:"
+                f" {models.short_desc(k.item.description)}"
             )
 
         pag = help_tools.HelpPaginator.create_from_list(

@@ -179,6 +179,20 @@ class _ItemRelationHash:
         return isinstance(other, _ItemRelationHash) and self.id == other.id
 
 
+class ItemHash:
+    __slots__ = ("id", "item")
+
+    def __init__(self, item: "ItemsSystemItem") -> None:
+        self.item = item
+        self.id = item.id
+
+    def __hash__(self) -> int:
+        return self.id
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, ItemHash) and self.id == other.id
+
+
 @guild_id_model
 class ItemsSystemItem(Model):
     id = fields.IntField(pk=True)

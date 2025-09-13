@@ -284,20 +284,6 @@ def get_vesti_item_name(item: models.ItemsSystemItem) -> str:
     return item.name.lower() if isinstance(item, models.ItemsSystemItem) else item
 
 
-class _ItemHash:
-    __slots__ = ("id", "item")
-
-    def __init__(self, item: "models.ItemsSystemItem") -> None:
-        self.item = item
-        self.id = item.id
-
-    def __hash__(self) -> int:
-        return self.id
-
-    def __eq__(self, other: object) -> bool:
-        return isinstance(other, _ItemHash) and self.id == other.id
-
-
 async def autocomplete_item(
     ctx: ipy.AutocompleteContext,
     name: str,
@@ -307,7 +293,7 @@ async def autocomplete_item(
     if not unfiltered_items:
         return await ctx.send([])
 
-    guild_items = [i.item for i in {_ItemHash(j) for j in unfiltered_items}]
+    guild_items = [i.item for i in {models.ItemHash(j) for j in unfiltered_items}]
 
     if not name:
         guild_items.sort(key=lambda i: i.name)
@@ -352,7 +338,7 @@ async def autocomplete_item_channel(
     if not unfiltered_items:
         return await ctx.send([])
 
-    channel_items = [i.item for i in {_ItemHash(j) for j in unfiltered_items}]
+    channel_items = [i.item for i in {models.ItemHash(j) for j in unfiltered_items}]
 
     if not name:
         return await ctx.send(
@@ -388,7 +374,7 @@ async def autocomplete_item_user(
     if not unfiltered_items:
         return await ctx.send([])
 
-    user_items = [i.item for i in {_ItemHash(i) for i in unfiltered_items}]
+    user_items = [i.item for i in {models.ItemHash(i) for i in unfiltered_items}]
 
     if not name:
         return await ctx.send(
