@@ -298,7 +298,7 @@ class ItemsCommands(utils.Extension):
             object_id=ctx.author.id,
         ).count()
 
-        if not amount:
+        if not amount or amount == total:
             amount = total
             await models.ItemRelation.filter(
                 item_id=item.id,
@@ -318,7 +318,7 @@ class ItemsCommands(utils.Extension):
         else:
             to_update = (
                 await models.ItemRelation.filter(
-                    item_id=item.id, object_id=int(ctx.channel_id)
+                    item_id=item.id, object_id=int(ctx.author.id)
                 )
                 .limit(amount)
                 .values_list("id", flat=True)
