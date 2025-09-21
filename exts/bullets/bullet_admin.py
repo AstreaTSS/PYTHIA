@@ -350,8 +350,8 @@ class BulletManagement(utils.Extension):
         )
         embed = utils.make_embed(
             description=(
-                f"# `{bullet.trigger}` - in {bullet.chan_mention}\n-#"
-                f" {aliases}\n{bullet.description}"
+                f"# `{text_utils.escape_markdown(bullet.trigger)}` - in"
+                f" {bullet.chan_mention}\n-# {aliases}\n{bullet.description}"
             ),
         )
         embed.add_field("Hidden", utils.yesno_friendly_str(bullet.hidden), inline=True)
