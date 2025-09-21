@@ -283,7 +283,7 @@ class BulletFinding(utils.Extension):
 
         message = await ctx.send(embeds=embed, ephemeral=ctx.ephemeral)
 
-        if not truth_bullet.hidden and config.bullets.bullets_enabled:
+        if not truth_bullet.hidden:
             bullet_chan = await self.bot.fetch_channel(config.bullets.bullet_chan_id)
             if not bullet_chan or not isinstance(bullet_chan, SendMixin):
                 config.bullets.bullets_enabled = False
