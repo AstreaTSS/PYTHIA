@@ -302,9 +302,7 @@ class BulletFinding(utils.Extension):
             )
 
         await truth_bullet.save(force_update=True)
-
-        if config.bullets.bullets_enabled:
-            await self.check_for_finish(ctx.guild, bullet_chan, config)
+        await self.check_for_finish(ctx.guild, bullet_chan, config)
 
     config = tansy.SlashCommand(
         name="bullet-manage",
