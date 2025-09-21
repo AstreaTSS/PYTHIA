@@ -26,7 +26,7 @@ class BulletManagement(utils.Extension):
     def __init__(self, _: utils.THIABase) -> None:
         self.name = "Bullet"
 
-    config = tansy.SlashCommand(
+    manage = tansy.SlashCommand(
         name="bullet-manage",
         description="Handles management of Truth Bullets.",
         default_member_permissions=ipy.Permissions.MANAGE_GUILD,
@@ -72,7 +72,7 @@ class BulletManagement(utils.Extension):
             custom_id=f"ui-modal:add_bullets-{channel.id}",
         )
 
-    @config.subcommand(
+    @manage.subcommand(
         sub_cmd_name="add",
         sub_cmd_description=(
             "Open a prompt to add Truth Bullets to a specified channel."
@@ -211,7 +211,7 @@ class BulletManagement(utils.Extension):
                 ),
             )
 
-    @config.subcommand(
+    @manage.subcommand(
         "remove",
         sub_cmd_description="Removes a Truth Bullet from the list of Truth Bullets.",
     )
@@ -244,7 +244,7 @@ class BulletManagement(utils.Extension):
                 f"Truth Bullet with trigger `{trigger}` does not exists!"
             )
 
-    @config.subcommand(
+    @manage.subcommand(
         "clear",
         sub_cmd_description=(
             "Removes all Truth Bullets from the list of Truth Bullets. This action is"
@@ -274,7 +274,7 @@ class BulletManagement(utils.Extension):
                 "There's no Truth Bullets to delete for this server!"
             )
 
-    @config.subcommand(
+    @manage.subcommand(
         "list",
         sub_cmd_description="Lists all Truth Bullets in the server this is run in.",
     )
@@ -320,7 +320,7 @@ class BulletManagement(utils.Extension):
         pag.default_color = ctx.bot.color
         await pag.send(ctx)
 
-    @config.subcommand(
+    @manage.subcommand(
         "info", sub_cmd_description="Lists all information about a Truth Bullet."
     )
     async def bullet_info(
@@ -335,21 +335,35 @@ class BulletManagement(utils.Extension):
             converter=text_utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
-        possible_bullet = await models.TruthBullet.find_via_trigger(channel.id, trigger)
-        if not possible_bullet:
+        bullet = await models.TruthBullet.find_via_trigger(channel.id, trigger)
+        if not bullet:
             raise ipy.errors.BadArgument(
                 f"Truth Bullet with trigger `{trigger}` does not exist in"
                 f" {channel.mention}!"
             )
 
-        bullet_info = possible_bullet.bullet_info()
-        embed = utils.make_embed(bullet_info, title="Information about Truth Bullet")
-        if possible_bullet.image:
-            embed.add_image(possible_bullet.image)
+        aliases = (
+            "Aliases:"
+            f" {', '.join(f'`{text_utils.escape_markdown(a)}`' for a in bullet.aliases)}"
+            if bullet.aliases
+            else "N/A"
+        )
+        embed = utils.make_embed(
+            description=(
+                f"# `{bullet.trigger}` - in {bullet.chan_mention}\n-#"
+                f" {aliases}\n{bullet.description}"
+            ),
+        )
+        embed.add_field("Hidden", utils.yesno_friendly_str(bullet.hidden), inline=True)
+        embed.add_field(
+            "Finder", f"<@{bullet.finder}>" if bullet.finder else "N/A", inline=True
+        )
+        if bullet.image:
+            embed.add_image(bullet.image)
 
-        await ctx.send(embeds=embed, allowed_mentions=utils.deny_mentions(ctx.author))
+        await ctx.send(embeds=embed)
 
-    @config.subcommand(
+    @manage.subcommand(
         "edit", sub_cmd_description="Sends a prompt to edit a Truth Bullet."
     )
     @ipy.auto_defer(enabled=False)
@@ -467,7 +481,7 @@ class BulletManagement(utils.Extension):
                     )
                 )
 
-    @config.subcommand("unfind", sub_cmd_description="Un-finds a Truth Bullet.")
+    @manage.subcommand("unfind", sub_cmd_description="Un-finds a Truth Bullet.")
     async def unfind_bullet(
         self,
         ctx: utils.THIASlashContext,
@@ -497,7 +511,7 @@ class BulletManagement(utils.Extension):
 
         await ctx.send(embed=utils.make_embed("Truth Bullet un-found!"))
 
-    @config.subcommand(
+    @manage.subcommand(
         "override-finder",
         sub_cmd_description=(
             "Overrides who found a Truth Bullet with the person specified."
@@ -528,7 +542,7 @@ class BulletManagement(utils.Extension):
 
         await ctx.send(embed=utils.make_embed("Truth Bullet overrided and found!"))
 
-    @config.subcommand(
+    @manage.subcommand(
         "add-alias", sub_cmd_description="Adds an alias to the Truth Bullet specified."
     )
     async def add_alias(
@@ -592,7 +606,7 @@ class BulletManagement(utils.Extension):
             )
         )
 
-    @config.subcommand(
+    @manage.subcommand(
         "remove-alias",
         sub_cmd_description="Removes an alias from the Truth Bullet specified.",
     )

@@ -664,32 +664,6 @@ class TruthBullet(Model):
     def chan_mention(self) -> str:
         return f"<#{self.channel_id}>"
 
-    def bullet_info(self) -> str:
-        str_list = [
-            (
-                f"Trigger `{text_utils.escape_markdown(self.trigger)}` - in"
-                f" {self.chan_mention}"
-            ),
-            (
-                "Aliases:"
-                f" {', '.join(f'`{text_utils.escape_markdown(a)}`' for a in self.aliases)}"
-                if self.aliases
-                else "N/A"
-            ),
-            f"Hidden: {yesno_friendly_str(self.hidden)}",
-            f"Found: {yesno_friendly_str(self.found)}",
-        ]
-
-        str_list.extend(
-            (
-                f"Finder: {f'<@{self.finder}>' if self.finder else 'N/A'}",
-                "",
-                f"Description: {self.description}",
-            )
-        )
-
-        return "\n".join(str_list)
-
     def found_embed(self, username: str, singular_bullet: str) -> ipy.Embed:
         embed = ipy.Embed(
             title=f"{singular_bullet} Discovered",
