@@ -346,7 +346,7 @@ class BulletManagement(utils.Extension):
             "Aliases:"
             f" {', '.join(f'`{text_utils.escape_markdown(a)}`' for a in bullet.aliases)}"
             if bullet.aliases
-            else "N/A"
+            else "Aliases: N/A"
         )
         embed = utils.make_embed(
             description=(
