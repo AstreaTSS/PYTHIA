@@ -343,18 +343,20 @@ class BulletManagement(utils.Extension):
             )
 
         aliases = (
-            "Aliases:"
+            "\n-# Aliases:"
             f" {', '.join(f'`{text_utils.escape_markdown(a)}`' for a in bullet.aliases)}"
             if bullet.aliases
-            else "Aliases: N/A"
+            else ""
         )
         embed = utils.make_embed(
             description=(
                 f"# `{text_utils.escape_markdown(bullet.trigger)}` - in"
-                f" {bullet.chan_mention}\n-# {aliases}\n{bullet.description}"
+                f" {bullet.chan_mention}{aliases}\n{bullet.description}"
             ),
         )
-        embed.add_field("Hidden", utils.yesno_friendly_str(bullet.hidden), inline=True)
+        embed.add_field(
+            "Hidden", utils.yesno_friendly_str(bullet.hidden).title(), inline=True
+        )
         embed.add_field(
             "Finder", f"<@{bullet.finder}>" if bullet.finder else "N/A", inline=True
         )
