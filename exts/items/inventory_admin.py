@@ -41,7 +41,18 @@ class InventoryManagement(utils.Extension):
         user: ipy.Member = tansy.Option(
             "The user to view the inventory of.",
         ),
+        mode: str = tansy.Option(
+            "The mode to show the inventory in.",
+            choices=[
+                ipy.SlashCommandChoice("Cozy", "cozy"),
+                ipy.SlashCommandChoice("Compact", "compact"),
+            ],
+            default="cozy",
+        ),
     ) -> None:
+        if mode not in ("cozy", "compact"):
+            raise ipy.errors.BadArgument("Invalid mode.")
+
         user_items = await models.ItemRelation.filter(
             object_id=user.id,
         ).prefetch_related("item")
@@ -53,27 +64,45 @@ class InventoryManagement(utils.Extension):
         for item in user_items:
             items_counter[models.ItemHash(item.item)] += 1
 
-        str_builder: collections.deque[str] = collections.deque()
+        str_builder: list[str] = []
 
         for k, v in sorted(items_counter.items(), key=lambda i: i[0].item.name.lower()):
-            str_builder.append(
-                f"**{k.item.name}**{f' (x{v})' if v > 1 else ''}:"
-                f" {models.short_desc(k.item.description)}"
+            if mode == "compact":
+                str_builder.append(
+                    f"**{k.item.name}**{f' (x{v})' if v > 1 else ''}:"
+                    f" {models.short_desc(k.item.description)}"
+                )
+            else:
+                str_builder.append(
+                    f"**{k.item.name}**{f' (x{v})' if v > 1 else ''}\n-#"
+                    f" {models.short_desc(k.item.description, 70)}"
+                )
+
+        limit = 15 if mode == "cozy" else 30
+
+        if len(str_builder) > limit:
+            chunks = [
+                str_builder[x : x + limit] for x in range(0, len(str_builder), limit)
+            ]
+            embeds = [
+                utils.make_embed(
+                    title=f"{user.display_name}'s Inventory",
+                    description="\n".join(entry),
+                )
+                for entry in chunks
+            ]
+        else:
+            await ctx.send(
+                embeds=utils.make_embed(
+                    title=f"{user.display_name}'s Inventory",
+                    description="\n".join(str_builder),
+                ),
             )
-
-        pag = help_tools.HelpPaginator.create_from_list(
-            ctx.bot, list(str_builder), timeout=300
-        )
-        for page in pag.pages:
-            page.title = f"{user.display_name}'s Inventory"
-
-        if len(pag.pages) == 1:
-            embed = pag.pages[0].to_embed()  # type: ignore
-            embed.timestamp = ipy.Timestamp.utcnow()
-            embed.color = ctx.bot.color
-            await ctx.send(embeds=embed)
             return
 
+        pag = help_tools.HelpPaginator.create_from_embeds(
+            self.bot, *embeds, timeout=300
+        )
         pag.show_callback_button = False
         pag.default_color = ctx.bot.color
         await pag.send(ctx)

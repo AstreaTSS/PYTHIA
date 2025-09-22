@@ -380,17 +380,39 @@ class ItemsManagement(utils.Extension):
         "list-items",
         sub_cmd_description="Lists all items in the server.",
     )
-    async def list_items(self, ctx: utils.THIASlashContext) -> None:
+    async def list_items(
+        self,
+        ctx: utils.THIASlashContext,
+        mode: str = tansy.Option(
+            "The mode to show the list of items in.",
+            choices=[
+                ipy.SlashCommandChoice("Cozy", "cozy"),
+                ipy.SlashCommandChoice("Compact", "compact"),
+            ],
+            default="cozy",
+        ),
+    ) -> None:
+        if mode not in ("cozy", "compact"):
+            raise ipy.errors.BadArgument("Invalid mode.")
+
         items = await models.ItemsSystemItem.filter(guild_id=ctx.guild_id)
         if not items:
             raise utils.CustomCheckFailure("This server has no items to show.")
 
         items_list = [
-            f"**{i.name}**: {models.short_desc(i.description)}"
+            (
+                f"**{i.name}**: {models.short_desc(i.description)}"
+                if mode == "compact"
+                else f"**{i.name}**\n-# {models.short_desc(i.description, 70)}"
+            )
             for i in sorted(items, key=lambda i: i.name.lower())
         ]
-        if len(items_list) > 30:
-            chunks = [items_list[x : x + 30] for x in range(0, len(items_list), 30)]
+        limit = 15 if mode == "cozy" else 30
+
+        if len(items_list) > limit:
+            chunks = [
+                items_list[x : x + limit] for x in range(0, len(items_list), limit)
+            ]
             embeds = [
                 utils.make_embed(
                     "\n".join(chunk),
@@ -471,42 +493,71 @@ class ItemsManagement(utils.Extension):
         channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
             "The channel to list items for.",
         ),
+        mode: str = tansy.Option(
+            "The mode to show the list of items in.",
+            choices=[
+                ipy.SlashCommandChoice("Cozy", "cozy"),
+                ipy.SlashCommandChoice("Compact", "compact"),
+            ],
+            default="cozy",
+        ),
     ) -> None:
+        if mode not in ("cozy", "compact"):
+            raise ipy.errors.BadArgument("Invalid mode.")
+
         channel_items = await models.ItemRelation.filter(
             object_id=channel.id,
         ).prefetch_related("item")
         if not channel_items:
             raise utils.CustomCheckFailure("This channel has no items placed in it.")
 
-        items_counter: collections.Counter[str] = collections.Counter()
+        items_counter: collections.Counter[models.ItemHash] = collections.Counter()
 
         for item in channel_items:
-            items_counter[item.item.name] += 1
+            items_counter[models.ItemHash(item.item)] += 1
 
-        str_builder: collections.deque[str] = collections.deque()
+        str_builder: list[str] = []
 
-        for k, v in sorted(items_counter.items(), key=lambda i: i[0].lower()):
-            str_builder.append(
-                f"**{k}** x{v}: {models.short_desc(item.item.description)}"
+        for k, v in sorted(items_counter.items(), key=lambda i: i[0].item.name.lower()):
+            if mode == "compact":
+                str_builder.append(
+                    f"**{k.item.name}**{f' (x{v})' if v > 1 else ''}:"
+                    f" {models.short_desc(k.item.description)}"
+                )
+            else:
+                str_builder.append(
+                    f"**{k.item.name}**{f' (x{v})' if v > 1 else ''}\n-#"
+                    f" {models.short_desc(k.item.description, 70)}"
+                )
+
+        limit = 15 if mode == "cozy" else 30
+
+        if len(str_builder) > limit:
+            chunks = [
+                str_builder[x : x + limit] for x in range(0, len(str_builder), limit)
+            ]
+            embeds = [
+                utils.make_embed(
+                    title=f"Items in #{channel.name}", description="\n".join(entry)
+                )
+                for entry in chunks
+            ]
+        else:
+            await ctx.send(
+                embeds=utils.make_embed(
+                    title=f"Items in #{channel.name}",
+                    description="\n".join(str_builder),
+                ),
+                ephemeral=True,
             )
-
-        pag = help_tools.HelpPaginator.create_from_list(
-            ctx.bot, list(str_builder), timeout=300
-        )
-        for page in pag.pages:
-            page.title = f"Items in #{channel.name}"
-
-        if len(pag.pages) == 1:
-            embed = pag.pages[0].to_embed()  # type: ignore
-            embed.timestamp = ipy.Timestamp.utcnow()
-            embed.color = ctx.bot.color
-            await ctx.send(embeds=embed)
             return
 
+        pag = help_tools.HelpPaginator.create_from_embeds(
+            self.bot, *embeds, timeout=300
+        )
         pag.show_callback_button = False
-        pag.show_select_menu = False
         pag.default_color = ctx.bot.color
-        await pag.send(ctx)
+        await pag.send(ctx, ephemeral=True)
 
     @manage.subcommand(
         "place-item-in-channel",
