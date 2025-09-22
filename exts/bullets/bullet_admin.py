@@ -140,7 +140,7 @@ class BulletManagement(utils.Extension):
 
     add_bullet_full = utils.alias(
         add_bullets,
-        "add-bullet",
+        "bullet-manage add-bullet",
         "Adds a Truth Bullet to a channel. Alias to /bullet-manage add.",
     )
 
@@ -250,7 +250,7 @@ class BulletManagement(utils.Extension):
 
     delete_bullet = utils.alias(
         remove_bullet,
-        "delete-bullet",
+        "bullet-manage delete-bullet",
         "Deletes a Truth Bullet. Alias to /bullet-manage remove.",
     )
 
@@ -283,7 +283,7 @@ class BulletManagement(utils.Extension):
 
     clear_bullets_full = utils.alias(
         clear_bullets,
-        "clear-bullets",
+        "bullet-manage clear-bullets",
         "Clears all Truth Bullets. Alias to /bullet-manage clear.",
     )
 
@@ -335,7 +335,7 @@ class BulletManagement(utils.Extension):
 
     list_bullets_full = utils.alias(
         list_bullets,
-        "list-bullet",
+        "bullet-manage list-bullets",
         "Lists all Truth Bullets. Alias to /bullet-manage list.",
     )
 
@@ -386,7 +386,7 @@ class BulletManagement(utils.Extension):
 
     view_bullet = utils.alias(
         bullet_info,
-        "view-bullet",
+        "bullet-manage view-bullet",
         "Views a Truth Bullet. Alias to /bullet-manage info.",
     )
 
@@ -451,7 +451,7 @@ class BulletManagement(utils.Extension):
 
     edit_bullet_full = utils.alias(
         edit_bullet,
-        "edit-bullet",
+        "bullet-manage edit-bullet",
         "Edits a Truth Bullet. Alias to /bullet-manage edit.",
     )
 
@@ -544,7 +544,7 @@ class BulletManagement(utils.Extension):
 
     unfind_bullet_full = utils.alias(
         unfind_bullet,
-        "unfind-bullet",
+        "bullet-manage unfind-bullet",
         "Un-finds a Truth Bullet. Alias to /bullet-manage unfind.",
     )
 
