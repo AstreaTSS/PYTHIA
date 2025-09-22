@@ -99,8 +99,8 @@ class BulletManagement(utils.Extension):
         count = await models.TruthBullet.filter(
             guild_id=ctx.guild_id,
         ).count()
-        if count > 300:
-            raise utils.CustomCheckFailure("Cannot add more than 300 Truth Bullets.")
+        if count > 500:
+            raise utils.CustomCheckFailure("Cannot add more than 500 Truth Bullets.")
 
         if send_button:
             await ctx.defer()
@@ -318,7 +318,7 @@ class BulletManagement(utils.Extension):
             str_builder.append("")
 
         pag = help_tools.HelpPaginator.create_from_list(
-            ctx.bot, list(str_builder), timeout=300
+            ctx.bot, list(str_builder), timeout=120
         )
         if len(pag.pages) == 1:
             embed = pag.pages[0].to_embed()  # type: ignore

@@ -251,7 +251,7 @@ class ItemsCommands(utils.Extension):
             return
 
         pag = help_tools.HelpPaginator.create_from_embeds(
-            self.bot, *embeds, timeout=300
+            self.bot, *embeds, timeout=120
         )
         pag.show_callback_button = False
         pag.default_color = ctx.bot.color

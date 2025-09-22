@@ -468,7 +468,7 @@ class ItemsManagement(utils.Extension):
             str_builder.append("")
 
         pag = help_tools.HelpPaginator.create_from_list(
-            ctx.bot, list(str_builder), timeout=300
+            ctx.bot, list(str_builder), timeout=120
         )
         if len(pag.pages) == 1:
             embed = pag.pages[0].to_embed()  # type: ignore
@@ -553,7 +553,7 @@ class ItemsManagement(utils.Extension):
             return
 
         pag = help_tools.HelpPaginator.create_from_embeds(
-            self.bot, *embeds, timeout=300
+            self.bot, *embeds, timeout=120
         )
         pag.show_callback_button = False
         pag.default_color = ctx.bot.color
