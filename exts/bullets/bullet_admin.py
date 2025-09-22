@@ -74,9 +74,7 @@ class BulletManagement(utils.Extension):
 
     @manage.subcommand(
         sub_cmd_name="add",
-        sub_cmd_description=(
-            "Open a prompt to add Truth Bullets to a specified channel."
-        ),
+        sub_cmd_description="Adds a Truth Bullet to a channel.",
     )
     @ipy.auto_defer(enabled=False)
     async def add_bullets(
@@ -139,6 +137,12 @@ class BulletManagement(utils.Extension):
             )
         else:
             await ctx.send_modal(self.add_truth_bullets_modal(channel))
+
+    add_bullet_full = utils.alias(
+        add_bullets,
+        "add-bullet",
+        "Adds a Truth Bullet to a channel. Alias to /bullet-manage add.",
+    )
 
     @ipy.listen("component")
     async def on_add_bullets_button(self, event: ipy.events.Component) -> None:
@@ -213,7 +217,7 @@ class BulletManagement(utils.Extension):
 
     @manage.subcommand(
         "remove",
-        sub_cmd_description="Removes a Truth Bullet from the list of Truth Bullets.",
+        sub_cmd_description="Removes a Truth Bullet.",
     )
     async def remove_bullet(
         self,
@@ -244,12 +248,15 @@ class BulletManagement(utils.Extension):
                 f"Truth Bullet with trigger `{trigger}` does not exists!"
             )
 
+    delete_bullet = utils.alias(
+        remove_bullet,
+        "delete-bullet",
+        "Deletes a Truth Bullet. Alias to /bullet-manage remove.",
+    )
+
     @manage.subcommand(
         "clear",
-        sub_cmd_description=(
-            "Removes all Truth Bullets from the list of Truth Bullets. This action is"
-            " irreversible."
-        ),
+        sub_cmd_description="Removes all Truth Bullets. This action is irreversible.",
     )
     async def clear_bullets(
         self,
@@ -274,9 +281,15 @@ class BulletManagement(utils.Extension):
                 "There's no Truth Bullets to delete for this server!"
             )
 
+    clear_bullets_full = utils.alias(
+        clear_bullets,
+        "clear-bullets",
+        "Clears all Truth Bullets. Alias to /bullet-manage clear.",
+    )
+
     @manage.subcommand(
         "list",
-        sub_cmd_description="Lists all Truth Bullets in the server this is run in.",
+        sub_cmd_description="Lists all Truth Bullets in the server.",
     )
     async def list_bullets(self, ctx: utils.THIASlashContext) -> None:
         guild_bullets = await models.TruthBullet.filter(
@@ -320,8 +333,14 @@ class BulletManagement(utils.Extension):
         pag.default_color = ctx.bot.color
         await pag.send(ctx)
 
+    list_bullets_full = utils.alias(
+        list_bullets,
+        "list-bullet",
+        "Lists all Truth Bullets. Alias to /bullet-manage list.",
+    )
+
     @manage.subcommand(
-        "info", sub_cmd_description="Lists all information about a Truth Bullet."
+        "info", sub_cmd_description="Displays information about a Truth Bullet."
     )
     async def bullet_info(
         self,
@@ -365,9 +384,13 @@ class BulletManagement(utils.Extension):
 
         await ctx.send(embeds=embed)
 
-    @manage.subcommand(
-        "edit", sub_cmd_description="Sends a prompt to edit a Truth Bullet."
+    view_bullet = utils.alias(
+        bullet_info,
+        "view-bullet",
+        "Views a Truth Bullet. Alias to /bullet-manage info.",
     )
+
+    @manage.subcommand("edit", sub_cmd_description="Edits a Truth Bullet.")
     @ipy.auto_defer(enabled=False)
     async def edit_bullet(
         self,
@@ -425,6 +448,12 @@ class BulletManagement(utils.Extension):
             custom_id=f"ui:edit-bullet-{channel.id}|{trigger}",
         )
         await ctx.send_modal(modal)
+
+    edit_bullet_full = utils.alias(
+        edit_bullet,
+        "edit-bullet",
+        "Edits a Truth Bullet. Alias to /bullet-manage edit.",
+    )
 
     @ipy.listen("modal_completion")
     @utils.modal_event_error_handler
@@ -512,6 +541,12 @@ class BulletManagement(utils.Extension):
         await possible_bullet.save(force_update=True)
 
         await ctx.send(embed=utils.make_embed("Truth Bullet un-found!"))
+
+    unfind_bullet_full = utils.alias(
+        unfind_bullet,
+        "unfind-bullet",
+        "Un-finds a Truth Bullet. Alias to /bullet-manage unfind.",
+    )
 
     @manage.subcommand(
         "override-finder",
