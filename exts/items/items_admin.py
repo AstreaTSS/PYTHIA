@@ -448,12 +448,12 @@ class ItemsManagement(utils.Extension):
                 "This server has no items placed in channels."
             )
 
-        items_dict: collections.defaultdict[int, collections.Counter[str]] = (
-            collections.defaultdict(collections.Counter)
-        )
+        items_dict: collections.defaultdict[
+            int, collections.Counter[models.ItemHash]
+        ] = collections.defaultdict(collections.Counter)
 
         for item in placed_items:
-            items_dict[item.object_id][item.item.name] += 1
+            items_dict[item.object_id][models.ItemHash(item.item)] += 1
 
         str_builder: collections.deque[str] = collections.deque()
 
@@ -461,9 +461,9 @@ class ItemsManagement(utils.Extension):
             str_builder.append(f"<#{channel_id}>:")
 
             for k, v in sorted(
-                items_dict[channel_id].items(), key=lambda i: i[0].lower()
+                items_dict[channel_id].items(), key=lambda i: i[0].item.name.lower()
             ):
-                str_builder.append(f"- **{k}** x{v}")
+                str_builder.append(f"- **{k.item.name}** x{v}")
 
             str_builder.append("")
 
