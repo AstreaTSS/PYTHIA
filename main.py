@@ -202,6 +202,7 @@ bot = PYTHIA(
     allowed_mentions=mentions,
     intents=intents,
     interaction_context=utils.THIAInteractionContext,
+    component_context=utils.THIAComponentContext,
     slash_context=utils.THIASlashContext,
     modal_context=utils.THIAModalContext,
     auto_defer=ipy.AutoDefer(enabled=True, time_until_defer=0),

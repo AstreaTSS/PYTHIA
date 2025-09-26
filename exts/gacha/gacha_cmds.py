@@ -43,6 +43,48 @@ class GachaCommands(utils.Extension):
         sub_cmd_description="Rolls for an item in the gacha.",
     )
     async def gacha_roll(self, ctx: utils.THIASlashContext) -> None:
+        await self.gacha_roll_actual(
+            ctx, name_for_action=ctx._command_name.split(" ")[1]
+        )
+
+    @ipy.listen(ipy.events.ButtonPressed)
+    async def gacha_roll_button(self, event: ipy.events.ButtonPressed) -> None:
+        if not event.ctx.custom_id.startswith("gacha-roll-"):
+            return
+
+        if event.ctx.message.interaction_metadata and int(event.ctx.author_id) != int(
+            event.ctx.message.interaction_metadata._user_id
+        ):
+            await event.ctx.send(
+                embeds=utils.error_embed_generate(
+                    "You cannot use this button as you did not initiate the"
+                    f" {event.ctx.custom_id.removeprefix('gacha-roll-')}."
+                ),
+                ephemeral=True,
+            )
+            return
+
+        try:
+            await self.gacha_roll_actual(
+                event.ctx,
+                name_for_action=event.ctx.custom_id.removeprefix("gacha-roll-"),
+            )
+        except Exception as e:
+            if isinstance(e, utils.CustomCheckFailure | ipy.errors.BadArgument):
+                embed = utils.error_embed_generate(str(e))
+                await event.ctx.send(embeds=embed)
+            else:
+                await utils.error_handle(e, ctx=event.ctx)
+
+    async def gacha_roll_actual(
+        self,
+        ctx: utils.THIASlashContext | utils.THIAComponentContext,
+        *,
+        name_for_action: str,
+    ) -> None:
+        if isinstance(ctx, utils.THIAComponentContext):
+            await ctx.defer()
+
         config = await ctx.fetch_config({"gacha": True, "names": True})
         if typing.TYPE_CHECKING:
             assert config.gacha is not None
@@ -55,8 +97,6 @@ class GachaCommands(utils.Extension):
             raise utils.CustomCheckFailure(
                 f"You do not have the <@&{config.player_role}> role."
             )
-
-        name_for_action = ctx._command_name.split(" ")[1]
 
         async with self.gacha_roll_locks[str(ctx.author_id)]:
             player, _ = await models.GachaPlayer.get_or_create(
@@ -101,7 +141,15 @@ class GachaCommands(utils.Extension):
                 f"{new_count} {config.names.currency_name(new_count)} left"
             )
 
-            await ctx.send(embed=embed)
+            button: ipy.Button | None = None
+            if new_count >= config.gacha.currency_cost:
+                button = ipy.Button(
+                    style=ipy.ButtonStyle.PRIMARY,
+                    label=f"{name_for_action.capitalize()} Again",
+                    custom_id=f"gacha-roll-{name_for_action}",
+                )
+
+            await ctx.send(embed=embed, components=button)
 
             async with in_transaction():
                 if item.amount != -1:

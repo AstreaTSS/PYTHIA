@@ -427,6 +427,10 @@ class THIAInteractionContext(THIAContextMixin, ipy.InteractionContext):
     pass
 
 
+class THIAComponentContext(THIAContextMixin, ipy.ComponentContext):
+    pass
+
+
 class THIASlashContext(THIAContextMixin, ipy.SlashContext):
     pass
 
