@@ -68,6 +68,7 @@ class GachaCommands(utils.Extension):
             await self.gacha_roll_actual(
                 event.ctx,
                 name_for_action=event.ctx.custom_id.removeprefix("gacha-roll-"),
+                button_press=True,
             )
         except Exception as e:
             if isinstance(e, utils.CustomCheckFailure | ipy.errors.BadArgument):
@@ -81,6 +82,7 @@ class GachaCommands(utils.Extension):
         ctx: utils.THIASlashContext | utils.THIAComponentContext,
         *,
         name_for_action: str,
+        button_press: bool = False,
     ) -> None:
         if isinstance(ctx, utils.THIAComponentContext):
             await ctx.defer()
@@ -149,7 +151,12 @@ class GachaCommands(utils.Extension):
                     custom_id=f"gacha-roll-{name_for_action}",
                 )
 
-            await ctx.send(embed=embed, components=button)
+            await ctx.send(
+                content=ctx.author.mention if button_press else None,
+                embed=embed,
+                components=button,
+                allowed_mentions=ipy.AllowedMentions.none(),
+            )
 
             async with in_transaction():
                 if item.amount != -1:
