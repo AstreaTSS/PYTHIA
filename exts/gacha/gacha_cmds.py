@@ -73,7 +73,11 @@ class GachaCommands(utils.Extension):
         except Exception as e:
             if isinstance(e, utils.CustomCheckFailure | ipy.errors.BadArgument):
                 embed = utils.error_embed_generate(str(e))
-                await event.ctx.send(embeds=embed)
+                await event.ctx.send(
+                    event.ctx.author.mention,
+                    embeds=embed,
+                    allowed_mentions=ipy.AllowedMentions.none(),
+                )
             else:
                 await utils.error_handle(e, ctx=event.ctx)
 
