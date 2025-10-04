@@ -7,6 +7,7 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """
 
+import contextlib
 import importlib
 
 import interactions as ipy
@@ -277,7 +278,14 @@ class GachaCommands(utils.Extension):
         if not config.player_role or not config.gacha.enabled:
             raise utils.CustomCheckFailure("Gacha is not enabled in this server.")
 
-        async with self.bot.gacha_locks[f"{ctx.guild_id}-{ctx.author.id}"]:
+        async with contextlib.AsyncExitStack() as stack:
+            await stack.enter_async_context(
+                self.bot.gacha_locks[f"{ctx.guild_id}-{ctx.author.id}"]
+            )
+            await stack.enter_async_context(
+                self.bot.gacha_locks[f"{ctx.guild_id}-{recipient.id}"]
+            )
+
             player = await models.GachaPlayer.get_or_none(
                 guild_id=ctx.guild_id, user_id=ctx.author.id
             )
