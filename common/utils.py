@@ -371,6 +371,7 @@ if typing.TYPE_CHECKING:
         slash_perms_cache: collections.defaultdict[int, dict[int, PermissionsResolver]]
         mini_commands_per_scope: dict[int, dict[str, MiniCommand]]
         msg_enabled_bullets_guilds: set[int]
+        gacha_locks: collections.defaultdict[str, asyncio.Lock]
 
         def create_task(self, coro: typing.Coroutine) -> asyncio.Task: ...
 

@@ -7,9 +7,7 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """
 
-import asyncio
 import importlib
-from collections import defaultdict
 
 import interactions as ipy
 import tansy
@@ -27,10 +25,6 @@ import common.utils as utils
 class GachaCommands(utils.Extension):
     def __init__(self, _: utils.THIABase) -> None:
         self.name = "Gacha Commands"
-
-        self.gacha_roll_locks: defaultdict[str, asyncio.Lock] = defaultdict(
-            asyncio.Lock
-        )
 
     gacha = tansy.SlashCommand(
         name="gacha",
@@ -106,7 +100,7 @@ class GachaCommands(utils.Extension):
                 f"You do not have the {player_role_name} role."
             )
 
-        async with self.gacha_roll_locks[str(ctx.author_id)]:
+        async with self.bot.gacha_locks[f"{ctx.guild_id}-{ctx.author.id}"]:
             player, _ = await models.GachaPlayer.get_or_create(
                 guild_id=ctx.guild_id, user_id=ctx.author.id
             )
@@ -283,41 +277,44 @@ class GachaCommands(utils.Extension):
         if not config.player_role or not config.gacha.enabled:
             raise utils.CustomCheckFailure("Gacha is not enabled in this server.")
 
-        player = await models.GachaPlayer.get_or_none(
-            guild_id=ctx.guild_id, user_id=ctx.author.id
-        )
-        if player is None:
-            if not ctx.author.has_role(config.player_role):
-                raise ipy.errors.BadArgument("You have no data for gacha.")
-            player = await models.GachaPlayer.create(
+        async with self.bot.gacha_locks[f"{ctx.guild_id}-{ctx.author.id}"]:
+            player = await models.GachaPlayer.get_or_none(
                 guild_id=ctx.guild_id, user_id=ctx.author.id
             )
+            if player is None:
+                if not ctx.author.has_role(config.player_role):
+                    raise ipy.errors.BadArgument("You have no data for gacha.")
+                player = await models.GachaPlayer.create(
+                    guild_id=ctx.guild_id, user_id=ctx.author.id
+                )
 
-        if player.currency_amount < amount:
-            raise utils.CustomCheckFailure("You do not have enough currency to give.")
+            if player.currency_amount < amount:
+                raise utils.CustomCheckFailure(
+                    "You do not have enough currency to give."
+                )
 
-        recipient_player = await models.GachaPlayer.get_or_none(
-            guild_id=ctx.guild_id, user_id=recipient.id
-        )
-        if recipient_player is None:
-            if not recipient.has_role(config.player_role):
-                raise ipy.errors.BadArgument("The recipient has no data for gacha.")
-            recipient_player = await models.GachaPlayer.create(
+            recipient_player = await models.GachaPlayer.get_or_none(
                 guild_id=ctx.guild_id, user_id=recipient.id
             )
+            if recipient_player is None:
+                if not recipient.has_role(config.player_role):
+                    raise ipy.errors.BadArgument("The recipient has no data for gacha.")
+                recipient_player = await models.GachaPlayer.create(
+                    guild_id=ctx.guild_id, user_id=recipient.id
+                )
 
-        recipient_player.currency_amount += amount
-        player.currency_amount -= amount
-        await recipient_player.save()
-        await player.save()
+            recipient_player.currency_amount += amount
+            player.currency_amount -= amount
+            await recipient_player.save()
+            await player.save()
 
-        await ctx.send(
-            embed=utils.make_embed(
-                f"Gave {amount} {config.names.currency_name(amount)} to"
-                f" {recipient.mention}. You now have"
-                f" {player.currency_amount} {config.names.currency_name(player.currency_amount)}."
+            await ctx.send(
+                embed=utils.make_embed(
+                    f"Gave {amount} {config.names.currency_name(amount)} to"
+                    f" {recipient.mention}. You now have"
+                    f" {player.currency_amount} {config.names.currency_name(player.currency_amount)}."
+                )
             )
-        )
 
     @gacha.subcommand(
         "view-item",

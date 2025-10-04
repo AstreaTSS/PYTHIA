@@ -8,6 +8,7 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """
 
 import asyncio
+import contextlib
 import importlib
 import io
 
@@ -144,20 +145,21 @@ class GachaManagement(utils.Extension):
             if typing.TYPE_CHECKING:
                 assert config.names is not None
 
-            player, _ = await models.GachaPlayer.get_or_create(
-                guild_id=ctx.guild_id, user_id=user.id
-            )
-            player.currency_amount += amount
-
-            if player.currency_amount > 2147483647:
-                raise ipy.errors.BadArgument(
-                    '"Frankly, the fact that you wish to make a person have more than'
-                    f" 2,147,483,647 {config.names.currency_name(amount)} is absurd. I"
-                    ' seek to assist, but I will refuse to handle amounts like this."'
-                    " - PYTHIA"
+            async with self.bot.gacha_locks[f"{ctx.guild_id}-{user.id}"]:
+                player, _ = await models.GachaPlayer.get_or_create(
+                    guild_id=ctx.guild_id, user_id=user.id
                 )
+                player.currency_amount += amount
 
-            await player.save()
+                if player.currency_amount > 2147483647:
+                    raise ipy.errors.BadArgument(
+                        '"Frankly, the fact that you wish to make a person have more'
+                        f" than 2,147,483,647 {config.names.currency_name(amount)} is"
+                        " absurd. I seek to assist, but I will refuse to handle"
+                        ' amounts like this." - PYTHIA'
+                    )
+
+                await player.save()
 
         await ctx.reply(
             embed=utils.make_embed(
@@ -188,20 +190,21 @@ class GachaManagement(utils.Extension):
             if typing.TYPE_CHECKING:
                 assert config.names is not None
 
-            player, _ = await models.GachaPlayer.get_or_create(
-                guild_id=ctx.guild_id, user_id=user.id
-            )
-            player.currency_amount -= amount
-
-            if player.currency_amount < -2147483647:
-                raise ipy.errors.BadArgument(
-                    '"Frankly, the fact that you make a person have less than than'
-                    f" -2,147,483,647 {config.names.currency_name(amount)} is absurd."
-                    ' Surely, you only did so to test my capabilities, correct?" -'
-                    " PYTHIA"
+            async with self.bot.gacha_locks[f"{ctx.guild_id}-{user.id}"]:
+                player, _ = await models.GachaPlayer.get_or_create(
+                    guild_id=ctx.guild_id, user_id=user.id
                 )
+                player.currency_amount -= amount
 
-            await player.save()
+                if player.currency_amount < -2147483647:
+                    raise ipy.errors.BadArgument(
+                        '"Frankly, the fact that you make a person have less than than'
+                        f" -2,147,483,647 {config.names.currency_name(amount)} is"
+                        " absurd. Surely, you only did so to test my capabilities,"
+                        ' correct?" - PYTHIA'
+                    )
+
+                await player.save()
 
         await ctx.reply(
             embed=utils.make_embed(
@@ -223,14 +226,17 @@ class GachaManagement(utils.Extension):
             type=ipy.User,
         ),
     ) -> None:
-        amount = await models.GachaPlayer.filter(
-            guild_id=ctx.guild_id, user_id=user.id, currency_amount__not=0
-        ).update(currency_amount=0)
+        async with self.bot.gacha_locks[f"{ctx.guild_id}-{user.id}"]:
+            amount = await models.GachaPlayer.filter(
+                guild_id=ctx.guild_id, user_id=user.id, currency_amount__not=0
+            ).update(currency_amount=0)
 
-        if amount == 0:
-            raise ipy.errors.BadArgument("The user has no currency to reset.")
+            if amount == 0:
+                raise ipy.errors.BadArgument("The user has no currency to reset.")
 
-        await ctx.send(embed=utils.make_embed(f"Reset currency for {user.mention}."))
+            await ctx.send(
+                embed=utils.make_embed(f"Reset currency for {user.mention}.")
+            )
 
     @manage.subcommand(
         "reset-items",
@@ -406,32 +412,38 @@ class GachaManagement(utils.Extension):
                 "No members with the Player role were found."
             )
 
-        existing_players = await models.GachaPlayer.filter(
-            guild_id=ctx.guild_id,
-            user_id__in=[int(m["member"]["user"]["id"]) for m in members],
-        )
-        if any(p.currency_amount + amount > 2147483647 for p in existing_players):
-            raise ipy.errors.BadArgument(
-                "One or more users would have more than the maximum amount of currency,"
-                " 2,147,483,647, after this operation."
-            )
-
-        existing_players_set = {p.user_id for p in existing_players}
-        non_existing_players = {
-            int(m["member"]["user"]["id"]) for m in members
-        }.difference(existing_players_set)
-
-        async with in_transaction():
-            await models.GachaPlayer.filter(
-                guild_id=ctx.guild_id, user_id__in=list(existing_players_set)
-            ).update(currency_amount=F("currency_amount") + amount)
-
-            await models.GachaPlayer.bulk_create(
-                models.GachaPlayer(
-                    guild_id=ctx.guild_id, user_id=user_id, currency_amount=amount
+        async with contextlib.AsyncExitStack() as stack:
+            for m in members:
+                await stack.enter_async_context(
+                    self.bot.gacha_locks[f"{ctx.guild_id}-{m['member']['user']['id']}"]
                 )
-                for user_id in non_existing_players
+
+            existing_players = await models.GachaPlayer.filter(
+                guild_id=ctx.guild_id,
+                user_id__in=[int(m["member"]["user"]["id"]) for m in members],
             )
+            if any(p.currency_amount + amount > 2147483647 for p in existing_players):
+                raise ipy.errors.BadArgument(
+                    "One or more users would have more than the maximum amount of"
+                    " currency, 2,147,483,647, after this operation."
+                )
+
+            existing_players_set = {p.user_id for p in existing_players}
+            non_existing_players = {
+                int(m["member"]["user"]["id"]) for m in members
+            }.difference(existing_players_set)
+
+            async with in_transaction():
+                await models.GachaPlayer.filter(
+                    guild_id=ctx.guild_id, user_id__in=list(existing_players_set)
+                ).update(currency_amount=F("currency_amount") + amount)
+
+                await models.GachaPlayer.bulk_create(
+                    models.GachaPlayer(
+                        guild_id=ctx.guild_id, user_id=user_id, currency_amount=amount
+                    )
+                    for user_id in non_existing_players
+                )
 
         await ctx.send(
             embed=utils.make_embed(
