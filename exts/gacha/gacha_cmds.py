@@ -100,8 +100,10 @@ class GachaCommands(utils.Extension):
             raise utils.CustomCheckFailure("Gacha is not enabled in this server.")
 
         if not ctx.author.has_role(config.player_role):
+            player_role = await ctx.guild.fetch_role(config.player_role)
+            player_role_name = player_role.name if player_role else "Player"
             raise utils.CustomCheckFailure(
-                f"You do not have the <@&{config.player_role}> role."
+                f"You do not have the {player_role_name} role."
             )
 
         async with self.gacha_roll_locks[str(ctx.author_id)]:
