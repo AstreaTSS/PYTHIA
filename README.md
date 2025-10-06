@@ -19,7 +19,7 @@
 PYTHIA is a Discord bot meant to assist with various parts of running Danganronpa/Killing Game RPs. Currently, it assists with:
 - The process of creating and running BDA investigations through an intuitive investigation system.
 - Rolling and managing dice through the dice system.
-- Making a gachapon with unique items with rarities and adjustable rules through the gacha system. 
+- Making a gachapon with unique items with rarities and adjustable rules through the gacha system.
 - Allowing for general investigations and the discovery of items around places through the items system.
 - Managing simple messaging between players through the messaging system.
 
