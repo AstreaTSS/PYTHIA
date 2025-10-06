@@ -110,7 +110,8 @@ class GachaCommands(utils.Extension):
                 raise utils.CustomCheckFailure(
                     f"You do not have enough {config.names.plural_currency_name} to"
                     f" {name_for_action} the gacha. You need at least"
-                    f" {config.gacha.currency_cost} {config.names.currency_name(config.gacha.currency_cost)} to"
+                    f" {config.gacha.currency_cost}"
+                    f" {config.names.currency_name(config.gacha.currency_cost)} to"
                     " do so."
                 )
 
@@ -319,8 +320,8 @@ class GachaCommands(utils.Extension):
             await ctx.send(
                 embed=utils.make_embed(
                     f"Gave {amount} {config.names.currency_name(amount)} to"
-                    f" {recipient.mention}. You now have"
-                    f" {player.currency_amount} {config.names.currency_name(player.currency_amount)}."
+                    f" {recipient.mention}. You now have {player.currency_amount}"
+                    f" {config.names.currency_name(player.currency_amount)}."
                 )
             )
 
