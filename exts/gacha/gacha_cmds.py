@@ -17,6 +17,7 @@ from tortoise.expressions import F
 from tortoise.query_utils import Prefetch
 from tortoise.transactions import in_transaction
 
+import common.classes as classes
 import common.fuzzy as fuzzy
 import common.help_tools as help_tools
 import common.models as models
@@ -195,10 +196,12 @@ class GachaCommands(utils.Extension):
         mode: str = tansy.Option(
             "The mode to show the profile in.",
             choices=[
+                ipy.SlashCommandChoice("Modern", "modern"),
+                ipy.SlashCommandChoice("Spacious (Modern)", "spacious"),
                 ipy.SlashCommandChoice("Cozy", "cozy"),
                 ipy.SlashCommandChoice("Compact", "compact"),
             ],
-            default="cozy",
+            default="modern",
         ),
         sort_by: str = tansy.Option(
             "What should the items be sorted by?",
@@ -210,7 +213,7 @@ class GachaCommands(utils.Extension):
             default="name",
         ),
     ) -> None:
-        if mode not in ("cozy", "compact"):
+        if mode not in ("cozy", "compact", "modern", "spacious"):
             raise ipy.errors.BadArgument("Invalid mode.")
         if sort_by not in ("name", "rarity", "time_gotten"):
             raise ipy.errors.BadArgument("Invalid option for sorting.")
@@ -235,6 +238,33 @@ class GachaCommands(utils.Extension):
                 guild_id=ctx.guild_id, user_id=ctx.author.id
             )
             await player.fetch_related("items__item")
+
+        if mode == "modern" or mode == "spacious":
+            if mode == "spacious":
+                chunks = player.create_profile_spacious(config.names, sort_by=sort_by)
+            else:
+                chunks = player.create_profile_modern(config.names, sort_by=sort_by)
+
+            if len(chunks) == 1:
+                await ctx.send(
+                    components=ipy.ContainerComponent(
+                        ipy.TextDisplayComponent(
+                            f"# {ctx.author.display_name}'s Gacha Profile"
+                        ),
+                        *chunks[0],
+                        accent_color=self.bot.color.value,
+                    ),
+                    ephemeral=True,
+                )
+                return
+
+            pag = classes.ContainerPaginator(
+                self.bot,
+                title=f"{ctx.author.display_name}'s Gacha Profile",
+                pages_data=chunks,
+            )
+            await pag.send(ctx, ephemeral=True)
+            return
 
         if mode == "cozy":
             embeds = player.create_profile_cozy(
@@ -345,6 +375,34 @@ class GachaCommands(utils.Extension):
                 "Item either does not exist or you do not have it."
             )
 
+    @ipy.listen(ipy.events.ButtonPressed)
+    async def gacha_view_item_button(self, event: ipy.events.ButtonPressed) -> None:
+        if not event.ctx.custom_id.startswith("gacha-item-"):
+            return
+
+        await event.ctx.defer(ephemeral=True)
+
+        item = await models.GachaItem.get_or_none(
+            id=event.ctx.custom_id.removeprefix("gacha-item-").removesuffix("-admin"),
+            guild_id=event.ctx.guild_id,
+        )
+        if item is None:
+            await event.ctx.send(
+                embeds=utils.error_embed_generate("This item no longer exists."),
+                ephemeral=True,
+            )
+            return
+
+        await self.gacha_view_item_actual(
+            event.ctx, item, show_amount=event.ctx.custom_id.endswith("-admin")
+        )
+
+    async def gacha_view_item_actual(
+        self,
+        ctx: utils.THIASlashContext | utils.THIAComponentContext,
+        item: models.GachaItem,
+        show_amount: bool = False,
+    ) -> None:
         show_rarity = await models.GachaItem.filter(
             guild_id=ctx.guild_id,
             rarity__not=item.rarity,
@@ -357,7 +415,9 @@ class GachaCommands(utils.Extension):
 
         rarities, _ = await models.GachaRarities.get_or_create(guild_id=ctx.guild_id)
         await ctx.send(
-            embed=item.embed(config.names, rarities, show_rarity=show_rarity),
+            embed=item.embed(
+                config.names, rarities, show_rarity=show_rarity, show_amount=show_amount
+            ),
             ephemeral=True,
         )
 
@@ -370,4 +430,5 @@ def setup(bot: utils.THIABase) -> None:
     importlib.reload(utils)
     importlib.reload(help_tools)
     importlib.reload(fuzzy)
+    importlib.reload(classes)
     GachaCommands(bot)

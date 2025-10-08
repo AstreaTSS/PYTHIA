@@ -576,6 +576,95 @@ class GachaPlayer(Model):
 
         return self._embedize_str_builder(str_builder, user_display_name, limit=15)
 
+    def create_profile_modern(
+        self,
+        names: "Names",
+        *,
+        sort_by: typing.Literal["name", "rarity", "time_gotten"],
+    ) -> list[list[ipy.BaseComponent]]:
+
+        component_builder: list[ipy.BaseComponent] = []
+
+        if (
+            self.items._fetched
+            and self.items
+            and all(isinstance(entry.item, GachaItem) for entry in self.items)
+        ):
+            counter_data = self._organize_gacha_items(sort_by)
+            component_builder.extend(
+                ipy.TextDisplayComponent(
+                    f"**{entry.item.name}**{f' (x{count})' if count > 1 else ''}\n-#"
+                    f" {names.rarity_name(entry.item.rarity)} ●"
+                    f" {short_desc(entry.item.description, length=50)}"
+                )
+                for entry, count in counter_data
+            )
+        else:
+            component_builder.append(ipy.TextDisplayComponent("*No items.*"))
+
+        chunks = [
+            component_builder[x : x + 15] for x in range(0, len(component_builder), 15)
+        ]
+        chunks[0].insert(0, ipy.SeparatorComponent(divider=True))
+        chunks[0].insert(
+            0,
+            ipy.TextDisplayComponent(
+                "Balance:"
+                f" {self.currency_amount} {names.currency_name(self.currency_amount)}"
+            ),
+        )
+        return chunks
+
+    def create_profile_spacious(
+        self,
+        names: "Names",
+        *,
+        sort_by: typing.Literal["name", "rarity", "time_gotten"],
+        admin: bool = False,
+    ) -> list[list[ipy.BaseComponent]]:
+
+        component_builder: list[ipy.BaseComponent] = [
+            ipy.TextDisplayComponent(
+                "Balance:"
+                f" {self.currency_amount} {names.currency_name(self.currency_amount)}"
+            ),
+            ipy.SeparatorComponent(divider=True),
+        ]
+
+        if (
+            self.items._fetched
+            and self.items
+            and all(isinstance(entry.item, GachaItem) for entry in self.items)
+        ):
+            counter_data = self._organize_gacha_items(sort_by)
+            component_builder.extend(
+                ipy.SectionComponent(
+                    components=[
+                        ipy.TextDisplayComponent(
+                            f"**{entry.item.name}**{f' (x{count})' if count > 1 else ''}\n-#"
+                            f" {names.rarity_name(entry.item.rarity)} ●"
+                            f" {short_desc(entry.item.description, length=50)}"
+                        )
+                    ],
+                    accessory=ipy.Button(
+                        style=ipy.ButtonStyle.GRAY,
+                        label="View",
+                        custom_id=(
+                            f"gacha-item-{entry.item.id}-admin"
+                            if admin
+                            else f"gacha-item-{entry.item.id}"
+                        ),
+                    ),
+                )
+                for entry, count in counter_data
+            )
+        else:
+            component_builder.append(ipy.TextDisplayComponent("*No items.*"))
+
+        return [
+            component_builder[x : x + 10] for x in range(0, len(component_builder), 10)
+        ]
+
 
 class ItemToPlayer(Model):
     id = fields.IntField(pk=True)

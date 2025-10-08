@@ -24,6 +24,7 @@ from tortoise.expressions import F
 from tortoise.query_utils import Prefetch
 from tortoise.transactions import in_transaction
 
+import common.classes as classes
 import common.exports as exports
 import common.fuzzy as fuzzy
 import common.help_tools as help_tools
@@ -492,10 +493,12 @@ class GachaManagement(utils.Extension):
         mode: str = tansy.Option(
             "The mode to show the profile in.",
             choices=[
+                ipy.SlashCommandChoice("Modern", "modern"),
+                ipy.SlashCommandChoice("Spacious (Modern)", "spacious"),
                 ipy.SlashCommandChoice("Cozy", "cozy"),
                 ipy.SlashCommandChoice("Compact", "compact"),
             ],
-            default="cozy",
+            default="modern",
         ),
         sort_by: str = tansy.Option(
             "What should the items be sorted by?",
@@ -507,7 +510,7 @@ class GachaManagement(utils.Extension):
             default="name",
         ),
     ) -> None:
-        if mode not in ("cozy", "compact"):
+        if mode not in ("cozy", "compact", "modern", "spacious"):
             raise ipy.errors.BadArgument("Invalid mode.")
         if sort_by not in ("name", "rarity", "time_gotten"):
             raise ipy.errors.BadArgument("Invalid option for sorting.")
@@ -524,6 +527,34 @@ class GachaManagement(utils.Extension):
 
         if player is None:
             raise ipy.errors.BadArgument("The user has no data for gacha.")
+
+        if mode == "modern" or mode == "spacious":
+            if mode == "spacious":
+                chunks = player.create_profile_spacious(
+                    config.names, sort_by=sort_by, admin=True
+                )
+            else:
+                chunks = player.create_profile_modern(config.names, sort_by=sort_by)
+
+            if len(chunks) == 1:
+                await ctx.send(
+                    components=ipy.ContainerComponent(
+                        ipy.TextDisplayComponent(
+                            f"# {ctx.author.display_name}'s Gacha Profile"
+                        ),
+                        *chunks[0],
+                        accent_color=self.bot.color.value,
+                    )
+                )
+                return
+
+            pag = classes.ContainerPaginator(
+                self.bot,
+                title=f"{ctx.author.display_name}'s Gacha Profile",
+                pages_data=chunks,
+            )
+            await pag.send(ctx)
+            return
 
         if mode == "cozy":
             embeds = player.create_profile_cozy(
@@ -542,6 +573,13 @@ class GachaManagement(utils.Extension):
             await pag.send(ctx)
         else:
             await ctx.send(embeds=embeds)
+
+    gacha_inventory = utils.alias(
+        gacha_view,
+        "gacha-manage user-inventory",
+        "Views the currency amount and items of a user. Alias of /gacha-manage"
+        " user-profile.",
+    )
 
     @manage.subcommand(
         "add-item",
@@ -1176,4 +1214,5 @@ def setup(bot: utils.THIABase) -> None:
     importlib.reload(text_utils)
     importlib.reload(help_tools)
     importlib.reload(exports)
+    importlib.reload(classes)
     GachaManagement(bot)
