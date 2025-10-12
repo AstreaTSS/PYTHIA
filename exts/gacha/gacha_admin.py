@@ -8,7 +8,6 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """
 
 import asyncio
-import contextlib
 import importlib
 import io
 
@@ -413,11 +412,11 @@ class GachaManagement(utils.Extension):
                 "No members with the Player role were found."
             )
 
-        async with contextlib.AsyncExitStack() as stack:
+        try:
             for m in members:
-                await stack.enter_async_context(
-                    self.bot.gacha_locks[f"{ctx.guild_id}-{m['member']['user']['id']}"]
-                )
+                await self.bot.gacha_locks[
+                    f"{ctx.guild_id}-{m['member']['user']['id']}"
+                ].acquire()
 
             existing_players = await models.GachaPlayer.filter(
                 guild_id=ctx.guild_id,
@@ -445,6 +444,11 @@ class GachaManagement(utils.Extension):
                     )
                     for user_id in non_existing_players
                 )
+        finally:
+            for m in members:
+                self.bot.gacha_locks[
+                    f"{ctx.guild_id}-{m['member']['user']['id']}"
+                ].release()
 
         await ctx.send(
             embed=utils.make_embed(
