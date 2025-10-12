@@ -183,8 +183,8 @@ class OtherCMDs(utils.Extension):
                         f" [{IPY_VERSION}](https://github.com/interactions-py/interactions.py/tree/{IPY_VERSION})"
                     ),
                     (
-                        "Python Version:"
-                        f" {PYTHON_IMPLEMENTATION} {PYTHON_VERSION[0]}.{PYTHON_VERSION[1]}"
+                        f"Python Version: {PYTHON_IMPLEMENTATION}"
+                        f" {PYTHON_VERSION[0]}.{PYTHON_VERSION[1]}"
                     ),
                     "Made By: [AstreaTSS](https://astrea.cc)",
                 )

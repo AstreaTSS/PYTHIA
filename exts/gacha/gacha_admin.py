@@ -164,8 +164,8 @@ class GachaManagement(utils.Extension):
         await ctx.reply(
             embed=utils.make_embed(
                 f"Added {amount} {config.names.currency_name(amount)} to"
-                f" {user.mention}. They now have"
-                f" {player.currency_amount} {config.names.currency_name(player.currency_amount)}."
+                f" {user.mention}. They now have {player.currency_amount}"
+                f" {config.names.currency_name(player.currency_amount)}."
             )
         )
 
@@ -209,8 +209,8 @@ class GachaManagement(utils.Extension):
         await ctx.reply(
             embed=utils.make_embed(
                 f"Removed {amount} {config.names.currency_name(amount)} from"
-                f" {user.mention}. They now have"
-                f" {player.currency_amount} {config.names.currency_name(player.currency_amount)}."
+                f" {user.mention}. They now have {player.currency_amount}"
+                f" {config.names.currency_name(player.currency_amount)}."
             )
         )
 
@@ -474,8 +474,8 @@ class GachaManagement(utils.Extension):
 
         str_build: list[str] = []
         str_build.extend(
-            f"<@{player.user_id}> -"
-            f" {player.currency_amount} {config.names.currency_name(player.currency_amount)}"
+            f"<@{player.user_id}> - {player.currency_amount}"
+            f" {config.names.currency_name(player.currency_amount)}"
             for player in players
         )
 
