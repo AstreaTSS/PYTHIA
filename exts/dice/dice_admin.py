@@ -19,6 +19,8 @@ import common.help_tools as help_tools
 import common.models as models
 import common.utils as utils
 
+d20_roll = d20.Roller(d20.RollContext(100)).roll
+
 
 class DiceManagement(utils.Extension):
     def __init__(self, _: utils.THIABase) -> None:
@@ -131,7 +133,7 @@ class DiceManagement(utils.Extension):
             )
 
         try:
-            result = d20.roll(entry.value)
+            result = d20_roll(entry.value)
         except d20.errors.RollSyntaxError as e:
             raise ipy.errors.BadArgument(f"Invalid dice roll syntax.\n{e!s}") from None
         except d20.errors.TooManyRolls:
@@ -179,7 +181,7 @@ class DiceManagement(utils.Extension):
         await ctx.fetch_config({"dice": True})
 
         try:
-            d20.roll(dice)
+            d20_roll(dice)
         except d20.errors.RollSyntaxError as e:
             raise ipy.errors.BadArgument(f"Invalid dice roll syntax.\n{e!s}") from None
         except d20.errors.TooManyRolls:
