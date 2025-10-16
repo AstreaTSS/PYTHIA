@@ -374,6 +374,8 @@ class GachaCommands(utils.Extension):
                 "Item either does not exist or you do not have it."
             )
 
+        await self.gacha_view_item_actual(ctx, item)
+
     @ipy.listen(ipy.events.ButtonPressed)
     async def gacha_view_item_button(self, event: ipy.events.ButtonPressed) -> None:
         if not event.ctx.custom_id.startswith("gacha-item-"):
