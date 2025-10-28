@@ -350,8 +350,10 @@ class GachaCommands(utils.Extension):
                 )
             )
         finally:
-            self.bot.gacha_locks[f"{ctx.guild_id}-{ctx.author.id}"].release()
-            self.bot.gacha_locks[f"{ctx.guild_id}-{recipient.id}"].release()
+            if self.bot.gacha_locks[f"{ctx.guild_id}-{ctx.author.id}"].locked():
+                self.bot.gacha_locks[f"{ctx.guild_id}-{ctx.author.id}"].release()
+            if self.bot.gacha_locks[f"{ctx.guild_id}-{recipient.id}"].locked():
+                self.bot.gacha_locks[f"{ctx.guild_id}-{recipient.id}"].release()
 
     @gacha.subcommand(
         "view-item",

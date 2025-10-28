@@ -446,9 +446,12 @@ class GachaManagement(utils.Extension):
                 )
         finally:
             for m in members:
-                self.bot.gacha_locks[
+                if self.bot.gacha_locks[
                     f"{ctx.guild_id}-{m['member']['user']['id']}"
-                ].release()
+                ].locked():
+                    self.bot.gacha_locks[
+                        f"{ctx.guild_id}-{m['member']['user']['id']}"
+                    ].release()
 
         await ctx.send(
             embed=utils.make_embed(
