@@ -146,20 +146,22 @@ class GachaManagement(utils.Extension):
                 assert config.names is not None
 
             async with self.bot.gacha_locks[f"{ctx.guild_id}-{user.id}"]:
-                player, _ = await models.GachaPlayer.get_or_create(
-                    guild_id=ctx.guild_id, user_id=user.id
-                )
-                player.currency_amount += amount
-
-                if player.currency_amount > 2147483647:
-                    raise ipy.errors.BadArgument(
-                        '"Frankly, the fact that you wish to make a person have more'
-                        f" than 2,147,483,647 {config.names.currency_name(amount)} is"
-                        " absurd. I seek to assist, but I will refuse to handle"
-                        ' amounts like this." - PYTHIA'
+                async with asyncio.timeout(60):
+                    player, _ = await models.GachaPlayer.get_or_create(
+                        guild_id=ctx.guild_id, user_id=user.id
                     )
+                    player.currency_amount += amount
 
-                await player.save()
+                    if player.currency_amount > 2147483647:
+                        raise ipy.errors.BadArgument(
+                            '"Frankly, the fact that you wish to make a person have'
+                            " more than 2,147,483,647"
+                            f" {config.names.currency_name(amount)} is absurd. I seek"
+                            " to assist, but I will refuse to handle amounts like"
+                            ' this." - PYTHIA'
+                        )
+
+                    await player.save()
 
         await ctx.reply(
             embed=utils.make_embed(
@@ -191,20 +193,21 @@ class GachaManagement(utils.Extension):
                 assert config.names is not None
 
             async with self.bot.gacha_locks[f"{ctx.guild_id}-{user.id}"]:
-                player, _ = await models.GachaPlayer.get_or_create(
-                    guild_id=ctx.guild_id, user_id=user.id
-                )
-                player.currency_amount -= amount
-
-                if player.currency_amount < -2147483647:
-                    raise ipy.errors.BadArgument(
-                        '"Frankly, the fact that you make a person have less than than'
-                        f" -2,147,483,647 {config.names.currency_name(amount)} is"
-                        " absurd. Surely, you only did so to test my capabilities,"
-                        ' correct?" - PYTHIA'
+                async with asyncio.timeout(60):
+                    player, _ = await models.GachaPlayer.get_or_create(
+                        guild_id=ctx.guild_id, user_id=user.id
                     )
+                    player.currency_amount -= amount
 
-                await player.save()
+                    if player.currency_amount < -2147483647:
+                        raise ipy.errors.BadArgument(
+                            '"Frankly, the fact that you make a person have less than'
+                            f" than -2,147,483,647 {config.names.currency_name(amount)}"
+                            " is absurd. Surely, you only did so to test my"
+                            ' capabilities, correct?" - PYTHIA'
+                        )
+
+                    await player.save()
 
         await ctx.reply(
             embed=utils.make_embed(
