@@ -305,6 +305,11 @@ class GachaCommands(utils.Extension):
             assert config.gacha is not None
             assert config.names is not None
 
+        if int(ctx.author.id) == int(recipient.id):
+            raise ipy.errors.BadArgument(
+                f"You cannot give {config.names.plural_currency_name} to yourself."
+            )
+
         if not config.player_role or not config.gacha.enabled:
             raise utils.CustomCheckFailure("Gacha is not enabled in this server.")
 
