@@ -882,8 +882,7 @@ class GuildConfig(Model):
         return await config._fill_in_include(include) if config else config
 
 
-FIND_TRUTH_BULLET_STR: typing.Final[str] = (
-    f"""
+FIND_TRUTH_BULLET_STR: typing.Final[str] = f"""
 SELECT
     {', '.join(TruthBullet._meta.fields)}
 FROM
@@ -900,10 +899,8 @@ WHERE
         )
     );
 """.strip()  # noqa: S608
-)
 
-VALIDATE_TRUTH_BULLET_STR: typing.Final[str] = (
-    """
+VALIDATE_TRUTH_BULLET_STR: typing.Final[str] = """
 SELECT
     1
 FROM
@@ -919,10 +916,8 @@ WHERE
         )
     );
 """.strip()
-)
 
-FIND_TRUTH_BULLET_EXACT_STR: typing.Final[str] = (
-    f"""
+FIND_TRUTH_BULLET_EXACT_STR: typing.Final[str] = f"""
 SELECT
     {', '.join(TruthBullet._meta.fields)}
 FROM
@@ -938,12 +933,10 @@ WHERE
         )
     );
 """.strip()  # noqa: S608
-)
 
 # the weird rarity stuff ensures that items with the same rarity are favored first,
 # then rarities lower than the picked rarity, and finally rarities higher than the picked rarity
-GACHA_ROLL_STR: typing.Final[str] = (
-    f"""
+GACHA_ROLL_STR: typing.Final[str] = f"""
 SELECT
     {', '.join(GachaItem._meta.fields_db_projection)}
 FROM
@@ -958,10 +951,8 @@ ORDER BY
     RANDOM()
     LIMIT 1;
 """.strip()  # noqa: S608
-)
 
-GACHA_ROLL_NO_DUPS_STR: typing.Final[str] = (
-    f"""
+GACHA_ROLL_NO_DUPS_STR: typing.Final[str] = f"""
 SELECT
     {', '.join(GachaItem._meta.fields_db_projection)}
 FROM
@@ -984,4 +975,3 @@ ORDER BY
     RANDOM()
     LIMIT 1;
 """.strip()  # noqa: S608
-)
