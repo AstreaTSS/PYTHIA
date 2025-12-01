@@ -535,8 +535,8 @@ class GachaPlayer(Model):
         ):
             counter_data = self._organize_gacha_items(sort_by)
             str_builder.extend(
-                f"**{entry.item.name}**{f' (x{count})' if count > 1 else ''} -"
-                f" {short_desc(entry.item.description)}"
+                f"**{text_utils.escape_markdown(entry.item.name)}**{f' (x{count})' if count > 1 else ''}"
+                f" - {short_desc(entry.item.description)}"
                 for entry, count in counter_data
             )
         else:
@@ -566,7 +566,7 @@ class GachaPlayer(Model):
         ):
             counter_data = self._organize_gacha_items(sort_by)
             str_builder.extend(
-                f"**{entry.item.name}**{f' (x{count})' if count > 1 else ''}\n-#"
+                f"**{text_utils.escape_markdown(entry.item.name)}**{f' (x{count})' if count > 1 else ''}\n-#"
                 f" {names.rarity_name(entry.item.rarity)} ●"
                 f" {short_desc(entry.item.description, length=50)}"
                 for entry, count in counter_data
@@ -593,7 +593,7 @@ class GachaPlayer(Model):
             counter_data = self._organize_gacha_items(sort_by)
             component_builder.extend(
                 ipy.TextDisplayComponent(
-                    f"**{entry.item.name}**{f' (x{count})' if count > 1 else ''}\n-#"
+                    f"**{text_utils.escape_markdown(entry.item.name)}**{f' (x{count})' if count > 1 else ''}\n-#"
                     f" {names.rarity_name(entry.item.rarity)} ●"
                     f" {short_desc(entry.item.description, length=50)}"
                 )
