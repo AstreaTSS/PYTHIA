@@ -312,7 +312,7 @@ class BulletManagement(utils.Extension):
                 bullet_dict[channel_id], key=lambda x: x.trigger.lower()
             ):
                 str_builder.append(
-                    f"- `{bullet.trigger}`{' (found)' if bullet.found else ''}"
+                    f"- `{text_utils.escape_markdown(bullet.trigger)}`{' (found)' if bullet.found else ''}"
                 )
 
             str_builder.append("")

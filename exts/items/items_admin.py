@@ -401,9 +401,13 @@ class ItemsManagement(utils.Extension):
 
         items_list = [
             (
-                f"**{i.name}**: {models.short_desc(i.description)}"
+                f"**{text_utils.escape_markdown(i.name)}**:"
+                f" {models.short_desc(i.description)}"
                 if mode == "compact"
-                else f"**{i.name}**\n-# {models.short_desc(i.description, 70)}"
+                else (
+                    f"**{text_utils.escape_markdown(i.name)}**\n-#"
+                    f" {models.short_desc(i.description, 70)}"
+                )
             )
             for i in sorted(items, key=lambda i: i.name.lower())
         ]
@@ -463,7 +467,9 @@ class ItemsManagement(utils.Extension):
             for k, v in sorted(
                 items_dict[channel_id].items(), key=lambda i: i[0].item.name.lower()
             ):
-                str_builder.append(f"- **{k.item.name}** x{v}")
+                str_builder.append(
+                    f"- **{text_utils.escape_markdown(k.item.name)}** x{v}"
+                )
 
             str_builder.append("")
 
@@ -521,12 +527,12 @@ class ItemsManagement(utils.Extension):
         for k, v in sorted(items_counter.items(), key=lambda i: i[0].item.name.lower()):
             if mode == "compact":
                 str_builder.append(
-                    f"**{k.item.name}**{f' (x{v})' if v > 1 else ''}:"
+                    f"**{text_utils.escape_markdown(k.item.name)}**{f' (x{v})' if v > 1 else ''}:"
                     f" {models.short_desc(k.item.description)}"
                 )
             else:
                 str_builder.append(
-                    f"**{k.item.name}**{f' (x{v})' if v > 1 else ''}\n-#"
+                    f"**{text_utils.escape_markdown(k.item.name)}**{f' (x{v})' if v > 1 else ''}\n-#"
                     f" {models.short_desc(k.item.description, 70)}"
                 )
 

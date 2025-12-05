@@ -69,12 +69,12 @@ class InventoryManagement(utils.Extension):
         for k, v in sorted(items_counter.items(), key=lambda i: i[0].item.name.lower()):
             if mode == "compact":
                 str_builder.append(
-                    f"**{k.item.name}**{f' (x{v})' if v > 1 else ''}:"
+                    f"**{text_utils.escape_markdown(k.item.name)}**{f' (x{v})' if v > 1 else ''}:"
                     f" {models.short_desc(k.item.description)}"
                 )
             else:
                 str_builder.append(
-                    f"**{k.item.name}**{f' (x{v})' if v > 1 else ''}\n-#"
+                    f"**{text_utils.escape_markdown(k.item.name)}**{f' (x{v})' if v > 1 else ''}\n-#"
                     f" {models.short_desc(k.item.description, 70)}"
                 )
 

@@ -881,7 +881,7 @@ class GachaManagement(utils.Extension):
 
         if mode == "cozy":
             items_list = [
-                f"**{i.name}**{f' ({i.amount} remaining)' if i.amount != -1 else ''}\n-#"
+                f"**{text_utils.escape_markdown(i.name)}**{f' ({i.amount} remaining)' if i.amount != -1 else ''}\n-#"
                 f" {config.names.rarity_name(i.rarity)} ●"
                 f" {models.short_desc(i.description, length=50)}"
                 for i in sorted_items
@@ -889,7 +889,7 @@ class GachaManagement(utils.Extension):
             max_num = 15
         else:
             items_list = [
-                f"**{i.name}**{f' ({i.amount} remaining)' if i.amount != -1 else ''}:"
+                f"**{text_utils.escape_markdown(i.name)}**{f' ({i.amount} remaining)' if i.amount != -1 else ''}:"
                 f" {models.short_desc(i.description)}"
                 for i in sorted_items
             ]
