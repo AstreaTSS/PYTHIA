@@ -6,7 +6,7 @@ pydantic==2.12.5
 msgspec==0.20.0
 git+https://github.com/MarkusSintonen/httpcore.git@e724565270603a72d11f6d3bfc09671ffcfe36f2
 httpx[http2]==0.28.1
-aiodns==3.5.0
+aiodns==3.6.1
 humanize==4.14.0
 python-dotenv==1.2.1
 orjson==3.11.4; implementation_name == "cpython"
