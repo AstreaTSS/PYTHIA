@@ -44,7 +44,8 @@ class VoteHandler:
     vote_url: str | None = attrs.field()
 
 
-class Voting(utils.Extension):
+class Voting(ipy.Extension):
+    bot: "utils.THIABase"
     session: aiohttp.ClientSession
 
     def __init__(self, _: utils.THIABase) -> None:
@@ -103,6 +104,10 @@ class Voting(utils.Extension):
     @ipy.slash_command(
         name="vote",
         description="Vote for the bot.",
+        integration_types=[
+            ipy.IntegrationType.GUILD_INSTALL,
+            ipy.IntegrationType.USER_INSTALL,
+        ],
     )
     async def vote(self, ctx: utils.THIASlashContext) -> None:
         website_votes: list[str] = [

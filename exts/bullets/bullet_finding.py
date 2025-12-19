@@ -245,6 +245,7 @@ class BulletFinding(utils.Extension):
             "Investigate for items in the current channel for a BDA. An alternative to"
             " sending a message."
         ),
+        dm_permission=False,
     )
     @ipy.auto_defer(enabled=False)
     @ipy.check(player_check)

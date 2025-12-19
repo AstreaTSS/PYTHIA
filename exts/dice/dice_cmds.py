@@ -22,7 +22,7 @@ import common.utils as utils
 d20_roll = d20.Roller(d20.RollContext(100)).roll
 
 
-class DiceCMDs(utils.Extension):
+class DiceCMDs(ipy.Extension):
     def __init__(self, _: utils.THIABase) -> None:
         self.name = "Dice Commands"
 
@@ -31,7 +31,15 @@ class DiceCMDs(utils.Extension):
     dice = tansy.SlashCommand(
         name="dice",
         description="Hosts public-facing dice commands.",
-        dm_permission=False,
+        integration_types=[
+            ipy.IntegrationType.GUILD_INSTALL,
+            ipy.IntegrationType.USER_INSTALL,
+        ],
+        contexts=[
+            ipy.ContextType.GUILD,
+            ipy.ContextType.BOT_DM,
+            ipy.ContextType.PRIVATE_CHANNEL,
+        ],
     )
 
     @dice.subcommand(
@@ -47,11 +55,20 @@ class DiceCMDs(utils.Extension):
             max_length=100,
         ),
     ) -> None:
-        config = await ctx.fetch_config({"dice": True})
-        if typing.TYPE_CHECKING:
-            assert config.dice is not None
+        visible = True
+        if (
+            ctx.authorizing_integration_owners.get(
+                ipy.IntegrationType.GUILD_INSTALL, ipy.MISSING
+            )
+            == ctx.guild_id
+        ):
+            config = await ctx.fetch_config({"dice": True})
+            if typing.TYPE_CHECKING:
+                assert config.dice is not None
 
-        await ctx.defer(ephemeral=not config.dice.visible)
+            visible = config.dice.visible
+
+        await ctx.defer(ephemeral=not visible)
 
         try:
             result = d20_roll(dice)
@@ -64,9 +81,7 @@ class DiceCMDs(utils.Extension):
         except d20.errors.RollValueError:
             raise ipy.errors.BadArgument("Invalid dice roll value.") from None
 
-        await ctx.send(
-            embed=utils.make_embed(result.result), ephemeral=not config.dice.visible
-        )
+        await ctx.send(embed=utils.make_embed(result.result), ephemeral=not visible)
 
     @dice.subcommand(
         "roll-registered",
@@ -80,14 +95,25 @@ class DiceCMDs(utils.Extension):
             "The name of the dice to roll.", max_length=100, autocomplete=True
         ),
     ) -> None:
-        config = await ctx.fetch_config({"dice": True})
-        if typing.TYPE_CHECKING:
-            assert config.dice is not None
+        visible = True
+        guild_id = 0
+        if (
+            ctx.authorizing_integration_owners.get(
+                ipy.IntegrationType.GUILD_INSTALL, ipy.MISSING
+            )
+            == ctx.guild_id
+        ):
+            config = await ctx.fetch_config({"dice": True})
+            if typing.TYPE_CHECKING:
+                assert config.dice is not None
 
-        await ctx.defer(ephemeral=not config.dice.visible)
+            visible = config.dice.visible
+            guild_id = ctx.guild_id
+
+        await ctx.defer(ephemeral=not visible)
 
         entry = await models.DiceEntry.get_or_none(
-            guild_id=ctx.guild_id, user_id=ctx.author.id, name=name
+            guild_id=guild_id, user_id=ctx.author.id, name=name
         )
         if not entry:
             raise ipy.errors.BadArgument("No registered dice found with that name.")
@@ -103,9 +129,7 @@ class DiceCMDs(utils.Extension):
         except d20.errors.RollValueError:
             raise ipy.errors.BadArgument("Invalid dice roll value.") from None
 
-        await ctx.send(
-            embed=utils.make_embed(result.result), ephemeral=bool(config.dice.visible)
-        )
+        await ctx.send(embed=utils.make_embed(result.result), ephemeral=not visible)
 
     @dice.subcommand(
         "register",
@@ -122,22 +146,36 @@ class DiceCMDs(utils.Extension):
             max_length=100,
         ),
     ) -> None:
+        guild_id = 0
+        if (
+            ctx.authorizing_integration_owners.get(
+                ipy.IntegrationType.GUILD_INSTALL, ipy.MISSING
+            )
+            == ctx.guild_id
+        ):
+            guild_id = ctx.guild_id
+
         if (
             await models.DiceEntry.filter(
-                guild_id=ctx.guild_id, user_id=ctx.author_id
+                guild_id=guild_id, user_id=ctx.author_id
             ).count()
             >= 25
         ):
-            raise utils.CustomCheckFailure(
-                "You can only have up to 25 dice entries per server."
-            )
+            if guild_id != 0:
+                raise utils.CustomCheckFailure(
+                    "You can only have up to 25 dice entries per server."
+                )
+            else:
+                raise utils.CustomCheckFailure(
+                    "You can only have up to 25 dice entries for yourself."
+                )
 
         if await models.DiceEntry.exists(
-            guild_id=ctx.guild_id, user_id=ctx.author_id, name=name
+            guild_id=guild_id, user_id=ctx.author_id, name=name
         ):
             raise ipy.errors.BadArgument("A dice with that name already exists.")
 
-        await ctx.fetch_config({"dice": True})
+        await models.GuildConfig.fetch_create(guild_id, {"dice": True})
 
         try:
             d20_roll(dice)
@@ -151,7 +189,7 @@ class DiceCMDs(utils.Extension):
             raise ipy.errors.BadArgument("Invalid dice roll value.") from None
 
         await models.DiceEntry.create(
-            guild_id=ctx.guild_id,
+            guild_id=guild_id,
             user_id=ctx.author_id,
             name=name,
             value=dice,
@@ -169,18 +207,29 @@ class DiceCMDs(utils.Extension):
         self,
         ctx: utils.THIASlashContext,
     ) -> None:
+        guild_id = 0
+        extra = ""
+        if (
+            ctx.authorizing_integration_owners.get(
+                ipy.IntegrationType.GUILD_INSTALL, ipy.MISSING
+            )
+            == ctx.guild_id
+        ):
+            guild_id = ctx.guild_id
+            extra = " for this server"
+
         entries = await models.DiceEntry.filter(
-            guild_id=ctx.guild_id, user_id=ctx.author_id
+            guild_id=guild_id, user_id=ctx.author_id
         )
         if not entries:
-            raise ipy.errors.BadArgument("No registered dice found.")
+            raise ipy.errors.BadArgument(f"No registered dice{extra} found.")
 
         str_builder = [f"**{e.name}**: {e.value}" for e in entries]
 
         if len(str_builder) <= 15:
             await ctx.send(
                 embed=utils.make_embed(
-                    "\n".join(str_builder), title="Registered dice:"
+                    "\n".join(str_builder), title=f"Registered dice{extra}:"
                 ),
                 ephemeral=True,
             )
@@ -188,7 +237,7 @@ class DiceCMDs(utils.Extension):
 
         chunks = [str_builder[x : x + 15] for x in range(0, len(str_builder), 15)]
         embeds = [
-            utils.make_embed("\n".join(chunk), title="Registered dice")
+            utils.make_embed("\n".join(chunk), title=f"Registered dice{extra}:")
             for chunk in chunks
         ]
         pag = help_tools.HelpPaginator.create_from_embeds(
@@ -208,9 +257,18 @@ class DiceCMDs(utils.Extension):
             "The name of the dice to removes.", max_length=100, autocomplete=True
         ),
     ) -> None:
+        guild_id = 0
+        if (
+            ctx.authorizing_integration_owners.get(
+                ipy.IntegrationType.GUILD_INSTALL, ipy.MISSING
+            )
+            == ctx.guild_id
+        ):
+            guild_id = ctx.guild_id
+
         if (
             await models.DiceEntry.filter(
-                guild_id=ctx.guild_id, user_id=ctx.author_id, name=name
+                guild_id=guild_id, user_id=ctx.author_id, name=name
             ).delete()
             < 1
         ):
@@ -234,9 +292,18 @@ class DiceCMDs(utils.Extension):
                 " true to continue."
             )
 
+        guild_id = 0
+        if (
+            ctx.authorizing_integration_owners.get(
+                ipy.IntegrationType.GUILD_INSTALL, ipy.MISSING
+            )
+            == ctx.guild_id
+        ):
+            guild_id = ctx.guild_id
+
         if (
             await models.DiceEntry.filter(
-                guild_id=ctx.guild_id,
+                guild_id=guild_id,
                 user_id=ctx.author_id,
             ).delete()
             < 1

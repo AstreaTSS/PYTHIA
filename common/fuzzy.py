@@ -257,11 +257,17 @@ async def autocomplete_dice_entries_user(
     name: str,
     **kwargs: typing.Any,  # noqa: ARG001
 ) -> None:
-    if not ctx.guild_id:
-        return await ctx.send([])
+    guild_id = 0
+    if (
+        ctx.authorizing_integration_owners.get(
+            ipy.IntegrationType.GUILD_INSTALL, ipy.MISSING
+        )
+        == ctx.guild_id
+    ):
+        guild_id = ctx.guild_id
 
     dice_entries = await models.DiceEntry.filter(
-        guild_id=ctx.guild_id, user_id=ctx.author_id
+        guild_id=guild_id, user_id=ctx.author_id
     )
     if not dice_entries:
         return await ctx.send([])

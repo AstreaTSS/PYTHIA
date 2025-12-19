@@ -25,7 +25,9 @@ PYTHON_VERSION = platform.python_version_tuple()
 PYTHON_IMPLEMENTATION = platform.python_implementation()
 
 
-class OtherCMDs(utils.Extension):
+class OtherCMDs(ipy.Extension):
+    bot: "utils.THIABase"
+
     def __init__(self, _: utils.THIABase) -> None:
         self.name = "General"
 
@@ -34,7 +36,9 @@ class OtherCMDs(utils.Extension):
 
     async def when_ready(self) -> None:
         await self.bot.wait_until_ready()
-        self.invite_link = f"https://discord.com/api/oauth2/authorize?client_id={self.bot.user.id}&permissions=532576332864&scope=bot%20applications.commands"
+        self.invite_link = (
+            f"https://discord.com/api/oauth2/authorize?client_id={self.bot.user.id}"
+        )
 
     def _get_commit_hash(self) -> str | None:
         try:
@@ -55,6 +59,10 @@ class OtherCMDs(utils.Extension):
             "Pings the bot. Great way of finding out if the bot's working correctly,"
             " but has no real use."
         ),
+        integration_types=[
+            ipy.IntegrationType.GUILD_INSTALL,
+            ipy.IntegrationType.USER_INSTALL,
+        ],
     )
     async def ping(self, ctx: utils.THIASlashContext) -> None:
         start_time = time.perf_counter()
@@ -86,6 +94,10 @@ class OtherCMDs(utils.Extension):
     @ipy.slash_command(
         name="invite",
         description="Sends instructions on how to set up and invite the bot.",
+        integration_types=[
+            ipy.IntegrationType.GUILD_INSTALL,
+            ipy.IntegrationType.USER_INSTALL,
+        ],
     )
     async def invite(self, ctx: utils.THIASlashContext) -> None:
         embed = utils.make_embed(
@@ -109,7 +121,12 @@ class OtherCMDs(utils.Extension):
         await ctx.send(embeds=embed, components=components)
 
     @ipy.slash_command(
-        "support", description="Gives an invite link to the support server."
+        "support",
+        description="Gives an invite link to the support server.",
+        integration_types=[
+            ipy.IntegrationType.GUILD_INSTALL,
+            ipy.IntegrationType.USER_INSTALL,
+        ],
     )
     async def support(self, ctx: utils.THIASlashContext) -> None:
         embed = utils.make_embed(
@@ -124,7 +141,14 @@ class OtherCMDs(utils.Extension):
         )
         await ctx.send(embeds=embed, components=button)
 
-    @tansy.slash_command("about", description="Gives information about the bot.")
+    @tansy.slash_command(
+        "about",
+        description="Gives information about the bot.",
+        integration_types=[
+            ipy.IntegrationType.GUILD_INSTALL,
+            ipy.IntegrationType.USER_INSTALL,
+        ],
+    )
     async def about(self, ctx: utils.THIASlashContext) -> None:
         msg_list: list[str] = [
             (

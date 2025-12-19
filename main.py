@@ -198,7 +198,6 @@ bot = PYTHIA(
     status=ipy.Status.IDLE,
     sync_interactions=False,  # big bots really shouldn't have this on
     sync_ext=False,
-    disable_dm_commands=True,
     allowed_mentions=mentions,
     intents=intents,
     interaction_context=utils.THIAInteractionContext,
