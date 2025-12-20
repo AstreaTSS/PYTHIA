@@ -35,6 +35,16 @@ class GachaItemDict(typing.TypedDict):
     image: str | None
 
 
+class DiceEntryv1(msgspec.Struct):
+    name: str
+    value: str
+
+
+class DiceEntryDict(typing.TypedDict):
+    name: str
+    value: str
+
+
 class GachaItemv1Container(msgspec.Struct, tag=1, tag_field="version"):
     items: list[GachaItemv1]
 
@@ -43,12 +53,17 @@ class GachaItemv2Container(msgspec.Struct, tag=2, tag_field="version"):
     items: list[GachaItemv2]
 
 
+class DiceEntryv1Container(msgspec.Struct, tag=1, tag_field="version"):
+    entries: list[DiceEntryv1]
+
+
 GachaItemContainer = GachaItemv1Container | GachaItemv2Container
-dec = msgspec.json.Decoder(GachaItemContainer)
+gacha_dec = msgspec.json.Decoder(GachaItemContainer)
+dice_dec = msgspec.json.Decoder(DiceEntryv1Container)
 
 
 def handle_gacha_item_data(json_data: str | bytes) -> list[GachaItemv2]:
-    container: GachaItemContainer = dec.decode(json_data)
+    container: GachaItemContainer = gacha_dec.decode(json_data)
 
     if isinstance(container, GachaItemv1Container):
         items = [
@@ -64,3 +79,8 @@ def handle_gacha_item_data(json_data: str | bytes) -> list[GachaItemv2]:
         container = GachaItemv2Container(items=items)
 
     return container.items
+
+
+def handle_dice_entry_data(json_data: str | bytes) -> list[DiceEntryv1]:
+    container: DiceEntryv1Container = dice_dec.decode(json_data)
+    return container.entries

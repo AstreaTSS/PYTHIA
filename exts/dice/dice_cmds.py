@@ -7,16 +7,24 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """
 
+import asyncio
 import importlib
+import io
 
+import aiohttp
 import d20
 import interactions as ipy
+import msgspec
+import orjson
 import tansy
 import typing_extensions as typing
+from tortoise.transactions import in_transaction
 
+import common.exports as exports
 import common.fuzzy as fuzzy
 import common.help_tools as help_tools
 import common.models as models
+import common.text_utils as text_utils
 import common.utils as utils
 
 d20_roll = d20.Roller(d20.RollContext(100)).roll
@@ -159,15 +167,17 @@ class DiceCMDs(ipy.Extension):
             await models.DiceEntry.filter(
                 guild_id=guild_id, user_id=ctx.author_id
             ).count()
-            >= 25
+            >= utils.MAX_DICE_ENTRIES
         ):
             if guild_id != 0:
                 raise utils.CustomCheckFailure(
-                    "You can only have up to 25 dice entries per server."
+                    f"You can only have up to {utils.MAX_DICE_ENTRIES} dice entries per"
+                    " server."
                 )
             else:
                 raise utils.CustomCheckFailure(
-                    "You can only have up to 25 dice entries for yourself."
+                    f"You can only have up to {utils.MAX_DICE_ENTRIES} dice entries for"
+                    " yourself."
                 )
 
         if await models.DiceEntry.exists(
@@ -312,6 +322,197 @@ class DiceCMDs(ipy.Extension):
         await ctx.send(embed=utils.make_embed("Cleared all registered dice."))
 
     @dice.subcommand(
+        "export", sub_cmd_description="Exports all registered dice to a JSON file."
+    )
+    @ipy.cooldown(ipy.Buckets.GUILD, 1, 60)
+    async def dice_export(
+        self,
+        ctx: utils.THIASlashContext,
+    ) -> None:
+        guild_id = 0
+        extra = ""
+        if (
+            ctx.authorizing_integration_owners.get(
+                ipy.IntegrationType.GUILD_INSTALL, ipy.MISSING
+            )
+            == ctx.guild_id
+        ):
+            guild_id = ctx.guild_id
+            extra = " for this server"
+
+        entries = await models.DiceEntry.filter(
+            guild_id=guild_id, user_id=ctx.author_id
+        )
+        if not entries:
+            raise ipy.errors.BadArgument(f"No registered dice{extra} found.")
+
+        entries_dict: list[exports.DiceEntryDict] = [
+            {
+                "name": entry.name,
+                "value": entry.value,
+            }
+            for entry in entries
+        ]
+        entries_json = orjson.dumps(
+            {"version": 1, "entries": entries_dict}, option=orjson.OPT_INDENT_2
+        )
+
+        # how would this happen? no clue
+        if len(entries_json) > 10000000:
+            raise utils.CustomCheckFailure(
+                "The file is too large to send. Please try again with fewer registered"
+                " dice."
+            )
+
+        entries_io = io.BytesIO(entries_json)
+        entries_file = ipy.File(
+            entries_io,
+            file_name=(
+                f"dice_{ctx.author.id}_{guild_id or 'account'}_{int(ctx.id.created_at.timestamp())}.json"
+            ),
+        )
+
+        try:
+            await ctx.send(
+                embed=utils.make_embed("Exported registered dice to JSON file."),
+                file=entries_file,
+            )
+        finally:
+            entries_io.close()
+
+    @dice.subcommand("import", sub_cmd_description="Imports dice from a JSON file.")
+    async def gacha_import_items(
+        self,
+        ctx: utils.THIASlashContext,
+        json_file: ipy.Attachment = tansy.Option("The JSON file to import."),
+        _override: str = tansy.Option(
+            "Should pre-existing registered dice with the same name be overriden?",
+            name="override",
+            choices=[
+                ipy.SlashCommandChoice("yes", "yes"),
+                ipy.SlashCommandChoice("no", "no"),
+            ],
+            default="no",
+        ),
+    ) -> None:
+        override = _override == "yes"
+
+        if not json_file.content_type or not json_file.content_type.startswith(
+            "application/json"
+        ):
+            raise ipy.errors.BadArgument("The file must be a JSON file.")
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(json_file.url) as response:
+                if response.status != 200:
+                    raise ipy.errors.BadArgument("Failed to fetch the file.")
+
+                try:
+                    await response.content.readexactly(10485760 + 1)
+                    raise utils.CustomCheckFailure(
+                        "This file is over 10 MiB, which is not supported by this bot."
+                    )
+                except asyncio.IncompleteReadError as e:
+                    items_json = e.partial
+
+        try:
+            entries = exports.handle_dice_entry_data(items_json)
+        except msgspec.DecodeError:
+            raise ipy.errors.BadArgument(
+                "The file is not in the correct format."
+            ) from None
+
+        guild_id = 0
+        if (
+            ctx.authorizing_integration_owners.get(
+                ipy.IntegrationType.GUILD_INSTALL, ipy.MISSING
+            )
+            == ctx.guild_id
+        ):
+            guild_id = ctx.guild_id
+
+        await models.GuildConfig.fetch_create(guild_id, {"dice": True})
+
+        if override:
+            if len(entries) > utils.MAX_DICE_ENTRIES:
+                if guild_id != 0:
+                    raise utils.CustomCheckFailure(
+                        f"You can only have up to {utils.MAX_DICE_ENTRIES} dice entries"
+                        " per server."
+                    )
+                else:
+                    raise utils.CustomCheckFailure(
+                        f"You can only have up to {utils.MAX_DICE_ENTRIES} dice entries"
+                        " for yourself."
+                    )
+        else:
+            existing_count = await models.DiceEntry.filter(
+                guild_id=guild_id, user_id=ctx.author.id
+            ).count()
+            if existing_count + len(entries) > utils.MAX_DICE_ENTRIES:
+                if guild_id != 0:
+                    raise utils.CustomCheckFailure(
+                        "Importing these dice would exceed the limit of"
+                        f" {utils.MAX_DICE_ENTRIES} dice entries per server."
+                    )
+                else:
+                    raise utils.CustomCheckFailure(
+                        "Importing these dice would exceed the limit of"
+                        f" {utils.MAX_DICE_ENTRIES} dice entries for yourself."
+                    )
+
+        async with in_transaction():
+            if await models.DiceEntry.exists(
+                guild_id=guild_id,
+                user_id=ctx.author.id,
+                name__in=[entry.name for entry in entries],
+            ):
+                if override:
+                    await models.DiceEntry.filter(
+                        guild_id=guild_id,
+                        name__in=[entry.name for entry in entries],
+                    ).delete()
+                else:
+                    raise ipy.errors.BadArgument(
+                        "One or more die in the file shares a name with an existing"
+                        " registered die."
+                    )
+
+            to_create: list[models.DiceEntry] = []
+
+            for entry in entries:
+                try:
+                    d20_roll(entry.value)
+                except d20.errors.RollSyntaxError as e:
+                    raise ipy.errors.BadArgument(
+                        "Invalid dice roll syntax for"
+                        f" `{text_utils.escape_markdown(entry.name)}`.\n{e!s}"
+                    ) from None
+                except d20.errors.TooManyRolls:
+                    raise ipy.errors.BadArgument(
+                        "Too many dice rolls in the expression for"
+                        f" `{text_utils.escape_markdown(entry.name)}`."
+                    ) from None
+                except d20.errors.RollValueError:
+                    raise ipy.errors.BadArgument(
+                        "Invalid dice roll value for"
+                        f" `{text_utils.escape_markdown(entry.name)}`."
+                    ) from None
+
+                to_create.append(
+                    models.DiceEntry(
+                        guild_id=guild_id,
+                        user_id=ctx.author.id,
+                        name=entry.name,
+                        value=entry.value,
+                    )
+                )
+
+            await models.DiceEntry.bulk_create(to_create)
+
+        await ctx.send(embed=utils.make_embed("Imported dice from JSON file."))
+
+    @dice.subcommand(
         "help",
         sub_cmd_description="Shows how to use the dice system.",
     )
@@ -340,4 +541,5 @@ def setup(bot: utils.THIABase) -> None:
     importlib.reload(utils)
     importlib.reload(fuzzy)
     importlib.reload(help_tools)
+    importlib.reload(exports)
     DiceCMDs(bot)

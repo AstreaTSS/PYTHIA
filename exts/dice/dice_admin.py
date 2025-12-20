@@ -165,10 +165,11 @@ class DiceManagement(utils.Extension):
             await models.DiceEntry.filter(
                 guild_id=ctx.guild_id, user_id=user.id
             ).count()
-            >= 25
+            >= utils.MAX_DICE_ENTRIES
         ):
             raise utils.CustomCheckFailure(
-                "A user can only have up to 25 dice entries per server."
+                f"A user can only have up to {utils.MAX_DICE_ENTRIES} dice entries per"
+                " server."
             )
 
         if await models.DiceEntry.exists(
