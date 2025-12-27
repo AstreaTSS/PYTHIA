@@ -123,7 +123,7 @@ class BulletManagement(utils.Extension):
             if (
                 count > 0
                 and await models.TruthBullet.filter(
-                    guild_id=ctx.guild_id, found=False
+                    guild_id=ctx.guild_id, found=True
                 ).exists()
             ):
                 embeds.append(
