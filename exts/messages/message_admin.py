@@ -1,5 +1,5 @@
 """
-Copyright 2021-2025 AstreaTSS.
+Copyright 2021-2026 AstreaTSS.
 This file is part of PYTHIA.
 
 This Source Code Form is subject to the terms of the Mozilla Public
