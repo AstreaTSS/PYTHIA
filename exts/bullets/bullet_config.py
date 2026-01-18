@@ -183,7 +183,8 @@ class BulletConfigCMDs(utils.Extension):
             choices=[
                 ipy.SlashCommandChoice("Default", models.InvestigationType.DEFAULT),
                 ipy.SlashCommandChoice(
-                    "/investigate command only", models.InvestigationType.COMMAND_ONLY
+                    "/bda-investigate command only",
+                    models.InvestigationType.COMMAND_ONLY,
                 ),
             ],
         ),
