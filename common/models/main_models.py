@@ -31,6 +31,7 @@ __all__ = (
     "GuildConfig",
     "GuildConfigInclude",
     "InvestigationType",
+    "ItemHash",
     "ItemRelation",
     "ItemsConfig",
     "ItemsRelationType",

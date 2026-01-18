@@ -30,6 +30,7 @@ __all__ = (
     "GuildConfig",
     "GuildConfigInclude",
     "InvestigationType",
+    "ItemHash",
     "ItemRelation",
     "ItemToPlayer",
     "ItemsConfig",
