@@ -853,13 +853,15 @@ class GachaManagement(utils.Extension):
         mode: str = tansy.Option(
             "The mode to show the items in.",
             choices=[
+                ipy.SlashCommandChoice("Modern", "modern"),
+                ipy.SlashCommandChoice("Spacious (Modern)", "spacious"),
                 ipy.SlashCommandChoice("Cozy", "cozy"),
                 ipy.SlashCommandChoice("Compact", "compact"),
             ],
-            default="cozy",
+            default="modern",
         ),
     ) -> None:
-        if mode not in ("cozy", "compact"):
+        if mode not in ("cozy", "compact", "modern", "spacious"):
             raise ipy.errors.BadArgument("Invalid mode.")
         if sort_by not in ("name", "rarity", "time_created"):
             raise ipy.errors.BadArgument("Invalid option for sorting.")
@@ -878,6 +880,61 @@ class GachaManagement(utils.Extension):
             sorted_items = sorted(items, key=lambda i: (i.rarity.value, i.name.lower()))
         else:
             sorted_items = sorted(items, key=lambda i: (i.id))
+
+        if mode == "modern" or mode == "spacious":
+            if mode == "spacious":
+                components: list[ipy.BaseComponent] = [
+                    ipy.SectionComponent(
+                        components=[
+                            ipy.TextDisplayComponent(
+                                f"**{text_utils.escape_markdown(item.name)}**{f' ({item.amount} remaining)' if item.amount != -1 else ''}\n-#"
+                                f" {config.names.rarity_name(item.rarity)} ●"
+                                f" {models.short_desc(item.description, length=50)}"
+                            )
+                        ],
+                        accessory=ipy.Button(
+                            style=ipy.ButtonStyle.GRAY,
+                            label="View",
+                            custom_id=f"gacha-item-{item.id}-admin",
+                        ),
+                    )
+                    for item in sorted_items
+                ]
+                max_num = 10
+            else:
+                components: list[ipy.BaseComponent] = [
+                    ipy.TextDisplayComponent(
+                        f"**{text_utils.escape_markdown(item.name)}**{f' ({item.amount} remaining)' if item.amount != -1 else ''}\n-#"
+                        f" {config.names.rarity_name(item.rarity)} ●"
+                        f" {models.short_desc(item.description, length=50)}"
+                    )
+                    for item in sorted_items
+                ]
+                max_num = 15
+
+            if len(components) > max_num:
+                chunks = [
+                    components[x : x + max_num]
+                    for x in range(0, len(components), max_num)
+                ]
+
+                pag = classes.ContainerPaginator(
+                    self.bot,
+                    title="Gacha Items",
+                    pages_data=chunks,
+                )
+                await pag.send(ctx)
+                return
+
+            await ctx.send(
+                components=ipy.ContainerComponent(
+                    ipy.TextDisplayComponent("Gacha Items"),
+                    *components,
+                    accent_color=self.bot.color.value,
+                ),
+                ephemeral=True,
+            )
+            return
 
         if mode == "cozy":
             items_list = [
