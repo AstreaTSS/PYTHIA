@@ -193,6 +193,15 @@ class GachaCommands(utils.Extension):
     async def gacha_profile(
         self,
         ctx: utils.THIASlashContext,
+        sort_by: str = tansy.Option(
+            "What should the items be sorted by?",
+            choices=[
+                ipy.SlashCommandChoice("Name", "name"),
+                ipy.SlashCommandChoice("Rarity", "rarity"),
+                ipy.SlashCommandChoice("Time First Gotten", "time_gotten"),
+            ],
+            default="name",
+        ),
         mode: str = tansy.Option(
             "The mode to show the profile in.",
             choices=[
@@ -202,15 +211,6 @@ class GachaCommands(utils.Extension):
                 ipy.SlashCommandChoice("Compact", "compact"),
             ],
             default="modern",
-        ),
-        sort_by: str = tansy.Option(
-            "What should the items be sorted by?",
-            choices=[
-                ipy.SlashCommandChoice("Name", "name"),
-                ipy.SlashCommandChoice("Rarity", "rarity"),
-                ipy.SlashCommandChoice("Time First Gotten", "time_gotten"),
-            ],
-            default="name",
         ),
     ) -> None:
         if mode not in ("cozy", "compact", "modern", "spacious"):

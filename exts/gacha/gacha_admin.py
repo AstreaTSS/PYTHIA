@@ -500,6 +500,15 @@ class GachaManagement(utils.Extension):
             "The user to view currency amount and items for.",
             type=ipy.User,
         ),
+        sort_by: str = tansy.Option(
+            "What should the items be sorted by?",
+            choices=[
+                ipy.SlashCommandChoice("Name", "name"),
+                ipy.SlashCommandChoice("Rarity", "rarity"),
+                ipy.SlashCommandChoice("Time First Gotten", "time_gotten"),
+            ],
+            default="name",
+        ),
         mode: str = tansy.Option(
             "The mode to show the profile in.",
             choices=[
@@ -509,15 +518,6 @@ class GachaManagement(utils.Extension):
                 ipy.SlashCommandChoice("Compact", "compact"),
             ],
             default="modern",
-        ),
-        sort_by: str = tansy.Option(
-            "What should the items be sorted by?",
-            choices=[
-                ipy.SlashCommandChoice("Name", "name"),
-                ipy.SlashCommandChoice("Rarity", "rarity"),
-                ipy.SlashCommandChoice("Time First Gotten", "time_gotten"),
-            ],
-            default="name",
         ),
     ) -> None:
         if mode not in ("cozy", "compact", "modern", "spacious"):
@@ -841,14 +841,6 @@ class GachaManagement(utils.Extension):
     async def gacha_view_items(
         self,
         ctx: utils.THIASlashContext,
-        mode: str = tansy.Option(
-            "The mode to show the items in.",
-            choices=[
-                ipy.SlashCommandChoice("Cozy", "cozy"),
-                ipy.SlashCommandChoice("Compact", "compact"),
-            ],
-            default="cozy",
-        ),
         sort_by: str = tansy.Option(
             "What should the items be sorted by?",
             choices=[
@@ -857,6 +849,14 @@ class GachaManagement(utils.Extension):
                 ipy.SlashCommandChoice("Time Created", "time_created"),
             ],
             default="name",
+        ),
+        mode: str = tansy.Option(
+            "The mode to show the items in.",
+            choices=[
+                ipy.SlashCommandChoice("Cozy", "cozy"),
+                ipy.SlashCommandChoice("Compact", "compact"),
+            ],
+            default="cozy",
         ),
     ) -> None:
         if mode not in ("cozy", "compact"):
