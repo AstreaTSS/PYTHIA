@@ -18,7 +18,12 @@ from tortoise.contrib.postgres.fields import ArrayField
 
 import common.text_utils as text_utils
 from common.models.gacha_models import GachaConfig, Rarity
-from common.models.utils import generate_regexp, guild_id_model, yesno_friendly_str
+from common.models.utils import (
+    generate_regexp,
+    guild_id_model,
+    short_desc,
+    yesno_friendly_str,
+)
 
 __all__ = (
     "FIND_TRUTH_BULLET_EXACT_STR",
@@ -277,6 +282,43 @@ class ItemRelation(Model):
             ("guild_id",),
             ("object_id",),
         ]
+
+    @classmethod
+    async def items_for_channel_display(
+        cls,
+        channel_id: ipy.Snowflake_Type,
+        mode: str,
+    ) -> list[list[str]]:
+        if mode not in ("cozy", "compact"):
+            raise ipy.errors.BadArgument("Invalid mode.")
+
+        channel_items = await cls.filter(
+            object_id=channel_id,
+        ).prefetch_related("item")
+        if not channel_items:
+            raise ipy.errors.BadArgument("This channel has no items placed in it.")
+
+        items_counter: collections.Counter[ItemHash] = collections.Counter()
+
+        for item in channel_items:
+            items_counter[ItemHash(item.item)] += 1
+
+        str_builder: list[str] = []
+
+        for k, v in sorted(items_counter.items(), key=lambda i: i[0].item.name.lower()):
+            if mode == "compact":
+                str_builder.append(
+                    f"**{text_utils.escape_markdown(k.item.name)}**{f' (x{v})' if v > 1 else ''}:"
+                    f" {short_desc(k.item.description)}"
+                )
+            else:
+                str_builder.append(
+                    f"**{text_utils.escape_markdown(k.item.name)}**{f' (x{v})' if v > 1 else ''}\n-#"
+                    f" {short_desc(k.item.description, 70)}"
+                )
+
+        limit = 15 if mode == "cozy" else 30
+        return [str_builder[x : x + limit] for x in range(0, len(str_builder), limit)]
 
 
 class MessageConfig(Model):

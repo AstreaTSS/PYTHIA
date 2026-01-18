@@ -32,6 +32,61 @@ class ItemsCommands(utils.Extension):
     )
 
     @items.subcommand(
+        "list-here",
+        sub_cmd_description="Lists all items in the current channel.",
+    )
+    @ipy.auto_defer(enabled=False)
+    async def items_list_here(
+        self,
+        ctx: utils.THIASlashContext,
+        mode: str = tansy.Option(
+            "The mode to show the list of items in.",
+            choices=[
+                ipy.SlashCommandChoice("Cozy", "cozy"),
+                ipy.SlashCommandChoice("Compact", "compact"),
+            ],
+            default="cozy",
+        ),
+        hidden: str = tansy.Option(
+            "Should the result be shown only to you? Defaults to no.",
+            choices=[
+                ipy.SlashCommandChoice("yes", "yes"),
+                ipy.SlashCommandChoice("no", "no"),
+            ],
+            default="no",
+        ),
+    ) -> None:
+        await ctx.defer(ephemeral=hidden == "yes")
+
+        items_chunks = await models.ItemRelation.items_for_channel_display(
+            ctx.channel.id, mode
+        )
+
+        if len(items_chunks) == 1:
+            await ctx.send(
+                embeds=utils.make_embed(
+                    title="Items in this channel",
+                    description="\n".join(items_chunks[0]),
+                ),
+                ephemeral=hidden == "yes",
+            )
+            return
+
+        embeds = [
+            utils.make_embed(
+                title="Items in this channel", description="\n".join(entry)
+            )
+            for entry in items_chunks
+        ]
+
+        pag = help_tools.HelpPaginator.create_from_embeds(
+            self.bot, *embeds, timeout=120
+        )
+        pag.show_callback_button = False
+        pag.default_color = ctx.bot.color
+        await pag.send(ctx, ephemeral=hidden == "yes")
+
+    @items.subcommand(
         "here",
         sub_cmd_description="Views an item in the current channel.",
     )
@@ -369,6 +424,13 @@ class ItemsCommands(utils.Extension):
         name="investigate",
         description="Hosts aliases for general investigation of items.",
         dm_permission=False,
+    )
+
+    investigate_list = utils.alias(
+        items_list_here,
+        "investigate list",
+        "Lists all items in the current channel. Alias for /items list-here.",
+        base_command=investigate,
     )
 
     investigate_here = utils.alias(

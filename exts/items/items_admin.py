@@ -508,62 +508,32 @@ class ItemsManagement(utils.Extension):
             default="cozy",
         ),
     ) -> None:
-        if mode not in ("cozy", "compact"):
-            raise ipy.errors.BadArgument("Invalid mode.")
+        items_chunks = await models.ItemRelation.items_for_channel_display(
+            channel.id, mode
+        )
 
-        channel_items = await models.ItemRelation.filter(
-            object_id=channel.id,
-        ).prefetch_related("item")
-        if not channel_items:
-            raise utils.CustomCheckFailure("This channel has no items placed in it.")
-
-        items_counter: collections.Counter[models.ItemHash] = collections.Counter()
-
-        for item in channel_items:
-            items_counter[models.ItemHash(item.item)] += 1
-
-        str_builder: list[str] = []
-
-        for k, v in sorted(items_counter.items(), key=lambda i: i[0].item.name.lower()):
-            if mode == "compact":
-                str_builder.append(
-                    f"**{text_utils.escape_markdown(k.item.name)}**{f' (x{v})' if v > 1 else ''}:"
-                    f" {models.short_desc(k.item.description)}"
-                )
-            else:
-                str_builder.append(
-                    f"**{text_utils.escape_markdown(k.item.name)}**{f' (x{v})' if v > 1 else ''}\n-#"
-                    f" {models.short_desc(k.item.description, 70)}"
-                )
-
-        limit = 15 if mode == "cozy" else 30
-
-        if len(str_builder) > limit:
-            chunks = [
-                str_builder[x : x + limit] for x in range(0, len(str_builder), limit)
-            ]
-            embeds = [
-                utils.make_embed(
-                    title=f"Items in #{channel.name}", description="\n".join(entry)
-                )
-                for entry in chunks
-            ]
-        else:
+        if len(items_chunks) == 1:
             await ctx.send(
                 embeds=utils.make_embed(
                     title=f"Items in #{channel.name}",
-                    description="\n".join(str_builder),
+                    description="\n".join(items_chunks[0]),
                 ),
-                ephemeral=True,
             )
             return
+
+        embeds = [
+            utils.make_embed(
+                title=f"Items in #{channel.name}", description="\n".join(entry)
+            )
+            for entry in items_chunks
+        ]
 
         pag = help_tools.HelpPaginator.create_from_embeds(
             self.bot, *embeds, timeout=120
         )
         pag.show_callback_button = False
         pag.default_color = ctx.bot.color
-        await pag.send(ctx, ephemeral=True)
+        await pag.send(ctx)
 
     @manage.subcommand(
         "place-item-in-channel",
