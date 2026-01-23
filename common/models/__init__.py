@@ -17,6 +17,7 @@ __all__ = (
     "GACHA_RARITIES_LIST",
     "GACHA_ROLL_NO_DUPS_STR",
     "GACHA_ROLL_STR",
+    "TEMPLATE_MARKDOWN",
     "VALIDATE_TRUTH_BULLET_STR",
     "BulletConfig",
     "BulletThreadBehavior",

@@ -14,6 +14,7 @@ import typing_extensions as typing
 from tortoise import Model
 
 __all__ = (
+    "TEMPLATE_MARKDOWN",
     "code_template",
     "generate_regexp",
     "guild_id_model",
