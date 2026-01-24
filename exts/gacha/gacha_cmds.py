@@ -220,7 +220,7 @@ class GachaCommands(utils.Extension):
                         if button_press
                         else container
                     ),
-                    allowed_mentions=ipy.AllowedMentions.none(),
+                    allowed_mentions=utils.deny_mentions(ctx.author_id),
                 )
 
             async with in_transaction():
