@@ -197,8 +197,7 @@ class GachaCommands(utils.Extension):
                     ipy.Button(
                         style=ipy.ButtonStyle.SECONDARY,
                         label=(
-                            f"{new_count}"
-                            f" {config.names.currency_name(new_count).title()} Left"
+                            f"{new_count} {config.names.currency_name(new_count)} Left"
                         ),
                         disabled=True,
                     )
