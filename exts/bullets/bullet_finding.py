@@ -196,7 +196,7 @@ class BulletFinding(utils.Extension):
 
         bullet_chan: ipy.GuildText | None = None
         embed = bullet_found.found_embed(
-            str(message.author), config.names.singular_bullet
+            message.author.mention, config.names.singular_bullet
         )
 
         if not bullet_found.hidden:
@@ -209,6 +209,7 @@ class BulletFinding(utils.Extension):
                 return
 
             new_msg = await message.reply(embed=embed)
+            embed.title = None
             await bullet_chan.send(
                 embed=embed,
                 components=ipy.Button(
@@ -296,7 +297,7 @@ class BulletFinding(utils.Extension):
         truth_bullet.finder = finder.id
 
         bullet_chan: ipy.GuildText | None = None
-        embed = truth_bullet.found_embed(str(finder), config.names.singular_bullet)
+        embed = truth_bullet.found_embed(finder.mention, config.names.singular_bullet)
 
         message = await ctx.send(embeds=embed, ephemeral=ctx.ephemeral)
 
@@ -309,6 +310,7 @@ class BulletFinding(utils.Extension):
                 await config.bullets.save()
                 return
 
+            embed.title = None
             await bullet_chan.send(
                 embed=embed,
                 components=ipy.Button(

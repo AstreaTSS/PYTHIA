@@ -401,7 +401,7 @@ class BulletManagement(utils.Extension):
         )
         embed = utils.make_embed(
             description=(
-                f"# `{text_utils.escape_markdown(bullet.trigger)}` - in"
+                f"# `{text_utils.escape_markdown(bullet.trigger)}` -"
                 f" {bullet.chan_mention}{aliases}\n{bullet.description}"
             ),
         )

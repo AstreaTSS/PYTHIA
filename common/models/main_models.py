@@ -353,20 +353,16 @@ class TruthBullet(Model):
     def chan_mention(self) -> str:
         return f"<#{self.channel_id}>"
 
-    def found_embed(self, username: str, singular_bullet: str) -> ipy.Embed:
+    def found_embed(self, user_mention: str, singular_bullet: str) -> ipy.Embed:
         embed = ipy.Embed(
             title=f"{singular_bullet} Discovered",
-            timestamp=ipy.Timestamp.utcnow(),
             color=int(os.environ["BOT_COLOR"]),
         )
         embed.description = (
-            f"`{text_utils.escape_markdown(self.trigger)}` - from"
-            f" {self.chan_mention}\n\n{self.description}"
+            f"# `{text_utils.escape_markdown(self.trigger)}` - {self.chan_mention}\n-#"
+            f" Discovered at: {ipy.Timestamp.utcnow().format()}\n-# Found by:"
+            f" {user_mention}\n\n{self.description}"
         )
-
-        footer = f"Found by {username}" if self.finder else "To be found as of"
-        embed.set_footer(text=footer)
-
         if self.image:
             embed.set_image(self.image)
 
