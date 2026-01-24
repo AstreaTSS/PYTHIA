@@ -418,6 +418,7 @@ class GuildConfigInclude(typing.TypedDict, total=False):
 class GuildConfig(Model):
     guild_id = fields.BigIntField(pk=True)
     player_role: fields.Field[int | None] = fields.BigIntField(null=True)
+    enabled_beta: bool = fields.BooleanField(default=False)
 
     names: fields.OneToOneNullableRelation["Names"]
     bullets: fields.OneToOneNullableRelation["BulletConfig"]

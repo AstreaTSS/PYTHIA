@@ -37,8 +37,9 @@ class ConfigCMDs(utils.Extension):
 
         only_option_rn = (
             "Player role:"
-            f" {f'<@&{config.player_role}>' if config.player_role else 'N/A'}\n\n*Looking"
-            " a bit empty? This is the general configuration display - check out the"
+            f" {f'<@&{config.player_role}>' if config.player_role else 'N/A'}\nBeta"
+            f" enabled: {utils.yesno_friendly_str(config.enabled_beta)}\n\n*Looking a"
+            " bit empty? This is the general configuration display - check out the"
             " other config commands for more of your configuration.*"
         )
         await ctx.send(
@@ -73,6 +74,40 @@ class ConfigCMDs(utils.Extension):
             )
         else:
             await ctx.send(embed=utils.make_embed("Player role unset."))
+
+    @config.subcommand(
+        sub_cmd_name="beta",
+        sub_cmd_description="Toggles beta features for this server.",
+    )
+    async def toggle_beta_features(
+        self,
+        ctx: utils.THIASlashContext,
+        _toggle: str = tansy.Option(
+            "Whether to turn beta features on or off.",
+            name="toggle",
+            choices=[
+                ipy.SlashCommandChoice("on", "on"),
+                ipy.SlashCommandChoice("off", "off"),
+            ],
+        ),
+    ) -> None:
+        toggle = _toggle == "on"
+
+        guild_config = await ctx.fetch_config()
+        guild_config.enabled_beta = toggle
+        await guild_config.save()
+
+        if toggle:
+            await ctx.send(
+                embed=utils.make_embed(
+                    "Beta features have been turned on! These features may break"
+                    " compatibility with old Discord mobile clients, so be careful."
+                )
+            )
+        else:
+            await ctx.send(
+                embed=utils.make_embed("Beta features have been turned off.")
+            )
 
     @config.subcommand(
         sub_cmd_name="help",
