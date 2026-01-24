@@ -13,6 +13,7 @@ import io
 
 import aiohttp
 import interactions as ipy
+import modal_backport as modalb
 import msgspec
 import orjson
 import tansy
@@ -107,6 +108,59 @@ class GachaManagement(utils.Extension):
                 custom_id="item_image",
                 placeholder="The image URL of the item.",
                 required=False,
+            ),
+            title="Add Gacha Item",
+            custom_id="add_gacha_item",
+        )
+
+        self.beta_gacha_item_create_modal = modalb.Modal(
+            ipy.InputText(
+                label="Item Name",
+                style=ipy.TextStyles.SHORT,
+                custom_id="item_name",
+                max_length=64,
+            ),
+            ipy.InputText(
+                label="Item Description",
+                style=ipy.TextStyles.PARAGRAPH,
+                custom_id="item_description",
+                max_length=3500,
+            ),
+            modalb.LabelComponent(
+                label="Item Rarity",
+                component=modalb.StringSelectMenu(
+                    ipy.StringSelectOption(
+                        label="Common", value="Common", default=True
+                    ),
+                    ipy.StringSelectOption(label="Uncommon", value="Uncommon"),
+                    ipy.StringSelectOption(label="Rare", value="Rare"),
+                    ipy.StringSelectOption(label="Epic", value="Epic"),
+                    ipy.StringSelectOption(label="Legendary", value="Legendary"),
+                    custom_id="item_rarity",
+                    placeholder="Select the item rarity.",
+                    min_values=1,
+                    max_values=1,
+                ),
+            ),
+            modalb.LabelComponent(
+                label="Item Quantity",
+                description="Defaults to being unlimited if left empty.",
+                component=modalb.InputText(
+                    style=ipy.TextStyles.SHORT,
+                    custom_id="item_amount",
+                    max_length=10,
+                    required=False,
+                    placeholder="Unlimited",
+                ),
+            ),
+            modalb.LabelComponent(
+                label="Item Image",
+                description="The image URL of the item.",
+                component=modalb.InputText(
+                    style=ipy.TextStyles.SHORT,
+                    custom_id="item_image",
+                    required=False,
+                ),
             ),
             title="Add Gacha Item",
             custom_id="add_gacha_item",
@@ -611,30 +665,64 @@ class GachaManagement(utils.Extension):
     ) -> None:
         send_button = _send_button == "yes"
 
+        config = await ctx.fetch_config()
+
         if send_button:
             await ctx.defer()
-            await ctx.send(
-                embed=utils.make_embed("Add gacha items via the button below!"),
-                components=ipy.Button(
-                    style=ipy.ButtonStyle.GREEN,
-                    label="Add Gacha Item",
-                    custom_id="thia-button:add_gacha_item",
-                ),
-            )
+
+            if config.enabled_beta:
+                await ctx.send(
+                    components=classes.ContainerComponent(
+                        ipy.SectionComponent(
+                            components=[
+                                ipy.TextDisplayComponent(
+                                    "Add gacha items with this button!"
+                                )
+                            ],
+                            accessory=ipy.Button(
+                                style=ipy.ButtonStyle.GREEN,
+                                label="Add Item",
+                                custom_id="thia:add-gacha-new",
+                            ),
+                        ),
+                        accent_color=self.bot.color.value,
+                    )
+                )
+            else:
+                await ctx.send(
+                    embed=utils.make_embed("Add gacha items via the button below!"),
+                    components=ipy.Button(
+                        style=ipy.ButtonStyle.GREEN,
+                        label="Add Gacha Item",
+                        custom_id="thia-button:add_gacha_item",
+                    ),
+                )
             return
-        await ctx.send_modal(self.gacha_item_create_modal)
+
+        if config.enabled_beta:
+            await ctx.send_modal(self.beta_gacha_item_create_modal)
+        else:
+            await ctx.send_modal(self.gacha_item_create_modal)
 
     @ipy.component_callback("thia-button:add_gacha_item")
     async def add_gacha_item_button(self, ctx: ipy.ComponentContext) -> None:
         await ctx.send_modal(self.gacha_item_create_modal)
 
+    @ipy.component_callback("thia:add-gacha-new")
+    async def add_gacha_item_beta_button(self, ctx: ipy.ComponentContext) -> None:
+        await ctx.send_modal(self.beta_gacha_item_create_modal)
+
     @ipy.modal_callback("add_gacha_item")
     async def add_gacha_item_modal(self, ctx: utils.THIAModalContext) -> None:
-        name: str = ctx.kwargs["item_name"]
-        description: str = ctx.kwargs["item_description"]
-        str_rarity: str = ctx.kwargs["item_rarity"]
-        str_amount: str = ctx.kwargs.get("item_amount", "-1").strip() or "-1"
-        image: str | None = ctx.kwargs.get("item_image", "").strip() or None
+        name: str = ctx.responses["item_name"]
+        description: str = ctx.responses["item_description"]
+        str_amount: str = ctx.responses.get("item_amount", "-1").strip() or "-1"
+        image: str | None = ctx.responses.get("item_image", "").strip() or None
+
+        if isinstance(ctx.responses["item_rarity"], list):
+            str_rarity: str = ctx.responses["item_rarity"][0]
+        else:
+            str_rarity: str = ctx.responses["item_rarity"]
 
         if await models.GachaItem.exists(guild_id=ctx.guild_id, name=name):
             raise ipy.errors.BadArgument("An item with that name already exists.")
@@ -689,53 +777,117 @@ class GachaManagement(utils.Extension):
         ctx: utils.THIASlashContext,
         name: str = tansy.Option("The name of the item to edit.", autocomplete=True),
     ) -> None:
+        config = await ctx.fetch_config()
+
         item = await models.GachaItem.get_or_none(guild_id=ctx.guild_id, name=name)
         if item is None:
             raise ipy.errors.BadArgument("No item with that name exists.")
 
-        modal = ipy.Modal(
-            ipy.InputText(
-                label="Item Name",
-                style=ipy.TextStyles.SHORT,
-                custom_id="item_name",
-                max_length=64,
-                value=item.name,
-            ),
-            ipy.InputText(
-                label="Item Description",
-                style=ipy.TextStyles.PARAGRAPH,
-                custom_id="item_description",
-                max_length=3500,
-                value=item.description,
-            ),
-            ipy.InputText(
-                label="Item Rarity",
-                style=ipy.TextStyles.SHORT,
-                custom_id="item_rarity",
-                max_length=10,
-                value=item.rarity.name.title(),
-                placeholder="Common, uncommon, rare, epic, legendary.",
-            ),
-            ipy.InputText(
-                label="Item Quantity",
-                style=ipy.TextStyles.SHORT,
-                custom_id="item_amount",
-                max_length=10,
-                placeholder="Defaults to being unlimited.",
-                required=False,
-                value=str(item.amount) if item.amount != -1 else ipy.MISSING,
-            ),
-            ipy.InputText(
-                label="Item Image",
-                style=ipy.TextStyles.SHORT,
-                custom_id="item_image",
-                placeholder="The image URL of the item.",
-                required=False,
-                value=item.image if item.image else ipy.MISSING,
-            ),
-            title="Edit Gacha Item",
-            custom_id=f"edit_gacha_item-{item.id}",
-        )
+        if config.enabled_beta:
+            string_select_options: list[ipy.StringSelectOption] = []
+            for rarity_name in models.Rarity.__members__.keys():
+                option = ipy.StringSelectOption(
+                    label=rarity_name.title(),
+                    value=rarity_name.title(),
+                )
+                if rarity_name.upper() == item.rarity.name:
+                    option.default = True
+                string_select_options.append(option)
+
+            modal = modalb.Modal(
+                ipy.InputText(
+                    label="Item Name",
+                    style=ipy.TextStyles.SHORT,
+                    custom_id="item_name",
+                    max_length=64,
+                    value=item.name,
+                ),
+                ipy.InputText(
+                    label="Item Description",
+                    style=ipy.TextStyles.PARAGRAPH,
+                    custom_id="item_description",
+                    max_length=3500,
+                    value=item.description,
+                ),
+                modalb.LabelComponent(
+                    label="Item Rarity",
+                    component=modalb.StringSelectMenu(
+                        *string_select_options,
+                        custom_id="item_rarity",
+                        placeholder="Select the item rarity.",
+                        min_values=1,
+                        max_values=1,
+                    ),
+                ),
+                modalb.LabelComponent(
+                    label="Item Quantity",
+                    description="Defaults to being unlimited if left empty.",
+                    component=modalb.InputText(
+                        style=ipy.TextStyles.SHORT,
+                        custom_id="item_amount",
+                        max_length=10,
+                        required=False,
+                        placeholder="Unlimited",
+                        value=str(item.amount) if item.amount != -1 else ipy.MISSING,
+                    ),
+                ),
+                modalb.LabelComponent(
+                    label="Item Image",
+                    description="The image URL of the item.",
+                    component=modalb.InputText(
+                        style=ipy.TextStyles.SHORT,
+                        custom_id="item_image",
+                        required=False,
+                        value=item.image if item.image else ipy.MISSING,
+                    ),
+                ),
+                title="Edit Gacha Item",
+                custom_id=f"edit_gacha_item-{item.id}",
+            )
+        else:
+            modal = ipy.Modal(
+                ipy.InputText(
+                    label="Item Name",
+                    style=ipy.TextStyles.SHORT,
+                    custom_id="item_name",
+                    max_length=64,
+                    value=item.name,
+                ),
+                ipy.InputText(
+                    label="Item Description",
+                    style=ipy.TextStyles.PARAGRAPH,
+                    custom_id="item_description",
+                    max_length=3500,
+                    value=item.description,
+                ),
+                ipy.InputText(
+                    label="Item Rarity",
+                    style=ipy.TextStyles.SHORT,
+                    custom_id="item_rarity",
+                    max_length=10,
+                    value=item.rarity.name.title(),
+                    placeholder="Common, uncommon, rare, epic, legendary.",
+                ),
+                ipy.InputText(
+                    label="Item Quantity",
+                    style=ipy.TextStyles.SHORT,
+                    custom_id="item_amount",
+                    max_length=10,
+                    placeholder="Defaults to being unlimited.",
+                    required=False,
+                    value=str(item.amount) if item.amount != -1 else ipy.MISSING,
+                ),
+                ipy.InputText(
+                    label="Item Image",
+                    style=ipy.TextStyles.SHORT,
+                    custom_id="item_image",
+                    placeholder="The image URL of the item.",
+                    required=False,
+                    value=item.image if item.image else ipy.MISSING,
+                ),
+                title="Edit Gacha Item",
+                custom_id=f"edit_gacha_item-{item.id}",
+            )
         await ctx.send_modal(modal)
 
     @ipy.listen("modal_completion")
@@ -749,9 +901,13 @@ class GachaManagement(utils.Extension):
         item_id = int(ctx.custom_id.split("-")[1])
         name: str = ctx.kwargs["item_name"]
         description: str = ctx.kwargs["item_description"]
-        str_rarity: str = ctx.kwargs["item_rarity"]
         str_amount: str = ctx.kwargs.get("item_amount", "-1").strip() or "-1"
         image: str | None = ctx.kwargs.get("item_image", "").strip() or None
+
+        if isinstance(ctx.responses["item_rarity"], list):
+            str_rarity: str = ctx.responses["item_rarity"][0]
+        else:
+            str_rarity: str = ctx.responses["item_rarity"]
 
         if not await models.GachaItem.exists(id=item_id, guild_id=ctx.guild_id):
             raise ipy.errors.BadArgument("The item no longer exists.")

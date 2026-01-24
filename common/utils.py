@@ -16,6 +16,7 @@ from pathlib import Path
 
 import aiohttp
 import interactions as ipy
+import modal_backport as modalb
 import sentry_sdk
 import tansy
 import typing_extensions as typing
@@ -417,7 +418,7 @@ class THIABaseContext(THIAContextMixin, ipy.BaseContext):
     pass
 
 
-class THIAModalContext(THIAContextMixin, ipy.ModalContext):
+class THIAModalContext(THIAContextMixin, modalb.ModalContext):
     pass
 
 
