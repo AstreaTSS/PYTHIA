@@ -46,34 +46,38 @@ class ConfigCMDs(utils.Extension):
             embed=utils.make_embed(only_option_rn, title="General Configuration")
         )
 
-    @config.subcommand(
-        sub_cmd_name="player",
-        sub_cmd_description="Sets (or unsets) the Player role.",
+    player_config = config.group(
+        name="player",
+        description="Commands for configuring player-related settings.",
+    )
+
+    @player_config.subcommand(
+        sub_cmd_name="set",
+        sub_cmd_description="Sets the Player role.",
     )
     async def set_player_role(
         self,
         ctx: utils.THIASlashContext,
-        role: ipy.Role | None = tansy.Option(
-            "The Player role to use.",
-            default=None,
-        ),
-        unset: bool = tansy.Option("Should the role be unset?", default=False),
+        role: ipy.Role = tansy.Option("The Player role to use."),
     ) -> None:
-        if not (bool(role) ^ unset):
-            raise ipy.errors.BadArgument(
-                "You must either specify a role or specify to unset the role."
-            )
+        config = await ctx.fetch_config()
+        config.player_role = role.id
+        await config.save()
 
-        guild_config = await ctx.fetch_config()
-        guild_config.player_role = role.id if role else None
-        await guild_config.save()
+        await ctx.send(
+            embed=utils.make_embed(f"Player role set to {role.mention}!"),
+        )
 
-        if role:
-            await ctx.send(
-                embed=utils.make_embed(f"Player role set to {role.mention}!"),
-            )
-        else:
-            await ctx.send(embed=utils.make_embed("Player role unset."))
+    @player_config.subcommand(
+        sub_cmd_name="unset",
+        sub_cmd_description="Unsets the Player role.",
+    )
+    async def unset_player_role(self, ctx: utils.THIASlashContext) -> None:
+        config = await ctx.fetch_config()
+        config.player_role = None
+        await config.save()
+
+        await ctx.send(embed=utils.make_embed("Player role unset."))
 
     @config.subcommand(
         sub_cmd_name="beta",

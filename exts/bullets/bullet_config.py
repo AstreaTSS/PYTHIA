@@ -96,80 +96,93 @@ class BulletConfigCMDs(utils.Extension):
         embed.add_field("Names", "\n".join(names_builder), inline=True)
         await ctx.send(embed=embed)
 
-    @config.subcommand(
-        sub_cmd_name="channel",
-        sub_cmd_description="Sets (or unsets) where all Truth Bullets are sent to.",
+    channel_config = config.group(
+        name="channel",
+        description="Commands for configuring BDA investigation channel settings.",
+    )
+
+    @channel_config.subcommand(
+        sub_cmd_name="set",
+        sub_cmd_description="Sets the channel where all Truth Bullets are sent to.",
     )
     async def set_bullet_channel(
         self,
         ctx: utils.THIASlashContext,
-        channel: ipy.GuildText | None = tansy.Option(
-            "The channel to send Truth Bullets to.", default=None
-        ),
-        unset: bool = tansy.Option(
-            "Should the Truth Bullet channel be unset?", default=False
-        ),
+        channel: ipy.GuildText = tansy.Option("The channel to send Truth Bullets to."),
     ) -> None:
-        if not (bool(channel) ^ unset):
-            raise ipy.errors.BadArgument(
-                "You must set a Truth Bullet channel or specify to unset it."
-            )
-
-        if channel and not isinstance(channel, SendMixin):
+        if not isinstance(channel, SendMixin):
             raise ipy.errors.BadArgument("The channel must be a text channel.")
 
         config = await ctx.fetch_config({"bullets": True})
         if typing.TYPE_CHECKING:
             assert config.bullets is not None
 
-        config.bullets.bullet_chan_id = channel.id if channel else None
+        config.bullets.bullet_chan_id = channel.id
         await config.bullets.save()
 
-        if channel:
-            await ctx.send(
-                embed=utils.make_embed(
-                    f"Truth Bullet channel set to {channel.mention}!"
-                )
-            )
-        else:
-            await ctx.send(embed=utils.make_embed("Truth Bullet channel unset."))
+        await ctx.send(
+            embed=utils.make_embed(f"Truth Bullet channel set to {channel.mention}!")
+        )
 
-    @config.subcommand(
-        sub_cmd_name="best-finder",
-        sub_cmd_description="Sets (or unsets) the Best Truth Bullet Finder role.",
+    @channel_config.subcommand(
+        sub_cmd_name="unset",
+        sub_cmd_description="Unsets the channel where all Truth Bullets are sent to.",
     )
-    async def set_best_truth_bullet_finder_role(
-        self,
-        ctx: utils.THIASlashContext,
-        role: ipy.Role | None = tansy.Option(
-            "The Best Detective role to use.",
-            converter=utils.ValidRoleConverter,
-            default=None,
-        ),
-        unset: bool = tansy.Option("Should the role be unset?", default=False),
-    ) -> None:
-        if not (bool(role) ^ unset):
-            raise ipy.errors.BadArgument(
-                "You must either specify a role or specify to unset the role."
-            )
-
+    async def unset_bullet_channel(self, ctx: utils.THIASlashContext) -> None:
         config = await ctx.fetch_config({"bullets": True})
         if typing.TYPE_CHECKING:
             assert config.bullets is not None
 
-        config.bullets.best_bullet_finder_role = role.id if role else None
+        config.bullets.bullet_chan_id = None
         await config.bullets.save()
 
-        if role:
-            await ctx.send(
-                embed=utils.make_embed(
-                    f"Best Truth Bullet Finder role set to {role.mention}!"
-                ),
-            )
-        else:
-            await ctx.send(
-                embed=utils.make_embed("Best Truth Bullet Finder role unset.")
-            )
+        await ctx.send(embed=utils.make_embed("Truth Bullet channel unset."))
+
+    best_finder_config = config.group(
+        name="best-finder",
+        description="Commands for configuring the Best Truth Bullet Finder role.",
+    )
+
+    @best_finder_config.subcommand(
+        sub_cmd_name="set",
+        sub_cmd_description="Sets the Best Truth Bullet Finder role.",
+    )
+    async def set_best_truth_bullet_finder_role(
+        self,
+        ctx: utils.THIASlashContext,
+        role: ipy.Role = tansy.Option(
+            "The Best Detective role to use.",
+            converter=utils.ValidRoleConverter,
+        ),
+    ) -> None:
+        config = await ctx.fetch_config({"bullets": True})
+        if typing.TYPE_CHECKING:
+            assert config.bullets is not None
+
+        config.bullets.best_bullet_finder_role = role.id
+        await config.bullets.save()
+
+        await ctx.send(
+            embed=utils.make_embed(
+                f"Best Truth Bullet Finder role set to {role.mention}!"
+            ),
+        )
+
+    @best_finder_config.subcommand(
+        sub_cmd_name="unset",
+        sub_cmd_description="Unsets the Best Truth Bullet Finder role.",
+    )
+    async def unset_best_truth_bullet_finder_role(
+        self, ctx: utils.THIASlashContext
+    ) -> None:
+        config = await ctx.fetch_config({"bullets": True})
+        if typing.TYPE_CHECKING:
+            assert config.bullets is not None
+
+        config.bullets.best_bullet_finder_role = None
+        await config.bullets.save()
+
+        await ctx.send(embed=utils.make_embed("Best Truth Bullet Finder role unset."))
 
     @config.subcommand(
         sub_cmd_name="mode",
