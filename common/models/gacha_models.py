@@ -12,7 +12,7 @@ import random
 from collections import Counter
 from decimal import Decimal
 from enum import IntEnum
-from fractions import Fraction
+from itertools import accumulate
 
 import interactions as ipy
 import typing_extensions as typing
@@ -114,18 +114,30 @@ class GachaRarities(Model):
                 raise ValueError(f"Invalid rarity: {rarity}")
 
     def roll_rarity(self) -> Rarity:
-        value = random.choices(  # noqa: S311
-            GACHA_RARITIES_LIST,
-            (
-                Fraction(self.common_odds),
-                Fraction(self.uncommon_odds),
-                Fraction(self.rare_odds),
-                Fraction(self.epic_odds),
-                Fraction(self.legendary_odds),
-            ),
-            k=1,
+        accumlated_odds = tuple(
+            accumulate(
+                (
+                    self.common_odds,
+                    self.uncommon_odds,
+                    self.rare_odds,
+                    self.epic_odds,
+                    self.legendary_odds,
+                )
+            )
         )
-        return value[0]
+
+        random_value = random.random()  # noqa: S311
+
+        return next(
+            (
+                rarity
+                for rarity, threshold in zip(
+                    GACHA_RARITIES_LIST, accumlated_odds, strict=True
+                )
+                if Decimal(random_value) < threshold
+            ),
+            Rarity.LEGENDARY,
+        )
 
     class Meta:
         table = "thiagachararities"
