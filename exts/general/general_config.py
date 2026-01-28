@@ -12,6 +12,7 @@ import importlib
 import interactions as ipy
 import tansy
 
+import common.models as models
 import common.utils as utils
 
 
@@ -112,6 +113,58 @@ class ConfigCMDs(utils.Extension):
             await ctx.send(
                 embed=utils.make_embed("Beta features have been turned off.")
             )
+
+    @config.subcommand(
+        sub_cmd_name="clear-all-data",
+        sub_cmd_description="Clears all bot data for this server. Use with caution!",
+    )
+    @ipy.auto_defer(enabled=False)
+    async def clear_all_data(
+        self,
+        ctx: utils.THIASlashContext,
+        confirm: bool = tansy.Option(
+            "Actually clear? Set this to true if you're sure.", default=False
+        ),
+    ) -> None:
+        if not confirm:
+            raise ipy.errors.BadArgument(
+                "Confirm option not set to true. Please set the option `confirm` to"
+                " true to continue."
+            )
+
+        await ctx.send_modal(
+            ipy.Modal(
+                ipy.InputText(
+                    label="Type 'Clear all data.' to confirm.",
+                    custom_id="confirm_input",
+                    style=ipy.TextStyles.SHORT,
+                    required=True,
+                    min_length=15,
+                    max_length=15,
+                    placeholder=(
+                        "'Clear all data.' is case-sensitive. Do not put the quotes."
+                    ),
+                ),
+                title="Confirm Clear All Data",
+                custom_id="thia:clear-all-data-modal",
+            )
+        )
+
+    @ipy.modal_callback("thia:clear-all-data-modal")
+    async def clear_all_data_modal_callback(self, ctx: utils.THIAModalContext) -> None:
+        confirm_input = ctx.responses["confirm_input"]
+
+        if confirm_input != "Clear all data.":
+            raise ipy.errors.BadArgument("Confirmation input did not match.")
+
+        await models.GuildConfig.filter(guild_id=int(ctx.guild_id)).delete()
+        await models.TruthBullet.filter(guild_id=int(ctx.guild_id)).delete()
+
+        await ctx.send(
+            embed=utils.make_embed(
+                "All data for this server has been cleared.", title="Data Cleared"
+            )
+        )
 
     @config.subcommand(
         sub_cmd_name="help",

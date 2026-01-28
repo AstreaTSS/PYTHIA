@@ -29,7 +29,6 @@ class EtcEvents(ipy.Extension):
             return
 
         await models.GuildConfig.filter(guild_id=int(event.guild_id)).delete()
-
         await models.TruthBullet.filter(guild_id=int(event.guild_id)).delete()
 
 
