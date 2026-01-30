@@ -295,14 +295,15 @@ class GachaManagement(utils.Extension):
         await ctx.send(embed=utils.make_embed("All gacha user and items data cleared."))
 
     @manage.subcommand(
-        "add-currency-players",
+        "add-currency-role",
         sub_cmd_description=(
-            "Adds a certain amount of currency to all users with the Player role."
+            "Adds a certain amount of currency to all users with a specific role."
         ),
     )
-    async def gacha_give_all(
+    async def gacha_give_role(
         self,
         ctx: utils.THIASlashContext,
+        role: ipy.Role = tansy.Option("The role to add currency to."),
         amount: int = tansy.Option(
             "The amount of currency to add.", min_value=1, max_value=10000
         ),
@@ -311,15 +312,8 @@ class GachaManagement(utils.Extension):
         if typing.TYPE_CHECKING:
             assert config.names is not None
 
-        if not config.player_role:
-            raise utils.CustomCheckFailure(
-                "Player role not set. Please set it with"
-                f" {self.bot.mention_command('config player')} first."
-            )
-
-        actual_role = await ctx.guild.fetch_role(config.player_role)
-        if actual_role is None:
-            raise utils.CustomCheckFailure("The Player role was not found.")
+        if isinstance(role, str):
+            role = await ctx.guild.fetch_role(int(role))
 
         members: list[GuildMemberEntry] = []
 
@@ -335,7 +329,7 @@ class GachaManagement(utils.Extension):
                 data = await ctx.bot.http.request(
                     route=Route("POST", f"/guilds/{ctx.guild_id}/members-search"),
                     payload={
-                        "and_query": {"role_ids": {"and_query": [str(actual_role.id)]}},
+                        "and_query": {"role_ids": {"and_query": [str(role.id)]}},
                         "limit": 250,  # surely this is a reasonable limit
                     },
                 )
@@ -361,12 +355,12 @@ class GachaManagement(utils.Extension):
             # slow path, we just have to iterate over all members
             iterator = MemberIterator(ctx.guild)
             async for member in iterator:
-                if str(actual_role.id) in member["roles"]:
+                if str(role.id) in member["roles"]:
                     members.append({"member": member})
 
         if not members:
             raise utils.CustomCheckFailure(
-                "No members with the Player role were found."
+                f"No members with the {role.name} role were found."
             )
 
         try:
@@ -412,8 +406,41 @@ class GachaManagement(utils.Extension):
 
         await ctx.send(
             embed=utils.make_embed(
-                f"Added {amount} {config.names.currency_name(amount)} to all players."
+                f"Added {amount} {config.names.currency_name(amount)} to all users with"
+                f" the {role.name} role."
             )
+        )
+
+    @manage.subcommand(
+        "add-currency-players",
+        sub_cmd_description=(
+            "Adds a certain amount of currency to all users with the Player role."
+        ),
+    )
+    async def gacha_give_all(
+        self,
+        ctx: utils.THIASlashContext,
+        amount: int = tansy.Option(
+            "The amount of currency to add.", min_value=1, max_value=10000
+        ),
+    ) -> None:
+        config = await ctx.fetch_config({"names": True, "gacha": True})
+
+        if not config.player_role:
+            raise utils.CustomCheckFailure(
+                "Player role not set. Please set it with"
+                f" {self.bot.mention_command('config player')} first."
+            )
+
+        actual_role = await ctx.guild.fetch_role(config.player_role)
+        if actual_role is None:
+            raise utils.CustomCheckFailure("The Player role was not found.")
+
+        await self.gacha_give_role.call_with_binding(
+            self.gacha_give_role.callback,
+            ctx,
+            actual_role,
+            amount,
         )
 
     @manage.subcommand(
