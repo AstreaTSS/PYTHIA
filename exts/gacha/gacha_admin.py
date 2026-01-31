@@ -14,7 +14,6 @@ import interactions as ipy
 import tansy
 import typing_extensions as typing
 from interactions.api.http.route import Route
-from interactions.models.misc.iterator import AsyncIterator
 from tortoise.expressions import F
 from tortoise.query_utils import Prefetch
 from tortoise.transactions import in_transaction
@@ -38,28 +37,6 @@ class GuildMembersSearchResult(typing.TypedDict):
     members: list[GuildMemberEntry]
     page_result_count: int
     total_result_count: int
-
-
-class MemberIterator(AsyncIterator):
-    def __init__(self, guild: "ipy.Guild", limit: int = 0) -> None:
-        super().__init__(limit)
-        self.guild = guild
-        self._more = True
-
-    async def fetch(self) -> list:
-        if self._more:
-            expected = self.get_limit
-
-            rcv = await self.guild._client.http.list_members(
-                self.guild.id,
-                limit=expected,
-                after=self.last["user"]["id"] if self.last else ipy.MISSING,
-            )
-            if not rcv:
-                raise asyncio.QueueEmpty
-            self._more = len(rcv) == expected
-            return rcv
-        raise asyncio.QueueEmpty
 
 
 class GachaManagement(utils.Extension):
@@ -315,7 +292,7 @@ class GachaManagement(utils.Extension):
         if isinstance(role, str):
             role = await ctx.guild.fetch_role(int(role))
 
-        members: list[GuildMemberEntry] = []
+        members: list[int] = []
 
         if (
             "COMMUNITY" in ctx.guild.features
@@ -349,14 +326,14 @@ class GachaManagement(utils.Extension):
                 if typing.TYPE_CHECKING:
                     data: GuildMembersSearchResult
 
-                members = data["members"]
+                members = [int(m["member"]["user"]["id"]) for m in data["members"]]
                 break
         else:
             # slow path, we just have to iterate over all members
-            iterator = MemberIterator(ctx.guild)
-            async for member in iterator:
-                if str(role.id) in member["roles"]:
-                    members.append({"member": member})
+            if not ctx.guild.chunked.is_set():
+                await ctx.guild.chunk()
+
+            members = [int(m.id) for m in role.members]
 
         if not members:
             raise utils.CustomCheckFailure(
@@ -364,14 +341,12 @@ class GachaManagement(utils.Extension):
             )
 
         try:
-            for m in members:
-                await self.bot.gacha_locks[
-                    f"{ctx.guild_id}-{m['member']['user']['id']}"
-                ].acquire()
+            for member in members:
+                await self.bot.gacha_locks[f"{ctx.guild_id}-{member}"].acquire()
 
             existing_players = await models.GachaPlayer.filter(
                 guild_id=ctx.guild_id,
-                user_id__in=[int(m["member"]["user"]["id"]) for m in members],
+                user_id__in=members,
             )
             if any(p.currency_amount + amount > 2147483647 for p in existing_players):
                 raise ipy.errors.BadArgument(
@@ -380,9 +355,7 @@ class GachaManagement(utils.Extension):
                 )
 
             existing_players_set = {p.user_id for p in existing_players}
-            non_existing_players = {
-                int(m["member"]["user"]["id"]) for m in members
-            }.difference(existing_players_set)
+            non_existing_players = set(members).difference(existing_players_set)
 
             async with in_transaction():
                 await models.GachaPlayer.filter(
@@ -396,13 +369,9 @@ class GachaManagement(utils.Extension):
                     for user_id in non_existing_players
                 )
         finally:
-            for m in members:
-                if self.bot.gacha_locks[
-                    f"{ctx.guild_id}-{m['member']['user']['id']}"
-                ].locked():
-                    self.bot.gacha_locks[
-                        f"{ctx.guild_id}-{m['member']['user']['id']}"
-                    ].release()
+            for member in members:
+                if self.bot.gacha_locks[f"{ctx.guild_id}-{member}"].locked():
+                    self.bot.gacha_locks[f"{ctx.guild_id}-{member}"].release()
 
         await ctx.send(
             embed=utils.make_embed(
