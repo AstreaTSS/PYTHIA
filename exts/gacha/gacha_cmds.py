@@ -162,8 +162,8 @@ class GachaCommands(utils.Extension):
                     allowed_mentions=ipy.AllowedMentions.none(),
                 )
             else:
-                container = classes.ContainerComponent(
-                    accent_color=rarities.color(item.rarity).value
+                container = ipy.ContainerComponent(
+                    accent_color=rarities.color(item.rarity)
                 )
 
                 str_builder: list[str] = [f"# {item.name}"]
@@ -176,9 +176,7 @@ class GachaCommands(utils.Extension):
                 if item.image:
                     container.append(
                         ipy.SectionComponent(
-                            components=[
-                                ipy.TextDisplayComponent("\n".join(str_builder))
-                            ],
+                            components=ipy.TextDisplayComponent("\n".join(str_builder)),
                             accessory=ipy.ThumbnailComponent(
                                 ipy.UnfurledMediaItem(item.image)
                             ),

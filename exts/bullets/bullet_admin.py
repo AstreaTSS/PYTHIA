@@ -15,7 +15,6 @@ import interactions as ipy
 import modal_backport as modalb
 import tansy
 
-import common.classes as classes
 import common.fuzzy as fuzzy
 import common.help_tools as help_tools
 import common.models as models
@@ -165,7 +164,7 @@ class BulletManagement(utils.Extension):
             await ctx.defer()
 
             if config.enabled_beta:
-                containers: list[classes.ContainerComponent] = []
+                containers: list[ipy.ContainerComponent] = []
                 if (
                     count > 0
                     and await models.TruthBullet.filter(
@@ -173,7 +172,7 @@ class BulletManagement(utils.Extension):
                     ).exists()
                 ):
                     containers.append(
-                        classes.ContainerComponent(
+                        ipy.ContainerComponent(
                             ipy.TextDisplayComponent("# Warning"),
                             ipy.TextDisplayComponent(
                                 "This server has Truth Bullets that all have been"
@@ -182,26 +181,24 @@ class BulletManagement(utils.Extension):
                                 " Bullets, you can clear the current ones with"
                                 f" {self.bot.mention_command('bullet-manage clear')}.",
                             ),
-                            accent_color=ipy.RoleColors.YELLOW.value,
+                            accent_color=ipy.RoleColors.YELLOW,
                         )
                     )
 
                 containers.append(
-                    classes.ContainerComponent(
+                    ipy.ContainerComponent(
                         ipy.SectionComponent(
-                            components=[
-                                ipy.TextDisplayComponent(
-                                    f"Add Truth Bullets for {channel.mention} with this"
-                                    " button!"
-                                )
-                            ],
+                            components=ipy.TextDisplayComponent(
+                                f"Add Truth Bullets for {channel.mention} with this"
+                                " button!"
+                            ),
                             accessory=ipy.Button(
                                 style=ipy.ButtonStyle.GREEN,
                                 label="Add Truth Bullet",
                                 custom_id=f"thia:add-bullets|{channel.id}",
                             ),
                         ),
-                        accent_color=self.bot.color.value,
+                        accent_color=self.bot.color,
                     )
                 )
 
@@ -908,5 +905,4 @@ def setup(bot: utils.THIABase) -> None:
     importlib.reload(fuzzy)
     importlib.reload(help_tools)
     importlib.reload(text_utils)
-    importlib.reload(classes)
     BulletManagement(bot)

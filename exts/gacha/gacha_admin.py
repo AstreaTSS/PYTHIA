@@ -503,7 +503,7 @@ class GachaManagement(utils.Extension):
                             f"# {ctx.author.display_name}'s Gacha Profile"
                         ),
                         *chunks[0],
-                        accent_color=self.bot.color.value,
+                        accent_color=self.bot.color,
                     )
                 )
                 return

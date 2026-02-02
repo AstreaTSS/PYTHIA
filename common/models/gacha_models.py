@@ -409,13 +409,11 @@ class GachaPlayer(Model):
             counter_data = self._organize_gacha_items(sort_by)
             component_builder.extend(
                 ipy.SectionComponent(
-                    components=[
-                        ipy.TextDisplayComponent(
-                            f"**{entry.item.name}**{f' (x{count})' if count > 1 else ''}\n-#"
-                            f" {names.rarity_name(entry.item.rarity)} ●"
-                            f" {short_desc(entry.item.description, length=50)}"
-                        )
-                    ],
+                    components=ipy.TextDisplayComponent(
+                        f"**{entry.item.name}**{f' (x{count})' if count > 1 else ''}\n-#"
+                        f" {names.rarity_name(entry.item.rarity)} ●"
+                        f" {short_desc(entry.item.description, length=50)}"
+                    ),
                     accessory=ipy.Button(
                         style=ipy.ButtonStyle.GRAY,
                         label="View",

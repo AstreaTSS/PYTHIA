@@ -160,20 +160,18 @@ class GachaItems(utils.Extension):
 
             if config.enabled_beta:
                 await ctx.send(
-                    components=classes.ContainerComponent(
+                    components=ipy.ContainerComponent(
                         ipy.SectionComponent(
-                            components=[
-                                ipy.TextDisplayComponent(
-                                    "Add gacha items with this button!"
-                                )
-                            ],
+                            components=ipy.TextDisplayComponent(
+                                "Add gacha items with this button!"
+                            ),
                             accessory=ipy.Button(
                                 style=ipy.ButtonStyle.GREEN,
                                 label="Add Item",
                                 custom_id="thia:add-gacha-new",
                             ),
                         ),
-                        accent_color=self.bot.color.value,
+                        accent_color=self.bot.color,
                     )
                 )
             else:
@@ -529,13 +527,11 @@ class GachaItems(utils.Extension):
             if mode == "spacious":
                 components: list[ipy.BaseComponent] = [
                     ipy.SectionComponent(
-                        components=[
-                            ipy.TextDisplayComponent(
-                                f"**{text_utils.escape_markdown(item.name)}**{f' ({item.amount} remaining)' if item.amount != -1 else ''}\n-#"
-                                f" {config.names.rarity_name(item.rarity)} ●"
-                                f" {models.short_desc(item.description, length=50)}"
-                            )
-                        ],
+                        components=ipy.TextDisplayComponent(
+                            f"**{text_utils.escape_markdown(item.name)}**{f' ({item.amount} remaining)' if item.amount != -1 else ''}\n-#"
+                            f" {config.names.rarity_name(item.rarity)} ●"
+                            f" {models.short_desc(item.description, length=50)}"
+                        ),
                         accessory=ipy.Button(
                             style=ipy.ButtonStyle.GRAY,
                             label="View",
@@ -574,7 +570,7 @@ class GachaItems(utils.Extension):
                 components=ipy.ContainerComponent(
                     ipy.TextDisplayComponent("Gacha Items"),
                     *components,
-                    accent_color=self.bot.color.value,
+                    accent_color=self.bot.color,
                 ),
                 ephemeral=True,
             )

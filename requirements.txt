@@ -1,4 +1,4 @@
-discord-py-interactions==5.15.0
+discord-py-interactions==5.16.0
 tansy==0.10.0
 ipy-modal-backport==0.3.0
 tortoise-orm[asyncpg]==0.25.3
