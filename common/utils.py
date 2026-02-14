@@ -333,7 +333,11 @@ class ValidChannelConverter(ipy.Converter):
     async def convert(
         self, ctx: ipy.InteractionContext, argument: ipy.GuildText
     ) -> GuildMessageable:
-        return valid_channel_check(argument, ctx.app_permissions)
+        perms = argument.permissions
+        if perms is None:
+            perms = ctx.app_permissions
+
+        return valid_channel_check(argument, perms)
 
 
 async def _global_checks(ctx: ipy.BaseContext) -> bool:
