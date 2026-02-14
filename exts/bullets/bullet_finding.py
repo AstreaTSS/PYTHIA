@@ -208,16 +208,19 @@ class BulletFinding(utils.Extension):
                 await config.bullets.save()
                 return
 
-            new_msg = await message.reply(embed=embed)
-            embed.title = None
-            await bullet_chan.send(
-                embed=embed,
-                components=ipy.Button(
-                    style=ipy.ButtonStyle.LINK,
-                    label="Context",
-                    url=new_msg.jump_url,
-                ),
-            )
+            try:
+                new_msg = await message.reply(embed=embed)
+                embed.title = None
+                await bullet_chan.send(
+                    embed=embed,
+                    components=ipy.Button(
+                        style=ipy.ButtonStyle.LINK,
+                        label="Context",
+                        url=new_msg.jump_url,
+                    ),
+                )
+            except ipy.errors.HTTPException:
+                return  # can't do anything here, unforunately
         else:
             try:
                 await message.author.send(
@@ -311,14 +314,23 @@ class BulletFinding(utils.Extension):
                 return
 
             embed.title = None
-            await bullet_chan.send(
-                embed=embed,
-                components=ipy.Button(
-                    style=ipy.ButtonStyle.LINK,
-                    label="Context",
-                    url=message.jump_url,
-                ),
-            )
+
+            try:
+                await bullet_chan.send(
+                    embed=embed,
+                    components=ipy.Button(
+                        style=ipy.ButtonStyle.LINK,
+                        label="Context",
+                        url=message.jump_url,
+                    ),
+                )
+            except ipy.errors.HTTPException:
+                await ctx.send(
+                    embed=utils.error_embed_generate(
+                        f"Cannot send messages to {bullet_chan.mention}. Staff, please"
+                        " check channel permissions."
+                    )
+                )
 
         await truth_bullet.save(force_update=True)
         await self.check_for_finish(ctx.guild, bullet_chan, config)
