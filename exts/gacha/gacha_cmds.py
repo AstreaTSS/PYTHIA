@@ -111,8 +111,9 @@ class GachaCommands(utils.Extension):
                     f"You do not have enough {config.names.plural_currency_name} to"
                     f" {name_for_action} the gacha. You need at least"
                     f" {config.gacha.currency_cost}"
-                    f" {config.names.currency_name(config.gacha.currency_cost)} to"
-                    " do so."
+                    f" {config.names.currency_name(config.gacha.currency_cost)} to do"
+                    f" so, but you have {player.currency_amount}"
+                    f" {config.names.currency_name(config.gacha.currency_cost)}."
                 )
 
             rarities, _ = await models.GachaRarities.get_or_create(
