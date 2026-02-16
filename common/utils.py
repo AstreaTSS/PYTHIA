@@ -116,19 +116,15 @@ def alias(
 
 def error_embed_generate(error_msg: str) -> ipy.Embed:
     return ipy.Embed(
-        title="Error",
-        description=error_msg,
+        description=f"# Error\n{error_msg}",
         color=ipy.MaterialColors.ORANGE,
-        timestamp=ipy.Timestamp.utcnow(),
     )
 
 
 def make_embed(description: str, *, title: str | None = None) -> ipy.Embed:
     return ipy.Embed(
-        title=title,
-        description=description,
+        description=description if not title else f"# {title}\n{description}",
         color=BOT_COLOR,
-        timestamp=ipy.Timestamp.utcnow(),
     )
 
 
