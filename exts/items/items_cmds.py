@@ -204,6 +204,7 @@ class ItemsCommands(utils.Extension):
             raise ipy.errors.BadArgument("Invalid mode.")
 
         user_items = await models.ItemRelation.filter(
+            guild_id=ctx.guild_id,
             object_id=ctx.author.id,
         ).prefetch_related("item")
         if not user_items:
@@ -277,6 +278,7 @@ class ItemsCommands(utils.Extension):
     ) -> None:
         item = await models.ItemsSystemItem.filter(
             name=name,
+            guild_id=ctx.guild_id,
             relations__object_id=ctx.author.id,
         ).first()
         if not item:

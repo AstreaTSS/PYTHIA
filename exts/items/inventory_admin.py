@@ -54,6 +54,7 @@ class InventoryManagement(utils.Extension):
             raise ipy.errors.BadArgument("Invalid mode.")
 
         user_items = await models.ItemRelation.filter(
+            guild_id=ctx.guild_id,
             object_id=user.id,
         ).prefetch_related("item")
         if not user_items:
@@ -305,6 +306,7 @@ class InventoryManagement(utils.Extension):
         ),
     ) -> None:
         count = await models.ItemRelation.filter(
+            guild_id=ctx.guild_id,
             object_id=user.id,
         ).delete()
         if count == 0:
