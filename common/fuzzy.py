@@ -371,10 +371,11 @@ async def autocomplete_item_user(
     user: ipy.Snowflake_Type | None = None,
     **_: typing.Any,
 ) -> None:
-    if not user:
+    if not user or not ctx.guild_id:
         return await ctx.send([])
 
     unfiltered_items = await models.ItemsSystemItem.filter(
+        guild_id=ctx.guild_id,
         relations__object_id=int(user),
     )
     if not unfiltered_items:
