@@ -260,7 +260,7 @@ if __name__ == "__main__":
         import sys
 
         subprocess.run(
-            [sys.executable, "-m", "aerich", "update"],
+            [sys.executable, "-m", "tortoise", "migrate"],
             check=True,
             env={"DB_URL": os.environ["DB_URL"]},
         )
