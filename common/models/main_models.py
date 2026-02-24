@@ -13,7 +13,8 @@ from enum import Enum, IntEnum
 
 import interactions as ipy
 import typing_extensions as typing
-from tortoise import Model, connections, fields
+from tortoise import Model, fields
+from tortoise.connection import get_connection
 from tortoise.contrib.postgres.fields import ArrayField
 
 import common.text_utils as text_utils
@@ -372,7 +373,7 @@ class TruthBullet(Model):
     async def find(
         cls, channel_id: ipy.Snowflake_Type, content: str
     ) -> typing.Self | None:
-        conn = connections.get("default")
+        conn = get_connection("default")
         data = await conn.execute_query_dict(
             FIND_TRUTH_BULLET_STR, values=[int(channel_id), content]
         )
@@ -382,7 +383,7 @@ class TruthBullet(Model):
     async def find_exact(
         cls, channel_id: ipy.Snowflake_Type, content: str
     ) -> typing.Self | None:
-        conn = connections.get("default")
+        conn = get_connection("default")
         data = await conn.execute_query_dict(
             FIND_TRUTH_BULLET_EXACT_STR, values=[int(channel_id), content]
         )
@@ -399,7 +400,7 @@ class TruthBullet(Model):
 
     @classmethod
     async def validate(cls, channel_id: ipy.Snowflake_Type, trigger: str) -> bool:
-        conn = connections.get("default")
+        conn = get_connection("default")
         data = await conn.execute_query_dict(
             VALIDATE_TRUTH_BULLET_STR, values=[int(channel_id), trigger]
         )

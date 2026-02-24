@@ -16,7 +16,8 @@ from itertools import accumulate
 
 import interactions as ipy
 import typing_extensions as typing
-from tortoise import Model, connections, fields
+from tortoise import Model, fields
+from tortoise.connection import get_connection
 
 import common.text_utils as text_utils
 from common.models.utils import guild_id_model, short_desc
@@ -191,7 +192,7 @@ class GachaItem(Model):
 
     @classmethod
     async def roll(cls, guild_id: int, rarity: Rarity) -> typing.Self | None:
-        conn = connections.get("default")
+        conn = get_connection("default")
         data = await conn.execute_query_dict(
             GACHA_ROLL_STR, values=[guild_id, rarity.value]
         )
@@ -201,7 +202,7 @@ class GachaItem(Model):
     async def roll_no_duplicates(
         cls, guild_id: int, player_id: int, rarity: Rarity
     ) -> typing.Self | None:
-        conn = connections.get("default")
+        conn = get_connection("default")
         data = await conn.execute_query_dict(
             GACHA_ROLL_NO_DUPS_STR, values=[guild_id, player_id, rarity.value]
         )
