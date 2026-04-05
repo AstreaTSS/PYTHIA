@@ -102,11 +102,13 @@ class GachaCommands(utils.Extension):
             )
 
         async with self.bot.gacha_locks[f"{ctx.guild_id}-{ctx.author.id}"]:
-            player, _ = await models.GachaPlayer.get_or_create(
+            player = await models.GachaPlayer.get_or_none(
                 guild_id=ctx.guild_id, user_id=ctx.author.id
+            ).prefetch_related(
+                Prefetch("items", models.ItemToPlayer.filter().prefetch_related("item"))
             )
 
-            if player.currency_amount < config.gacha.currency_cost:
+            if not player or player.currency_amount < config.gacha.currency_cost:
                 raise utils.CustomCheckFailure(
                     f"You do not have enough {config.names.plural_currency_name} to"
                     f" {name_for_action} the gacha. You need at least"
@@ -116,16 +118,32 @@ class GachaCommands(utils.Extension):
                     f" {config.names.currency_name(config.gacha.currency_cost)}."
                 )
 
+            item_ids = {entry.item.id for entry in player.items}
+
             rarities, _ = await models.GachaRarities.get_or_create(
                 guild_id=ctx.guild_id
             )
             rarity = rarities.roll_rarity()
 
             if config.gacha.draw_duplicates:
-                item = await models.GachaItem.roll(ctx.guild_id, rarity)
+                items = await models.GachaItem.roll(ctx.guild_id, rarity)
+
+                # we don't want to prevent duplicates, but making them less likely
+                # sounds nice, doesn't it?
+                # we try up to 3 times to find an item that the user doesn't have
+
+                if not items:
+                    item = None
+                elif len(items) <= 1 or items[0].id not in item_ids:
+                    item = items[0]
+                elif len(items) <= 2 or items[1].id not in item_ids:
+                    item = items[1]
+                else:
+                    item = items[2]
+
             else:
                 item = await models.GachaItem.roll_no_duplicates(
-                    ctx.guild_id, player.id, rarity
+                    ctx.guild_id, item_ids, rarity
                 )
 
             if not item:

@@ -191,20 +191,20 @@ class GachaItem(Model):
         return embed
 
     @classmethod
-    async def roll(cls, guild_id: int, rarity: Rarity) -> typing.Self | None:
+    async def roll(cls, guild_id: int, rarity: Rarity) -> list[typing.Self] | None:
         conn = get_connection("default")
         data = await conn.execute_query_dict(
             GACHA_ROLL_STR, values=[guild_id, rarity.value]
         )
-        return cls(**data[0]) if data else None
+        return [cls(**entry) for entry in data] if data else None
 
     @classmethod
     async def roll_no_duplicates(
-        cls, guild_id: int, player_id: int, rarity: Rarity
+        cls, guild_id: int, item_ids: set[int], rarity: Rarity
     ) -> typing.Self | None:
         conn = get_connection("default")
         data = await conn.execute_query_dict(
-            GACHA_ROLL_NO_DUPS_STR, values=[guild_id, player_id, rarity.value]
+            GACHA_ROLL_NO_DUPS_STR, values=[guild_id, list(item_ids), rarity.value]
         )
         return cls(**data[0]) if data else None
 
@@ -463,10 +463,10 @@ ORDER BY
         CASE WHEN rarity <= $2 THEN $2 - rarity ELSE rarity + $2 END
     ) ASC,
     RANDOM()
-    LIMIT 1;
+    LIMIT 3;
 """.strip()  # noqa: S608
 
-GACHA_ROLL_NO_DUPS_STR: typing.Final[str] = f"""
+GACHA_ROLL_NO_DUPS_STR: str = f"""
 SELECT
     {', '.join(GachaItem._meta.fields_db_projection)}
 FROM
@@ -474,14 +474,7 @@ FROM
 WHERE
     guild_id = $1
     AND amount != 0
-    AND id NOT IN (
-    SELECT
-        item_id
-    FROM
-        thiagachaitemtoplayer
-    WHERE
-        player_id = $2
-    )
+    AND NOT id = ANY ($2)
 ORDER BY
     (
         CASE WHEN rarity <= $3 THEN $3 - rarity ELSE rarity + $3 END
