@@ -104,9 +104,7 @@ class GachaCommands(utils.Extension):
         async with self.bot.gacha_locks[f"{ctx.guild_id}-{ctx.author.id}"]:
             player = await models.GachaPlayer.get_or_none(
                 guild_id=ctx.guild_id, user_id=ctx.author.id
-            ).prefetch_related(
-                Prefetch("items", models.ItemToPlayer.filter().prefetch_related("item"))
-            )
+            ).prefetch_related("items")
 
             if not player or player.currency_amount < config.gacha.currency_cost:
                 raise utils.CustomCheckFailure(
@@ -118,7 +116,7 @@ class GachaCommands(utils.Extension):
                     f" {config.names.currency_name(config.gacha.currency_cost)}."
                 )
 
-            item_ids = {entry.item.id for entry in player.items}
+            item_ids = {entry.item_id for entry in player.items}
 
             rarities, _ = await models.GachaRarities.get_or_create(
                 guild_id=ctx.guild_id
