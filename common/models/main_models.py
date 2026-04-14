@@ -109,9 +109,9 @@ class BulletConfig(Model):
     )
     bullet_chan_id: fields.Field[int | None] = fields.BigIntField(null=True)
     best_bullet_finder_role: fields.Field[int | None] = fields.BigIntField(null=True)
-    bullets_enabled = fields.BooleanField(default=False)
-    investigation_type = fields.SmallIntField(default=1)
-    show_best_finders = fields.BooleanField(default=True)
+    bullets_enabled: fields.Field[bool] = fields.BooleanField(default=False)
+    investigation_type: fields.Field[int] = fields.SmallIntField(default=1)
+    show_best_finders: fields.Field[bool] = fields.BooleanField(default=True)
     thread_behavior = fields.IntEnumField(
         BulletThreadBehavior, default=BulletThreadBehavior.DISTINCT
     )
@@ -138,8 +138,8 @@ class ItemsConfig(Model):
     guild: fields.OneToOneRelation["GuildConfig"] = fields.OneToOneField(
         "models.GuildConfig", "items", pk=True
     )
-    enabled = fields.BooleanField(default=False)
-    autosuggest = fields.BooleanField(default=True)
+    enabled: fields.Field[bool] = fields.BooleanField(default=False)
+    autosuggest: fields.Field[bool] = fields.BooleanField(default=True)
 
     items: fields.ReverseRelation["ItemsSystemItem"]
 
@@ -177,14 +177,14 @@ class ItemHash:
 
 @guild_id_model
 class ItemsSystemItem(Model):
-    id = fields.IntField(pk=True)
+    id: fields.Field[int] = fields.IntField(pk=True)
     guild: fields.ForeignKeyRelation[ItemsConfig] = fields.ForeignKeyField(
         "models.ItemsConfig", "items", db_index=True
     )
     name = fields.TextField()
     description = fields.TextField()
     image: fields.Field[str | None] = fields.TextField(null=True)
-    takeable = fields.BooleanField(default=True)
+    takeable: fields.Field[bool] = fields.BooleanField(default=True)
 
     relations: fields.ReverseRelation["ItemRelation"]
 
@@ -263,12 +263,12 @@ class ItemsSystemItem(Model):
 
 
 class ItemRelation(Model):
-    id = fields.IntField(pk=True)
+    id: fields.Field[int] = fields.IntField(pk=True)
     item: fields.ForeignKeyRelation["ItemsSystemItem"] = fields.ForeignKeyField(
         "models.ItemsSystemItem", "relations"
     )
-    guild_id = fields.BigIntField(db_index=True)
-    object_id = fields.BigIntField(db_index=True)
+    guild_id: fields.Field[int] = fields.BigIntField(db_index=True)
+    object_id: fields.Field[int] = fields.BigIntField(db_index=True)
     object_type = fields.CharEnumField(ItemsRelationType)
 
     class Meta:
@@ -284,9 +284,9 @@ class MessageConfig(Model):
     guild: fields.OneToOneRelation["GuildConfig"] = fields.OneToOneField(
         "models.GuildConfig", "messages", pk=True
     )
-    enabled = fields.BooleanField(default=False)
-    anon_enabled = fields.BooleanField(default=False)
-    ping_for_message = fields.BooleanField(default=False)
+    enabled: fields.Field[bool] = fields.BooleanField(default=False)
+    anon_enabled: fields.Field[bool] = fields.BooleanField(default=False)
+    ping_for_message: fields.Field[bool] = fields.BooleanField(default=False)
 
     links: fields.ReverseRelation["MessageLink"]
 
@@ -296,12 +296,12 @@ class MessageConfig(Model):
 
 @guild_id_model
 class MessageLink(Model):
-    id = fields.IntField(pk=True)
+    id: fields.Field[int] = fields.IntField(pk=True)
     guild: fields.ForeignKeyRelation[MessageConfig] = fields.ForeignKeyField(
         "models.MessageConfig", "links", db_index=True
     )
-    user_id = fields.BigIntField()
-    channel_id = fields.BigIntField()
+    user_id: fields.Field[int] = fields.BigIntField()
+    channel_id: fields.Field[int] = fields.BigIntField()
 
     class Meta:
         table = "thiamessagelink"
@@ -312,7 +312,7 @@ class DiceConfig(Model):
     guild: fields.OneToOneRelation["GuildConfig"] = fields.OneToOneField(
         "models.GuildConfig", "dice", pk=True
     )
-    visible = fields.BooleanField(default=True)
+    visible: fields.Field[bool] = fields.BooleanField(default=True)
 
     entries: fields.ReverseRelation["DiceEntry"]
 
@@ -322,11 +322,11 @@ class DiceConfig(Model):
 
 @guild_id_model
 class DiceEntry(Model):
-    id = fields.IntField(pk=True)
+    id: fields.Field[int] = fields.IntField(pk=True)
     guild: fields.ForeignKeyRelation[DiceConfig] = fields.ForeignKeyField(
         "models.DiceConfig", "entries", db_index=True
     )
-    user_id = fields.BigIntField()
+    user_id: fields.Field[int] = fields.BigIntField()
     name = fields.TextField()
     value = fields.TextField()
 
@@ -336,15 +336,15 @@ class DiceEntry(Model):
 
 
 class TruthBullet(Model):
-    id = fields.IntField(pk=True)
-    trigger = fields.CharField(max_length=100)
+    id: fields.Field[int] = fields.IntField(pk=True)
+    trigger: fields.Field[str] = fields.CharField(max_length=100)
     aliases: fields.Field[list[str] | None] = ArrayField("VARCHAR(40)", null=True)
     description = fields.TextField()
     channel_id = fields.BigIntField(db_index=True)
     guild_id = fields.BigIntField(db_index=True)
-    found = fields.BooleanField(db_index=True)
+    found: fields.Field[bool] = fields.BooleanField(db_index=True)
     finder: fields.Field[int | None] = fields.BigIntField(null=True)
-    hidden = fields.BooleanField(default=False)
+    hidden: fields.Field[bool] = fields.BooleanField(default=False)
     image: fields.Field[str | None] = fields.TextField(null=True)
 
     class Meta:
@@ -417,9 +417,9 @@ class GuildConfigInclude(typing.TypedDict, total=False):
 
 
 class GuildConfig(Model):
-    guild_id = fields.BigIntField(pk=True)
+    guild_id: fields.Field[int] = fields.BigIntField(pk=True)
     player_role: fields.Field[int | None] = fields.BigIntField(null=True)
-    enabled_beta: bool = fields.BooleanField(default=False)
+    enabled_beta: fields.Field[bool] = fields.BooleanField(default=False)
 
     names: fields.OneToOneNullableRelation["Names"]
     bullets: fields.OneToOneNullableRelation["BulletConfig"]

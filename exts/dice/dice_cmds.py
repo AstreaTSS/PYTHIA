@@ -72,7 +72,7 @@ class DiceCMDs(ipy.Extension):
         ):
             config = await ctx.fetch_config({"dice": True})
             if typing.TYPE_CHECKING:
-                assert config.dice is not None
+                assert config.dice and isinstance(config.dice, models.DiceConfig)
 
             visible = config.dice.visible
 
@@ -113,7 +113,7 @@ class DiceCMDs(ipy.Extension):
         ):
             config = await ctx.fetch_config({"dice": True})
             if typing.TYPE_CHECKING:
-                assert config.dice is not None
+                assert config.dice and isinstance(config.dice, models.DiceConfig)
 
             visible = config.dice.visible
             guild_id = ctx.guild_id

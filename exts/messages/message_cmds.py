@@ -48,7 +48,9 @@ class MessageCMDs(utils.Extension):
         async with ctx.typing:
             config = await ctx.fetch_config({"messages": True})
             if typing.TYPE_CHECKING:
-                assert config.messages is not None
+                assert config.messages and isinstance(
+                    config.messages, models.MessageConfig
+                )
 
             if not config.messages.enabled:
                 raise utils.CustomCheckFailure(
@@ -117,7 +119,9 @@ class MessageCMDs(utils.Extension):
         async with ctx.typing:
             config = await ctx.fetch_config({"messages": True})
             if typing.TYPE_CHECKING:
-                assert config.messages is not None
+                assert config.messages and isinstance(
+                    config.messages, models.MessageConfig
+                )
 
             if not config.messages.enabled:
                 raise utils.CustomCheckFailure(

@@ -20,7 +20,7 @@ if typing.TYPE_CHECKING:
     import common.utils as utils
 
 
-@ipy.utils.define(kw_only=False)
+@attrs.define(eq=False, order=False, hash=False, slots=True, kw_only=False)
 class ComponentTimeout(paginators.Timeout):
     if typing.TYPE_CHECKING:
         paginator: "ContainerPaginator"
@@ -43,7 +43,7 @@ class ComponentTimeout(paginators.Timeout):
                 self.ping.clear()
 
 
-@ipy.utils.define(kw_only=False, auto_detect=True)
+@attrs.define(eq=False, order=False, hash=False, slots=True, kw_only=False)
 class ContainerPaginator:
     client: "utils.THIABase" = attrs.field(
         repr=False,

@@ -89,8 +89,8 @@ class GachaConfig(utils.Extension):
     async def gacha_info(self, ctx: utils.THIASlashContext) -> None:
         config = await ctx.fetch_config({"gacha": True, "names": True})
         if typing.TYPE_CHECKING:
-            assert config.gacha is not None
-            assert config.names is not None
+            assert config.gacha and isinstance(config.gacha, models.GachaConfig)
+            assert config.names and isinstance(config.names, models.Names)
 
         rarities, _ = await models.GachaRarities.get_or_create(guild_id=ctx.guild_id)
 
@@ -196,7 +196,7 @@ class GachaConfig(utils.Extension):
     ) -> None:
         config = await ctx.fetch_config({"names": True})
         if typing.TYPE_CHECKING:
-            assert config.names is not None
+            assert config.names and isinstance(config.names, models.Names)
 
         if to_change == "currency_names":
             modal = ipy.Modal(
@@ -268,7 +268,7 @@ class GachaConfig(utils.Extension):
 
         config = await ctx.fetch_config({"names": True})
         if typing.TYPE_CHECKING:
-            assert config.names is not None
+            assert config.names and isinstance(config.names, models.Names)
 
         names = config.names
 
@@ -290,7 +290,7 @@ class GachaConfig(utils.Extension):
 
         config = await ctx.fetch_config({"names": True})
         if typing.TYPE_CHECKING:
-            assert config.names is not None
+            assert config.names and isinstance(config.names, models.Names)
 
         names = config.names
 
@@ -389,7 +389,7 @@ class GachaConfig(utils.Extension):
     ) -> None:
         config = await ctx.fetch_config({"gacha": True})
         if typing.TYPE_CHECKING:
-            assert config.gacha is not None
+            assert config.gacha and isinstance(config.gacha, models.GachaConfig)
 
         rarities, _ = await models.GachaRarities.get_or_create(guild_id=ctx.guild_id)
 
@@ -512,7 +512,7 @@ class GachaConfig(utils.Extension):
 
         config = await ctx.fetch_config({"gacha": True})
         if typing.TYPE_CHECKING:
-            assert config.gacha is not None
+            assert config.gacha and isinstance(config.gacha, models.GachaConfig)
 
         rarities, _ = await models.GachaRarities.get_or_create(guild_id=ctx.guild_id)
 
@@ -549,7 +549,7 @@ class GachaConfig(utils.Extension):
 
         config = await ctx.fetch_config({"gacha": True})
         if typing.TYPE_CHECKING:
-            assert config.gacha is not None
+            assert config.gacha and isinstance(config.gacha, models.GachaConfig)
 
         rarities, _ = await models.GachaRarities.get_or_create(guild_id=ctx.guild_id)
 

@@ -78,24 +78,28 @@ class GachaRarities(Model):
     guild: fields.OneToOneRelation["GachaConfig"] = fields.OneToOneField(
         "models.GachaConfig", "rarities", pk=True
     )
-    common_color = fields.CharField(max_length=7, default="#979797")
-    uncommon_color = fields.CharField(max_length=7, default="#6aad0f")
-    rare_color = fields.CharField(max_length=7, default="#109db9")
-    epic_color = fields.CharField(max_length=7, default="#ab47b9")
-    legendary_color = fields.CharField(max_length=7, default="#f4d046")
-    common_odds = fields.DecimalField(
+    common_color: fields.Field[str] = fields.CharField(max_length=7, default="#979797")
+    uncommon_color: fields.Field[str] = fields.CharField(
+        max_length=7, default="#6aad0f"
+    )
+    rare_color: fields.Field[str] = fields.CharField(max_length=7, default="#109db9")
+    epic_color: fields.Field[str] = fields.CharField(max_length=7, default="#ab47b9")
+    legendary_color: fields.Field[str] = fields.CharField(
+        max_length=7, default="#f4d046"
+    )
+    common_odds: fields.Field[Decimal] = fields.DecimalField(
         max_digits=5, decimal_places=4, default=Decimal("0.6")
     )
-    uncommon_odds = fields.DecimalField(
+    uncommon_odds: fields.Field[Decimal] = fields.DecimalField(
         max_digits=5, decimal_places=4, default=Decimal("0.25")
     )
-    rare_odds = fields.DecimalField(
+    rare_odds: fields.Field[Decimal] = fields.DecimalField(
         max_digits=5, decimal_places=4, default=Decimal("0.1")
     )
-    epic_odds = fields.DecimalField(
+    epic_odds: fields.Field[Decimal] = fields.DecimalField(
         max_digits=5, decimal_places=4, default=Decimal("0.04")
     )
-    legendary_odds = fields.DecimalField(
+    legendary_odds: fields.Field[Decimal] = fields.DecimalField(
         max_digits=5, decimal_places=4, default=Decimal("0.01")
     )
 
@@ -146,7 +150,7 @@ class GachaRarities(Model):
 
 @guild_id_model
 class GachaItem(Model):
-    id = fields.IntField(pk=True)
+    id: fields.Field[int] = fields.IntField(pk=True)
     guild: fields.ForeignKeyRelation[GachaConfig] = fields.ForeignKeyField(
         "models.GachaConfig", "items", db_index=True
     )
@@ -154,7 +158,7 @@ class GachaItem(Model):
     description = fields.TextField()
     image: fields.Field[str | None] = fields.TextField(null=True)
     rarity = fields.IntEnumField(Rarity, default=Rarity.COMMON, db_index=True)
-    amount = fields.IntField(default=-1, db_index=True)
+    amount: fields.Field[int] = fields.IntField(default=-1, db_index=True)
 
     players: fields.ReverseRelation["ItemToPlayer"]
 
@@ -226,12 +230,12 @@ class GachaHash:
 
 @guild_id_model
 class GachaPlayer(Model):
-    id = fields.IntField(pk=True)
+    id: fields.Field[int] = fields.IntField(pk=True)
     guild: fields.ForeignKeyRelation[GachaConfig] = fields.ForeignKeyField(
         "models.GachaConfig", "players", db_index=True
     )
-    user_id = fields.BigIntField()
-    currency_amount = fields.IntField(default=0)
+    user_id: fields.Field[int] = fields.BigIntField()
+    currency_amount: fields.Field[int] = fields.IntField(default=0)
 
     items: fields.ReverseRelation["ItemToPlayer"]
 
@@ -436,7 +440,7 @@ class GachaPlayer(Model):
 
 
 class ItemToPlayer(Model):
-    id = fields.IntField(pk=True)
+    id: fields.Field[int] = fields.IntField(pk=True)
     item: fields.ForeignKeyRelation[GachaItem] = fields.ForeignKeyField(
         "models.GachaItem", "players"
     )

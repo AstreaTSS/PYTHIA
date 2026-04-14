@@ -88,8 +88,8 @@ class GachaCommands(utils.Extension):
 
         config = await ctx.fetch_config({"gacha": True, "names": True})
         if typing.TYPE_CHECKING:
-            assert config.gacha is not None
-            assert config.names is not None
+            assert config.gacha and isinstance(config.gacha, models.GachaConfig)
+            assert config.names and isinstance(config.names, models.Names)
 
         if not config.player_role or not config.gacha.enabled:
             raise utils.CustomCheckFailure("Gacha is not enabled in this server.")
@@ -298,8 +298,8 @@ class GachaCommands(utils.Extension):
 
         config = await ctx.fetch_config({"gacha": True, "names": True})
         if typing.TYPE_CHECKING:
-            assert config.gacha is not None
-            assert config.names is not None
+            assert config.gacha and isinstance(config.gacha, models.GachaConfig)
+            assert config.names and isinstance(config.names, models.Names)
 
         if not config.player_role or not config.gacha.enabled:
             raise utils.CustomCheckFailure("Gacha is not enabled in this server.")
@@ -380,8 +380,8 @@ class GachaCommands(utils.Extension):
     ) -> None:
         config = await ctx.fetch_config({"gacha": True, "names": True})
         if typing.TYPE_CHECKING:
-            assert config.gacha is not None
-            assert config.names is not None
+            assert config.gacha and isinstance(config.gacha, models.GachaConfig)
+            assert config.names and isinstance(config.names, models.Names)
 
         if int(ctx.author.id) == int(recipient.id):
             raise ipy.errors.BadArgument(
@@ -496,8 +496,8 @@ class GachaCommands(utils.Extension):
 
         config = await ctx.fetch_config({"gacha": True, "names": True})
         if typing.TYPE_CHECKING:
-            assert config.gacha is not None
-            assert config.names is not None
+            assert config.gacha and isinstance(config.gacha, models.GachaConfig)
+            assert config.names and isinstance(config.names, models.Names)
 
         rarities, _ = await models.GachaRarities.get_or_create(guild_id=ctx.guild_id)
         await ctx.send(

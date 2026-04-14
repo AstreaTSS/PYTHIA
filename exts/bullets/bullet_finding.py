@@ -49,8 +49,8 @@ class BulletFinding(utils.Extension):
             return
 
         if typing.TYPE_CHECKING:
-            assert config.bullets is not None
-            assert config.names is not None
+            assert config.bullets and isinstance(config.bullets, models.BulletConfig)
+            assert config.names and isinstance(config.names, models.Names)
 
         if not bullet_chan:
             bullet_chan = await self.bot.fetch_channel(config.bullets.bullet_chan_id)
@@ -159,8 +159,8 @@ class BulletFinding(utils.Extension):
             return
 
         if typing.TYPE_CHECKING:
-            assert config.bullets is not None
-            assert config.names is not None
+            assert config.bullets and isinstance(config.bullets, models.BulletConfig)
+            assert config.names and isinstance(config.names, models.Names)
 
         if (
             not config.bullets.bullets_enabled
@@ -264,8 +264,8 @@ class BulletFinding(utils.Extension):
     ) -> None:
         config = await ctx.fetch_config(include={"bullets": True, "names": True})
         if typing.TYPE_CHECKING:
-            assert config.bullets is not None
-            assert config.names is not None
+            assert config.bullets and isinstance(config.bullets, models.BulletConfig)
+            assert config.names and isinstance(config.names, models.Names)
 
         if not config.bullets.bullets_enabled and not kwargs.get("manual_trigger"):
             self.bot.msg_enabled_bullets_guilds.discard(int(ctx.guild_id))

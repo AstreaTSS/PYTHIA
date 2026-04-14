@@ -141,7 +141,7 @@ class BulletManagement(utils.Extension):
     ) -> None:
         config = await ctx.fetch_config({"bullets": True})
         if typing.TYPE_CHECKING:
-            assert config.bullets is not None
+            assert config.bullets and isinstance(config.bullets, models.BulletConfig)
 
         if (
             config.bullets.thread_behavior == models.BulletThreadBehavior.PARENT
@@ -284,7 +284,9 @@ class BulletManagement(utils.Extension):
                 ctx.guild_id, {"bullets": True}
             )
             if typing.TYPE_CHECKING:
-                assert config.bullets is not None
+                assert config.bullets and isinstance(
+                    config.bullets, models.BulletConfig
+                )
 
             channel_id = int(ctx.custom_id.removeprefix("ui-modal:add_bullets-"))
             channel = await self.bot.fetch_channel(channel_id)

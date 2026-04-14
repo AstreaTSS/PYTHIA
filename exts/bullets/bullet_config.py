@@ -40,8 +40,8 @@ class BulletConfigCMDs(utils.Extension):
     async def bullet_config(self, ctx: utils.THIASlashContext) -> None:
         config = await ctx.fetch_config({"bullets": True, "names": True})
         if typing.TYPE_CHECKING:
-            assert config.bullets is not None
-            assert config.names is not None
+            assert config.bullets and isinstance(config.bullets, models.BulletConfig)
+            assert config.names and isinstance(config.names, models.Names)
 
         str_builder = [
             (
@@ -115,7 +115,7 @@ class BulletConfigCMDs(utils.Extension):
 
         config = await ctx.fetch_config({"bullets": True})
         if typing.TYPE_CHECKING:
-            assert config.bullets is not None
+            assert config.bullets and isinstance(config.bullets, models.BulletConfig)
 
         config.bullets.bullet_chan_id = channel.id
         await config.bullets.save()
@@ -131,7 +131,7 @@ class BulletConfigCMDs(utils.Extension):
     async def unset_bullet_channel(self, ctx: utils.THIASlashContext) -> None:
         config = await ctx.fetch_config({"bullets": True})
         if typing.TYPE_CHECKING:
-            assert config.bullets is not None
+            assert config.bullets and isinstance(config.bullets, models.BulletConfig)
 
         config.bullets.bullet_chan_id = None
         await config.bullets.save()
@@ -157,7 +157,7 @@ class BulletConfigCMDs(utils.Extension):
     ) -> None:
         config = await ctx.fetch_config({"bullets": True})
         if typing.TYPE_CHECKING:
-            assert config.bullets is not None
+            assert config.bullets and isinstance(config.bullets, models.BulletConfig)
 
         config.bullets.best_bullet_finder_role = role.id
         await config.bullets.save()
@@ -177,7 +177,7 @@ class BulletConfigCMDs(utils.Extension):
     ) -> None:
         config = await ctx.fetch_config({"bullets": True})
         if typing.TYPE_CHECKING:
-            assert config.bullets is not None
+            assert config.bullets and isinstance(config.bullets, models.BulletConfig)
 
         config.bullets.best_bullet_finder_role = None
         await config.bullets.save()
@@ -209,7 +209,7 @@ class BulletConfigCMDs(utils.Extension):
 
         config = await ctx.fetch_config({"bullets": True})
         if typing.TYPE_CHECKING:
-            assert config.bullets is not None
+            assert config.bullets and isinstance(config.bullets, models.BulletConfig)
 
         config.bullets.investigation_type = investigation_type
         await config.bullets.save()
@@ -257,7 +257,7 @@ class BulletConfigCMDs(utils.Extension):
 
         config = await ctx.fetch_config({"bullets": True})
         if typing.TYPE_CHECKING:
-            assert config.bullets is not None
+            assert config.bullets and isinstance(config.bullets, models.BulletConfig)
 
         config.bullets.thread_behavior = thread_behavior
         await config.bullets.save()
@@ -292,7 +292,7 @@ class BulletConfigCMDs(utils.Extension):
 
         config = await ctx.fetch_config({"bullets": True})
         if typing.TYPE_CHECKING:
-            assert config.bullets is not None
+            assert config.bullets and isinstance(config.bullets, models.BulletConfig)
 
         config.bullets.show_best_finders = toggle
         await config.bullets.save()
@@ -335,7 +335,7 @@ class BulletConfigCMDs(utils.Extension):
 
         config = await ctx.fetch_config({"names": True})
         if typing.TYPE_CHECKING:
-            assert config.names is not None
+            assert config.names and isinstance(config.names, models.Names)
         names = config.names
 
         if to_change == "bullet_names":
@@ -390,7 +390,7 @@ class BulletConfigCMDs(utils.Extension):
     async def bullet_names_edit(self, ctx: utils.THIAModalContext) -> None:
         config = await ctx.fetch_config({"names": True})
         if typing.TYPE_CHECKING:
-            assert config.names is not None
+            assert config.names and isinstance(config.names, models.Names)
         names = config.names
 
         names.singular_bullet = ctx.kwargs["singular_name"]
@@ -409,7 +409,7 @@ class BulletConfigCMDs(utils.Extension):
     async def bullet_finders_edit(self, ctx: utils.THIAModalContext) -> None:
         config = await ctx.fetch_config({"names": True})
         if typing.TYPE_CHECKING:
-            assert config.names is not None
+            assert config.names and isinstance(config.names, models.Names)
         names = config.names
 
         if (
@@ -490,7 +490,7 @@ class BulletConfigCMDs(utils.Extension):
 
         config = await ctx.fetch_config({"bullets": True})
         if typing.TYPE_CHECKING:
-            assert config.bullets is not None
+            assert config.bullets and isinstance(config.bullets, models.BulletConfig)
 
         if (
             not config.bullets.bullets_enabled and toggle

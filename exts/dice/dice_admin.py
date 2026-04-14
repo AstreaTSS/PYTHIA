@@ -40,7 +40,7 @@ class DiceManagement(utils.Extension):
     async def dice_info(self, ctx: utils.THIASlashContext) -> None:
         config = await ctx.fetch_config({"dice": True})
         if typing.TYPE_CHECKING:
-            assert config.dice is not None
+            assert config.dice and isinstance(config.dice, models.DiceConfig)
 
         visibility = "public" if config.dice.visible else "hidden"
 
@@ -73,7 +73,7 @@ class DiceManagement(utils.Extension):
 
         config = await ctx.fetch_config({"dice": True})
         if typing.TYPE_CHECKING:
-            assert config.dice is not None
+            assert config.dice and isinstance(config.dice, models.DiceConfig)
 
         config.dice.visible = visibility == "public"
         await config.dice.save()

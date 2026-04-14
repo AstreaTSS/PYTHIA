@@ -73,7 +73,7 @@ class ItemsManagement(utils.Extension):
     async def items_info(self, ctx: utils.THIASlashContext) -> None:
         config = await ctx.fetch_config({"items": True})
         if typing.TYPE_CHECKING:
-            assert config.items is not None
+            assert config.items and isinstance(config.items, models.ItemsConfig)
 
         options = (
             f"Enabled: {utils.yesno_friendly_str(config.items.enabled)}",
@@ -102,7 +102,7 @@ class ItemsManagement(utils.Extension):
         toggle = _toggle == "on"
         config = await ctx.fetch_config({"items": True})
         if typing.TYPE_CHECKING:
-            assert config.items is not None
+            assert config.items and isinstance(config.items, models.ItemsConfig)
 
         if toggle and not config.player_role:
             raise utils.CustomCheckFailure(
@@ -140,7 +140,7 @@ class ItemsManagement(utils.Extension):
         toggle = _toggle == "on"
         config = await ctx.fetch_config({"items": True})
         if typing.TYPE_CHECKING:
-            assert config.items is not None
+            assert config.items and isinstance(config.items, models.ItemsConfig)
 
         config.items.autosuggest = toggle
         await config.items.save()

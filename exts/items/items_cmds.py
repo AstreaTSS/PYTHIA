@@ -57,8 +57,8 @@ class ItemsCommands(utils.Extension):
 
         config = await ctx.fetch_config({"items": True, "names": True})
         if typing.TYPE_CHECKING:
-            assert config.items is not None
-            assert config.names is not None
+            assert config.items and isinstance(config.items, models.ItemsConfig)
+            assert config.names and isinstance(config.names, models.Names)
 
         if not config.player_role or not config.items.enabled:
             raise utils.CustomCheckFailure("Items are not enabled in this server.")
@@ -119,8 +119,8 @@ class ItemsCommands(utils.Extension):
 
         config = await ctx.fetch_config({"items": True, "names": True})
         if typing.TYPE_CHECKING:
-            assert config.items is not None
-            assert config.names is not None
+            assert config.items and isinstance(config.items, models.ItemsConfig)
+            assert config.names and isinstance(config.names, models.Names)
 
         if not config.player_role or not config.items.enabled:
             raise utils.CustomCheckFailure("Items are not enabled in this server.")

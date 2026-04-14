@@ -74,7 +74,7 @@ class GachaManagement(utils.Extension):
         async with ctx.typing:
             config = await ctx.fetch_config({"names": True, "gacha": True})
             if typing.TYPE_CHECKING:
-                assert config.names is not None
+                assert config.names and isinstance(config.names, models.Names)
 
             async with self.bot.gacha_locks[f"{ctx.guild_id}-{user.id}"]:
                 async with asyncio.timeout(60):
@@ -121,7 +121,7 @@ class GachaManagement(utils.Extension):
         async with ctx.typing:
             config = await ctx.fetch_config({"names": True, "gacha": True})
             if typing.TYPE_CHECKING:
-                assert config.names is not None
+                assert config.names and isinstance(config.names, models.Names)
 
             async with self.bot.gacha_locks[f"{ctx.guild_id}-{user.id}"]:
                 async with asyncio.timeout(60):
@@ -287,7 +287,7 @@ class GachaManagement(utils.Extension):
     ) -> None:
         config = await ctx.fetch_config({"names": True, "gacha": True})
         if typing.TYPE_CHECKING:
-            assert config.names is not None
+            assert config.names and isinstance(config.names, models.Names)
 
         if isinstance(role, str):
             role = await ctx.guild.fetch_role(int(role))
@@ -419,7 +419,7 @@ class GachaManagement(utils.Extension):
     async def gacha_view_all_currencies(self, ctx: utils.THIASlashContext) -> None:
         config = await ctx.fetch_config({"names": True})
         if typing.TYPE_CHECKING:
-            assert config.names is not None
+            assert config.names and isinstance(config.names, models.Names)
 
         players = await models.GachaPlayer.filter(guild_id=ctx.guild_id).order_by(
             "-currency_amount"
@@ -477,7 +477,7 @@ class GachaManagement(utils.Extension):
 
         config = await ctx.fetch_config({"names": True})
         if typing.TYPE_CHECKING:
-            assert config.names is not None
+            assert config.names and isinstance(config.names, models.Names)
 
         player = await models.GachaPlayer.get_or_none(
             guild_id=ctx.guild_id, user_id=user.id

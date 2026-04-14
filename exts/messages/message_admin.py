@@ -36,7 +36,7 @@ class MessageManagement(utils.Extension):
     async def messages_info(self, ctx: utils.THIASlashContext) -> None:
         config = await ctx.fetch_config({"messages": True})
         if typing.TYPE_CHECKING:
-            assert config.messages is not None
+            assert config.messages and isinstance(config.messages, models.MessageConfig)
 
         str_builder = [
             f"Messaging enabled: {utils.yesno_friendly_str(config.messages.enabled)}",
