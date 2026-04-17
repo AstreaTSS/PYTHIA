@@ -12,7 +12,6 @@ import importlib
 import interactions as ipy
 import tansy
 
-import common.fuzzy as fuzzy
 import common.help_tools as help_tools
 import common.utils as utils
 
@@ -37,13 +36,8 @@ class HelpCMD(utils.Extension):
         if not argument:
             return tuple(resolved_names.values())[:25]
 
-        queried_cmds: list[list[str]] = fuzzy.extract_from_list(
-            argument=argument.lower(),
-            list_of_items=tuple(resolved_names.keys()),
-            processors=[lambda x: x.lower()],
-            score_cutoff=0.7,
-        )
-        return tuple(resolved_names[c[0]] for c in queried_cmds)[:25]
+        # TODO: replace with fuzzy searching
+        return tuple(v for k, v in resolved_names.items() if argument.lower() in k)[:25]
 
     async def get_multi_command_embeds(
         self,

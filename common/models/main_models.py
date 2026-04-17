@@ -337,7 +337,7 @@ class DiceEntry(Model):
 
 class TruthBullet(Model):
     id: fields.Field[int] = fields.IntField(pk=True)
-    trigger: fields.Field[str] = fields.CharField(max_length=100)
+    trigger: fields.Field[str] = fields.TextField()
     aliases: fields.Field[list[str] | None] = ArrayField("VARCHAR(40)", null=True)
     description = fields.TextField()
     channel_id = fields.BigIntField(db_index=True)

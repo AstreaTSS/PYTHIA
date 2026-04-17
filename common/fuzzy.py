@@ -8,46 +8,12 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """
 
 import interactions as ipy
-import rapidfuzz
 import typing_extensions as typing
-from rapidfuzz import process
+from tortoise.connection import get_connection
+from tortoise.functions import Lower
 
 import common.models as models
 import common.text_utils as text_utils
-
-T = typing.TypeVar("T")
-
-
-def extract_from_list(
-    argument: str,
-    list_of_items: typing.Collection[T],
-    processors: typing.Iterable[typing.Callable],
-    score_cutoff: float = 75,
-    scorers: typing.Iterable[typing.Callable] | None = None,
-) -> list[list[T]]:
-    """Uses multiple scorers and processors for a good mix of accuracy and fuzzy-ness"""
-    if scorers is None:
-        scorers = [rapidfuzz.fuzz.WRatio]
-    combined_list = []
-
-    for scorer in scorers:
-        for processor in processors:
-            if fuzzy_list := process.extract(
-                argument,
-                list_of_items,
-                scorer=scorer,
-                processor=processor,
-                score_cutoff=score_cutoff,
-            ):
-                combined_entries = [e[0] for e in combined_list]
-                new_members = [e for e in fuzzy_list if e[0] not in combined_entries]
-                combined_list.extend(new_members)
-
-    return combined_list
-
-
-def get_bullet_name(bullet: models.TruthBullet) -> str:
-    return bullet.trigger.lower() if isinstance(bullet, models.TruthBullet) else bullet
 
 
 async def autocomplete_bullets(
@@ -65,30 +31,33 @@ async def autocomplete_bullets(
     if only_not_found:
         where["found"] = False
 
-    channel_bullets = await models.TruthBullet.filter(**where)
-    if not channel_bullets:
-        return await ctx.send([])
-
     if not trigger:
-        channel_bullets.sort(key=lambda b: b.trigger)
+        channel_bullets = (
+            await models.TruthBullet.annotate(trigger_lower=Lower("trigger"))
+            .filter(**where)
+            .order_by("trigger_lower")
+            .limit(25)
+            .values_list("trigger", flat=True)
+        )
         return await ctx.send(
-            [{"name": b.trigger, "value": b.trigger} for b in channel_bullets][:25]
+            [{"name": entry, "value": entry} for entry in channel_bullets]
         )
 
-    trigger = text_utils.replace_smart_punc(trigger)
-
-    query: list[list[models.TruthBullet]] = extract_from_list(
-        argument=trigger.lower(),
-        list_of_items=channel_bullets,
-        processors=[get_bullet_name],
+    conn = get_connection("default")
+    data = await conn.execute_query_dict(
+        f"""
+        SELECT
+            trigger, strict_word_similarity($2, trigger) AS sml
+        FROM thiatruthbullets
+            WHERE channel_id = $1 {"AND found = FALSE" if only_not_found else ""}
+            AND $2 <% trigger
+        ORDER BY sml DESC LIMIT 25;
+        """.strip(),  # noqa: S608
+        values=[int(channel), text_utils.replace_smart_punc(trigger)],
     )
     return await ctx.send(
-        [{"name": b[0].trigger, "value": b[0].trigger} for b in query][:25]
+        [{"name": entry["trigger"], "value": entry["trigger"]} for entry in data]
     )
-
-
-def get_alias_name(alias: str) -> str:
-    return alias.lower()
 
 
 async def autocomplete_aliases(
@@ -104,26 +73,23 @@ async def autocomplete_aliases(
     trigger = text_utils.replace_smart_punc(trigger)
 
     truth_bullet = await models.TruthBullet.find_via_trigger(channel, trigger)
-    if not truth_bullet:
+    if not truth_bullet or not truth_bullet.aliases:
         return await ctx.send([])
 
     if not alias:
         return await ctx.send(
-            [{"name": a, "value": a} for a in sorted(truth_bullet.aliases)][:25]
+            [{"name": a, "value": a} for a in sorted(truth_bullet.aliases)]
         )
 
+    # TODO: replace with proper fuzzy search in the future
     alias = text_utils.replace_smart_punc(alias)
-
-    query: list[list[str]] = extract_from_list(
-        argument=trigger.lower(),
-        list_of_items=truth_bullet.aliases or [],
-        processors=[get_alias_name],
+    return await ctx.send(
+        [
+            {"name": entry, "value": entry}
+            for entry in truth_bullet.aliases
+            if alias.lower() in entry.lower()
+        ]
     )
-    return await ctx.send([{"name": a[0], "value": a[0]} for a in query][:25])
-
-
-def get_gacha_item_name(item: models.GachaItem) -> str:
-    return item.name.lower() if isinstance(item, models.GachaItem) else item
 
 
 async def autocomplete_gacha_item(
@@ -134,127 +100,112 @@ async def autocomplete_gacha_item(
     if not ctx.guild_id:
         return await ctx.send([])
 
-    gacha_items = await models.GachaItem.filter(guild_id=ctx.guild_id)
-    if not gacha_items:
-        return await ctx.send([])
-
     if not name:
-        gacha_items.sort(key=lambda g: g.name)
+        gacha_items = (
+            await models.GachaItem.annotate(name_lower=Lower("name"))
+            .filter(guild_id=ctx.guild_id)
+            .order_by("name_lower")
+            .limit(25)
+            .values_list("name", flat=True)
+        )
         return await ctx.send(
-            [{"name": g.name, "value": g.name} for g in gacha_items][:25]
+            [{"name": entry, "value": entry} for entry in gacha_items]
         )
 
-    query: list[list[models.GachaItem]] = extract_from_list(
-        argument=name.lower(),
-        list_of_items=gacha_items,
-        processors=[get_gacha_item_name],
+    conn = get_connection("default")
+    data = await conn.execute_query_dict(
+        """
+        SELECT
+            name, strict_word_similarity($2, name) AS sml
+        FROM thiagachaitems
+            WHERE guild_id = $1
+            AND $2 <% name
+        ORDER BY sml DESC LIMIT 25;
+        """.strip(),
+        values=[int(ctx.guild_id), name],
     )
-    return await ctx.send([{"name": g[0].name, "value": g[0].name} for g in query][:25])
+    return await ctx.send(
+        [{"name": entry["name"], "value": entry["name"]} for entry in data]
+    )
 
 
 async def autocomplete_gacha_user_item(
     ctx: ipy.AutocompleteContext,
     name: str,
+    user: ipy.Snowflake_Type | None = None,
     **kwargs: typing.Any,  # noqa: ARG001
 ) -> None:
     if not ctx.guild_id:
         return await ctx.send([])
 
-    unfiltered_items = await models.GachaItem.filter(
-        guild_id=ctx.guild_id,
-        players__player__guild_id=ctx.guild_id,
-        players__player__user_id=ctx.author.id,
-    )
-    if not unfiltered_items:
-        return await ctx.send([])
+    if not user:
+        user = int(ctx.author_id)
 
-    filtered_items = list({models.GachaHash(i) for i in unfiltered_items})
-    gacha_items = [i.item for i in filtered_items]
+    conn = get_connection("default")
 
     if not name:
-        gacha_items.sort(key=lambda g: g.name)
-        return await ctx.send(
-            [{"name": g.name, "value": g.name} for g in gacha_items][:25]
+        data = await conn.execute_query_dict(
+            """
+            SELECT
+                DISTINCT ON (LOWER(name)) name
+            FROM thiagachaitems
+                JOIN thiagachaitemtoplayer ON thiagachaitemtoplayer.item_id = thiagachaitems.id
+                JOIN thiagachaplayers ON thiagachaplayers.id = thiagachaitemtoplayer.player_id
+            WHERE
+                thiagachaitems.guild_id = $1
+                AND thiagachaplayers.guild_id = $1
+                AND thiagachaplayers.user_id = $2
+            ORDER BY LOWER(name) LIMIT 25;
+            """.strip(),
+            values=[int(ctx.guild_id), user],
         )
-
-    query: list[list[models.GachaItem]] = extract_from_list(
-        argument=name.lower(),
-        list_of_items=gacha_items,
-        processors=[get_gacha_item_name],
+    else:
+        data = await conn.execute_query_dict(
+            """
+            SELECT
+                name,
+                sml
+            FROM
+                (
+                    SELECT
+                        DISTINCT ON (thiagachaitems.id) thiagachaitems.id,
+                        thiagachaitems.name,
+                        strict_word_similarity($3, thiagachaitems.name) AS sml
+                    FROM thiagachaitems
+                        JOIN thiagachaitemtoplayer ON thiagachaitemtoplayer.item_id = thiagachaitems.id
+                        JOIN thiagachaplayers ON thiagachaplayers.id = thiagachaitemtoplayer.player_id
+                    WHERE
+                        thiagachaitems.guild_id = $1
+                        AND thiagachaplayers.guild_id = $1
+                        AND thiagachaplayers.user_id = $2
+                        AND $3 <% thiagachaitems.name
+                    ORDER BY thiagachaitems.id LIMIT 25
+                )
+            ORDER BY sml DESC;
+            """.strip(),
+            values=[int(ctx.guild_id), user, name],
+        )
+    return await ctx.send(
+        [{"name": entry["name"], "value": entry["name"]} for entry in data]
     )
-    return await ctx.send([{"name": g[0].name, "value": g[0].name} for g in query][:25])
 
 
 async def autocomplete_gacha_optional_user_item(
     ctx: ipy.AutocompleteContext,
     name: str,
     user: ipy.Snowflake_Type | None = None,
-    **kwargs: typing.Any,  # noqa: ARG001
+    **kwargs: typing.Any,
 ) -> None:
-    if not ctx.guild_id or not user:
+    if not user:
         return await ctx.send([])
 
-    unfiltered_items = await models.GachaItem.filter(
-        guild_id=ctx.guild_id,
-        players__player__guild_id=ctx.guild_id,
-        players__player__user_id=int(user),
-    )
-    if not unfiltered_items:
-        return await ctx.send([])
-
-    filtered_items = list({models.GachaHash(i) for i in unfiltered_items})
-    gacha_items = [i.item for i in filtered_items]
-
-    if not name:
-        gacha_items.sort(key=lambda g: g.name)
-        return await ctx.send(
-            [{"name": g.name, "value": g.name} for g in gacha_items][:25]
-        )
-
-    query: list[list[models.GachaItem]] = extract_from_list(
-        argument=name.lower(),
-        list_of_items=gacha_items,
-        processors=[get_gacha_item_name],
-    )
-    return await ctx.send([{"name": g[0].name, "value": g[0].name} for g in query][:25])
-
-
-def get_dice_name(entry: models.DiceEntry) -> str:
-    return entry.name.lower() if isinstance(entry, models.DiceEntry) else entry
-
-
-async def autocomplete_dice_entries_admin(
-    ctx: ipy.AutocompleteContext,
-    user: ipy.Snowflake_Type | None,
-    name: str,
-    **kwargs: typing.Any,  # noqa: ARG001
-) -> None:
-    if not ctx.guild_id or not user:
-        return await ctx.send([])
-
-    dice_entries = await models.DiceEntry.filter(
-        guild_id=ctx.guild_id, user_id=int(user)
-    )
-    if not dice_entries:
-        return await ctx.send([])
-
-    if not name:
-        dice_entries.sort(key=lambda d: d.name)
-        return await ctx.send(
-            [{"name": d.name, "value": d.name} for d in dice_entries][:25]
-        )
-
-    query: list[list[models.DiceEntry]] = extract_from_list(
-        argument=name.lower(),
-        list_of_items=dice_entries,
-        processors=[get_dice_name],
-    )
-    return await ctx.send([{"name": g[0].name, "value": g[0].name} for g in query][:25])
+    return await autocomplete_gacha_user_item(ctx, name, user, **kwargs)
 
 
 async def autocomplete_dice_entries_user(
     ctx: ipy.AutocompleteContext,
     name: str,
+    user: ipy.Snowflake_Type | None = None,
     **kwargs: typing.Any,  # noqa: ARG001
 ) -> None:
     guild_id = 0
@@ -266,28 +217,49 @@ async def autocomplete_dice_entries_user(
     ):
         guild_id = ctx.guild_id
 
-    dice_entries = await models.DiceEntry.filter(
-        guild_id=guild_id, user_id=ctx.author_id
-    )
-    if not dice_entries:
-        return await ctx.send([])
+    if not user:
+        user = int(ctx.author_id)
 
     if not name:
-        dice_entries.sort(key=lambda d: d.name)
+        dice_entries = (
+            await models.DiceEntry.annotate(name_lower=Lower("name"))
+            .filter(guild_id=guild_id, user_id=user)
+            .order_by("name_lower")
+            .limit(25)
+            .values_list("name", flat=True)
+        )
         return await ctx.send(
-            [{"name": d.name, "value": d.name} for d in dice_entries][:25]
+            [{"name": entry, "value": entry} for entry in dice_entries]
         )
 
-    query: list[list[models.DiceEntry]] = extract_from_list(
-        argument=name.lower(),
-        list_of_items=dice_entries,
-        processors=[get_dice_name],
+    conn = get_connection("default")
+    data = await conn.execute_query_dict(
+        """
+        SELECT
+            name, strict_word_similarity($3, name) AS sml
+        FROM thiadicenetry
+            WHERE guild_id = $1
+            AND user_id = $2
+            AND $3 <% name
+        ORDER BY sml DESC LIMIT 25;
+        """.strip(),
+        values=[int(ctx.guild_id), user, name],
     )
-    return await ctx.send([{"name": g[0].name, "value": g[0].name} for g in query][:25])
+    return await ctx.send(
+        [{"name": entry["name"], "value": entry["name"]} for entry in data]
+    )
 
 
-def get_vesti_item_name(item: models.ItemsSystemItem) -> str:
-    return item.name.lower() if isinstance(item, models.ItemsSystemItem) else item
+async def autocomplete_dice_entries_admin(
+    ctx: ipy.AutocompleteContext,
+    user: ipy.Snowflake_Type | None,
+    name: str,
+    **kwargs: typing.Any,
+) -> None:
+    if not user:
+        return await ctx.send([])
+
+    return await autocomplete_dice_entries_user(ctx, name, user, **kwargs)
 
 
 async def autocomplete_item(
@@ -295,26 +267,35 @@ async def autocomplete_item(
     name: str,
     **_: typing.Any,
 ) -> None:
-    unfiltered_items = await models.ItemsSystemItem.filter(guild_id=ctx.guild_id)
-    if not unfiltered_items:
-        return await ctx.send([])
-
-    guild_items = [i.item for i in {models.ItemHash(j) for j in unfiltered_items}]
+    conn = get_connection("default")
 
     if not name:
-        guild_items.sort(key=lambda i: i.name)
-        return await ctx.send(
-            [{"name": i.name, "value": i.name} for i in guild_items][:25]
+        data = await conn.execute_query_dict(
+            """
+            SELECT
+                DISTINCT ON (LOWER(name)) name
+            FROM thiaitemssystemitems
+                WHERE guild_id = $1
+            ORDER BY LOWER(name) LIMIT 25;
+            """.strip(),
+            values=[int(ctx.guild_id)],
+        )
+    else:
+        data = await conn.execute_query_dict(
+            """
+            SELECT
+                name, strict_word_similarity($2, name) AS sml
+            FROM thiaitemssystemitems
+                WHERE guild_id = $1
+                AND $2 <% name
+            ORDER BY sml DESC LIMIT 25;
+            """.strip(),
+            values=[int(ctx.guild_id), text_utils.replace_smart_punc(name)],
         )
 
-    name = text_utils.replace_smart_punc(name)
-
-    query: list[list[models.ItemsSystemItem]] = extract_from_list(
-        argument=name.lower(),
-        list_of_items=guild_items,
-        processors=[get_vesti_item_name],
+    return await ctx.send(
+        [{"name": entry["name"], "value": entry["name"]} for entry in data]
     )
-    return await ctx.send([{"name": i[0].name, "value": i[0].name} for i in query][:25])
 
 
 async def autocomplete_item_channel(
@@ -336,33 +317,48 @@ async def autocomplete_item_channel(
         if not config.autosuggest:
             return await ctx.send([])
 
-    where: dict[str, typing.Any] = {"relations__object_id": int(channel)}
-    if check_takeable:
-        where["takeable"] = True
-
-    unfiltered_items = await models.ItemsSystemItem.filter(**where)
-    if not unfiltered_items:
-        return await ctx.send([])
-
-    channel_items = [i.item for i in {models.ItemHash(j) for j in unfiltered_items}]
+    conn = get_connection("default")
 
     if not name:
-        return await ctx.send(
-            [
-                {"name": i.name, "value": i.name}
-                for i in sorted(channel_items, key=lambda i: i.name)
-            ][:25]
+        data = await conn.execute_query_dict(
+            f"""
+            SELECT
+                DISTINCT ON (LOWER(thiaitemssystemitems.name)) thiaitemssystemitems.name
+            FROM thiaitemssystemitems
+                JOIN thiaitemrelation ON thiaitemrelation.item_id = thiaitemssystemitems.id
+            WHERE
+                thiaitemrelation.object_id = $1 {"AND thiaitemssystemitems.takeable = TRUE" if check_takeable else ""}
+            ORDER BY LOWER(thiaitemssystemitems.name) LIMIT 25;
+            """.strip(),  # noqa: S608
+            values=[int(channel)],
+        )
+    else:
+        data = await conn.execute_query_dict(
+            f"""
+            SELECT
+                name,
+                sml
+            FROM
+                (
+                    SELECT
+                        DISTINCT ON (thiaitemssystemitems.id) thiaitemssystemitems.id,
+                        thiaitemssystemitems.name,
+                        strict_word_similarity($2, thiaitemssystemitems.name) AS sml
+                    FROM thiaitemssystemitems
+                        JOIN thiaitemrelation ON thiaitemrelation.item_id = thiaitemssystemitems.id
+                    WHERE
+                        thiaitemrelation.object_id = $1 {"AND thiaitemssystemitems.takeable = TRUE" if check_takeable else ""}
+                        AND $2 <% thiaitemssystemitems.name
+                    ORDER BY thiaitemssystemitems.id LIMIT 25
+                )
+            ORDER BY sml DESC;
+            """.strip(),  # noqa: S608
+            values=[int(channel), text_utils.replace_smart_punc(name)],
         )
 
-    name = text_utils.replace_smart_punc(name)
-
-    query: list[list[models.ItemsSystemItem]] = extract_from_list(
-        argument=name.lower(),
-        list_of_items=channel_items,
-        processors=[get_vesti_item_name],
+    return await ctx.send(
+        [{"name": entry["name"], "value": entry["name"]} for entry in data]
     )
-
-    return await ctx.send([{"name": i[0].name, "value": i[0].name} for i in query][:25])
 
 
 async def autocomplete_item_user(
@@ -374,29 +370,46 @@ async def autocomplete_item_user(
     if not user or not ctx.guild_id:
         return await ctx.send([])
 
-    unfiltered_items = await models.ItemsSystemItem.filter(
-        guild_id=ctx.guild_id,
-        relations__object_id=int(user),
-    )
-    if not unfiltered_items:
-        return await ctx.send([])
-
-    user_items = [i.item for i in {models.ItemHash(i) for i in unfiltered_items}]
+    conn = get_connection("default")
 
     if not name:
-        return await ctx.send(
-            [
-                {"name": i.name, "value": i.name}
-                for i in sorted(user_items, key=lambda i: i.name)
-            ][:25]
+        data = await conn.execute_query_dict(
+            """
+            SELECT
+                DISTINCT ON (LOWER(thiaitemssystemitems.name)) thiaitemssystemitems.name
+            FROM thiaitemssystemitems
+                JOIN thiaitemrelation ON thiaitemrelation.item_id = thiaitemssystemitems.id
+            WHERE
+                thiaitemssystemitems.guild_id = $1
+                AND thiaitemrelation.object_id = $2
+            ORDER BY LOWER(thiaitemssystemitems.name) LIMIT 25;
+            """.strip(),
+            values=[int(ctx.guild_id), int(user)],
         )
-
-    name = text_utils.replace_smart_punc(name)
-
-    query: list[list[models.ItemsSystemItem]] = extract_from_list(
-        argument=name.lower(),
-        list_of_items=user_items,
-        processors=[get_vesti_item_name],
+    else:
+        data = await conn.execute_query_dict(
+            """
+            SELECT
+                name,
+                sml
+            FROM
+                (
+                    SELECT
+                        DISTINCT ON (thiaitemssystemitems.id) thiaitemssystemitems.id,
+                        thiaitemssystemitems.name,
+                        strict_word_similarity($3, thiaitemssystemitems.name) AS sml
+                    FROM thiaitemssystemitems
+                        JOIN thiaitemrelation ON thiaitemrelation.item_id = thiaitemssystemitems.id
+                    WHERE
+                        thiaitemssystemitems.guild_id = $1
+                        AND thiaitemrelation.object_id = $2
+                        AND $3 <% thiaitemssystemitems.name
+                    ORDER BY id LIMIT 25
+                )
+            ORDER BY sml DESC;
+            """.strip(),
+            values=[int(ctx.guild_id), int(user), text_utils.replace_smart_punc(name)],
+        )
+    return await ctx.send(
+        [{"name": entry["name"], "value": entry["name"]} for entry in data]
     )
-
-    return await ctx.send([{"name": i[0].name, "value": i[0].name} for i in query][:25])

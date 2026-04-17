@@ -210,7 +210,7 @@ class GachaItems(utils.Extension):
         else:
             str_rarity: str = ctx.responses["item_rarity"]
 
-        if await models.GachaItem.exists(guild_id=ctx.guild_id, name=name):
+        if await models.GachaItem.exists(guild_id=ctx.guild_id, name__iexact=name):
             raise ipy.errors.BadArgument("An item with that name already exists.")
 
         try:

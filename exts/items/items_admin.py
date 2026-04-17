@@ -217,7 +217,9 @@ class ItemsManagement(utils.Extension):
     async def on_create_item_modal(self, ctx: ipy.ModalContext) -> None:
         name = text_utils.replace_smart_punc(ctx.responses["item_name"])
 
-        if await models.ItemsSystemItem.exists(guild_id=int(ctx.guild_id), name=name):
+        if await models.ItemsSystemItem.exists(
+            guild_id=int(ctx.guild_id), name__iexact=name
+        ):
             await ctx.send(
                 embed=utils.error_embed_generate(
                     f"An item named `{text_utils.escape_markdown(name)}` already"
