@@ -157,7 +157,7 @@ async def autocomplete_gacha_user_item(
                 AND thiagachaplayers.user_id = $2
             ORDER BY LOWER(name) LIMIT 25;
             """.strip(),
-            values=[int(ctx.guild_id), user],
+            values=[int(ctx.guild_id), int(user)],
         )
     else:
         data = await conn.execute_query_dict(
@@ -183,7 +183,7 @@ async def autocomplete_gacha_user_item(
                 )
             ORDER BY sml DESC;
             """.strip(),
-            values=[int(ctx.guild_id), user, name],
+            values=[int(ctx.guild_id), int(user), name],
         )
     return await ctx.send(
         [{"name": entry["name"], "value": entry["name"]} for entry in data]
@@ -243,7 +243,7 @@ async def autocomplete_dice_entries_user(
             AND $3 <% name
         ORDER BY sml DESC LIMIT 25;
         """.strip(),
-        values=[int(ctx.guild_id), user, name],
+        values=[int(ctx.guild_id), int(user), name],
     )
     return await ctx.send(
         [{"name": entry["name"], "value": entry["name"]} for entry in data]
