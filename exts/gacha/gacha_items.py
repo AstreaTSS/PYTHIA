@@ -261,7 +261,11 @@ class GachaItems(utils.Extension):
     async def gacha_item_edit(
         self,
         ctx: utils.THIASlashContext,
-        name: str = tansy.Option("The name of the item to edit.", autocomplete=True),
+        name: str = tansy.Option(
+            "The name of the item to edit.",
+            autocomplete=True,
+            converter=text_utils.ReplaceSmartPuncConverter,
+        ),
     ) -> None:
         config = await ctx.fetch_config()
 
@@ -462,7 +466,11 @@ class GachaItems(utils.Extension):
     async def gacha_view_single_item(
         self,
         ctx: utils.THIASlashContext,
-        name: str = tansy.Option("The name of the item to view.", autocomplete=True),
+        name: str = tansy.Option(
+            "The name of the item to view.",
+            autocomplete=True,
+            converter=text_utils.ReplaceSmartPuncConverter,
+        ),
     ) -> None:
         item = await models.GachaItem.get_or_none(guild_id=ctx.guild_id, name=name)
         if item is None:
@@ -703,6 +711,18 @@ class GachaItems(utils.Extension):
 
         try:
             items = exports.handle_gacha_item_data(items_json)
+
+            for item in items:
+                item.name = text_utils.replace_smart_punc(item.name.strip())
+                item.description = item.description.strip()
+
+                if not item.name:
+                    raise ipy.errors.BadArgument("One of the items has an empty name.")
+                if not item.description:
+                    raise ipy.errors.BadArgument(
+                        f"The item `{text_utils.escape_markdown(item.name)}` has an"
+                        " empty description."
+                    )
         except msgspec.DecodeError:
             raise ipy.errors.BadArgument(
                 "The file is not in the correct format."

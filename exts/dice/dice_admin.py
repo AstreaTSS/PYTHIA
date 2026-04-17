@@ -17,6 +17,7 @@ import typing_extensions as typing
 import common.fuzzy as fuzzy
 import common.help_tools as help_tools
 import common.models as models
+import common.text_utils as text_utils
 import common.utils as utils
 
 d20_roll = d20.Roller(d20.RollContext(100)).roll
@@ -113,7 +114,10 @@ class DiceManagement(utils.Extension):
         ctx: utils.THIASlashContext,
         user: ipy.Member = tansy.Option("The user who registered the dice."),
         name: str = tansy.Option(
-            "The name of the dice to roll.", max_length=100, autocomplete=True
+            "The name of the dice to roll.",
+            max_length=100,
+            autocomplete=True,
+            converter=text_utils.ReplaceSmartPuncConverter,
         ),
         hidden: bool = tansy.Option(
             "Should the result be shown only to you? Defaults to no.",
@@ -154,7 +158,9 @@ class DiceManagement(utils.Extension):
         ctx: utils.THIASlashContext,
         user: ipy.Member = tansy.Option("The user to register a dice for."),
         name: str = tansy.Option(
-            "The name of the dice. 100 characters max.", max_length=100
+            "The name of the dice. 100 characters max.",
+            max_length=100,
+            converter=text_utils.ReplaceSmartPuncConverter,
         ),
         dice: str = tansy.Option(
             "The dice roll to register in d20 notation. 100 characters max.",
@@ -249,7 +255,10 @@ class DiceManagement(utils.Extension):
         ctx: utils.THIASlashContext,
         user: ipy.Member = tansy.Option("The user to delete a dice from."),
         name: str = tansy.Option(
-            "The name of the dice to remove.", max_length=100, autocomplete=True
+            "The name of the dice to remove.",
+            max_length=100,
+            autocomplete=True,
+            converter=text_utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
         if (
@@ -324,4 +333,5 @@ def setup(bot: utils.THIABase) -> None:
     importlib.reload(utils)
     importlib.reload(fuzzy)
     importlib.reload(help_tools)
+    importlib.reload(text_utils)
     DiceManagement(bot)

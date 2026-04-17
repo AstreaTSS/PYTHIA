@@ -20,6 +20,7 @@ import common.classes as classes
 import common.fuzzy as fuzzy
 import common.help_tools as help_tools
 import common.models as models
+import common.text_utils as text_utils
 import common.utils as utils
 
 
@@ -446,7 +447,11 @@ class GachaCommands(utils.Extension):
     async def gacha_user_view_item(
         self,
         ctx: utils.THIASlashContext,
-        name: str = tansy.Option("The name of the item to view.", autocomplete=True),
+        name: str = tansy.Option(
+            "The name of the item to view.",
+            autocomplete=True,
+            converter=text_utils.ReplaceSmartPuncConverter,
+        ),
     ) -> None:
         item = await models.GachaItem.filter(
             guild_id=ctx.guild_id,
@@ -517,4 +522,5 @@ def setup(bot: utils.THIABase) -> None:
     importlib.reload(help_tools)
     importlib.reload(fuzzy)
     importlib.reload(classes)
+    importlib.reload(models)
     GachaCommands(bot)

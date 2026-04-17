@@ -243,7 +243,7 @@ async def autocomplete_dice_entries_user(
             AND $3 <% name
         ORDER BY sml DESC LIMIT 25;
         """.strip(),
-        values=[int(ctx.guild_id), int(user), name],
+        values=[int(ctx.guild_id), int(user), text_utils.replace_smart_punc(name)],
     )
     return await ctx.send(
         [{"name": entry["name"], "value": entry["name"]} for entry in data]

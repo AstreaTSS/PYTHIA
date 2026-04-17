@@ -100,7 +100,10 @@ class DiceCMDs(ipy.Extension):
         self,
         ctx: utils.THIASlashContext,
         name: str = tansy.Option(
-            "The name of the dice to roll.", max_length=100, autocomplete=True
+            "The name of the dice to roll.",
+            max_length=100,
+            autocomplete=True,
+            converter=text_utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
         visible = True
@@ -147,7 +150,9 @@ class DiceCMDs(ipy.Extension):
         self,
         ctx: utils.THIASlashContext,
         name: str = tansy.Option(
-            "The name of the dice. 100 characters max.", max_length=100
+            "The name of the dice. 100 characters max.",
+            max_length=100,
+            converter=text_utils.ReplaceSmartPuncConverter,
         ),
         dice: str = tansy.Option(
             "The dice roll to register in d20 notation. 100 characters max.",
@@ -264,7 +269,10 @@ class DiceCMDs(ipy.Extension):
         self,
         ctx: utils.THIASlashContext,
         name: str = tansy.Option(
-            "The name of the dice to removes.", max_length=100, autocomplete=True
+            "The name of the dice to removes.",
+            max_length=100,
+            autocomplete=True,
+            converter=text_utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
         guild_id = 0
@@ -417,6 +425,29 @@ class DiceCMDs(ipy.Extension):
 
         try:
             entries = exports.handle_dice_entry_data(items_json)
+
+            for entry in entries:
+                entry.name = text_utils.replace_smart_punc(entry.name.strip())
+                entry.value = entry.value.strip()
+
+                if not entry.name:
+                    raise ipy.errors.BadArgument("Dice entry names cannot be empty.")
+                if not entry.value:
+                    raise ipy.errors.BadArgument(
+                        f"Dice entry value for `{entry.name}` cannot be empty."
+                    )
+
+                if len(entry.name) > 100:
+                    raise ipy.errors.BadArgument(
+                        f"Dice entry name `{entry.name}` is too long. Names must be 100"
+                        " characters or fewer."
+                    )
+                if len(entry.value) > 100:
+                    raise ipy.errors.BadArgument(
+                        f"Dice entry value for `{entry.name}` is too long. Values must"
+                        " be 100 characters or fewer."
+                    )
+
         except msgspec.DecodeError:
             raise ipy.errors.BadArgument(
                 "The file is not in the correct format."
