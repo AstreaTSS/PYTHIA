@@ -122,7 +122,7 @@ async def autocomplete_gacha_item(
             AND $2 <% name
         ORDER BY sml DESC LIMIT 25;
         """.strip(),
-        values=[int(ctx.guild_id), name],
+        values=[int(ctx.guild_id), text_utils.replace_smart_punc(name)],
     )
     return await ctx.send(
         [{"name": entry["name"], "value": entry["name"]} for entry in data]
@@ -183,7 +183,7 @@ async def autocomplete_gacha_user_item(
                 )
             ORDER BY sml DESC;
             """.strip(),
-            values=[int(ctx.guild_id), int(user), name],
+            values=[int(ctx.guild_id), int(user), text_utils.replace_smart_punc(name)],
         )
     return await ctx.send(
         [{"name": entry["name"], "value": entry["name"]} for entry in data]

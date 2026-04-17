@@ -200,7 +200,7 @@ class GachaItems(utils.Extension):
 
     @ipy.modal_callback("add_gacha_item")
     async def add_gacha_item_modal(self, ctx: utils.THIAModalContext) -> None:
-        name: str = ctx.responses["item_name"]
+        name: str = text_utils.replace_smart_punc(ctx.responses["item_name"])
         description: str = ctx.responses["item_description"]
         str_amount: str = ctx.responses.get("item_amount", "-1").strip() or "-1"
         image: str | None = ctx.responses.get("item_image", "").strip() or None
@@ -385,7 +385,7 @@ class GachaItems(utils.Extension):
             return
 
         item_id = int(ctx.custom_id.split("-")[1])
-        name: str = ctx.kwargs["item_name"]
+        name: str = text_utils.replace_smart_punc(ctx.kwargs["item_name"])
         description: str = ctx.kwargs["item_description"]
         str_amount: str = ctx.kwargs.get("item_amount", "-1").strip() or "-1"
         image: str | None = ctx.kwargs.get("item_image", "").strip() or None
