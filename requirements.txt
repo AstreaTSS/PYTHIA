@@ -2,7 +2,7 @@ discord-py-interactions==5.16.0
 tansy==0.10.0
 ipy-modal-backport==0.4.0
 tortoise-orm[asyncpg]==1.1.7
-pydantic==2.12.5
+pydantic==2.13.2
 msgspec==0.20.0
 git+https://github.com/MarkusSintonen/httpcore.git@e724565270603a72d11f6d3bfc09671ffcfe36f2
 httpx[http2]==0.28.1
