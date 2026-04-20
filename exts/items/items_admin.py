@@ -7,6 +7,7 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """
 
+import asyncio
 import collections
 import importlib
 
@@ -24,6 +25,11 @@ import common.utils as utils
 class ItemsManagement(utils.Extension):
     def __init__(self, _: utils.THIABase) -> None:
         self.name = "Items Management"
+
+        # i sure do love weird edge cases with race conditions!
+        self.item_creation_locks: collections.defaultdict[str, asyncio.Lock] = (
+            collections.defaultdict(asyncio.Lock)
+        )
 
     @staticmethod
     def create_item_create_modal() -> ipy.Modal:
@@ -217,41 +223,42 @@ class ItemsManagement(utils.Extension):
     async def on_create_item_modal(self, ctx: ipy.ModalContext) -> None:
         name = text_utils.replace_smart_punc(ctx.responses["item_name"])
 
-        if await models.ItemsSystemItem.exists(
-            guild_id=int(ctx.guild_id), name__iexact=name
-        ):
-            await ctx.send(
-                embed=utils.error_embed_generate(
-                    f"An item named `{text_utils.escape_markdown(name)}` already"
-                    " exists in this server."
+        async with self.item_creation_locks[f"{ctx.guild_id}-{name.lower()}"]:
+            if await models.ItemsSystemItem.exists(
+                guild_id=int(ctx.guild_id), name__iexact=name
+            ):
+                await ctx.send(
+                    embed=utils.error_embed_generate(
+                        f"An item named `{text_utils.escape_markdown(name)}` already"
+                        " exists in this server."
+                    )
                 )
-            )
-            return
+                return
 
-        try:
-            takeable = utils.convert_to_bool(ctx.responses["item_takeable"])
-        except ipy.errors.BadArgument:
-            await ctx.send(
-                embed=utils.error_embed_generate(
-                    "Invalid value for if the item is takeable. Giving a simple"
-                    " 'yes' or 'no' will work."
+            try:
+                takeable = utils.convert_to_bool(ctx.responses["item_takeable"])
+            except ipy.errors.BadArgument:
+                await ctx.send(
+                    embed=utils.error_embed_generate(
+                        "Invalid value for if the item is takeable. Giving a simple"
+                        " 'yes' or 'no' will work."
+                    )
                 )
+                return
+
+            image: str | None = ctx.responses.get("item_image", "").strip() or None
+            if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):
+                raise ipy.errors.BadArgument("The image given must be a valid URL.")
+
+            await models.GuildConfig.fetch_create(ctx.guild_id, {"items": True})
+
+            await models.ItemsSystemItem.create(
+                name=name,
+                description=ctx.responses["item_description"],
+                image=image,
+                takeable=takeable,
+                guild_id=ctx.guild_id,
             )
-            return
-
-        image: str | None = ctx.responses.get("item_image", "").strip() or None
-        if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):
-            raise ipy.errors.BadArgument("The image given must be a valid URL.")
-
-        await models.GuildConfig.fetch_create(ctx.guild_id, {"items": True})
-
-        await models.ItemsSystemItem.create(
-            name=name,
-            description=ctx.responses["item_description"],
-            image=image,
-            takeable=takeable,
-            guild_id=ctx.guild_id,
-        )
 
         await ctx.send(
             embed=utils.make_embed(
@@ -333,26 +340,20 @@ class ItemsManagement(utils.Extension):
             old_name = item.name
             name = text_utils.replace_smart_punc(ctx.responses["item_name"])
 
-            if name != old_name and await models.ItemsSystemItem.exists(
-                guild_id=int(ctx.guild_id), name=name
+            if name.lower() != old_name.lower() and await models.ItemsSystemItem.exists(
+                guild_id=int(ctx.guild_id), name__iexact=name
             ):
-                await ctx.send(
-                    embed=utils.error_embed_generate(
-                        f"An item named `{name}` already exists in this server."
-                    )
+                raise ipy.errors.BadArgument(
+                    f"An item named `{name}` already exists in this server."
                 )
-                return
 
             try:
                 takeable = utils.convert_to_bool(ctx.responses["item_takeable"])
             except ipy.errors.BadArgument:
-                await ctx.send(
-                    embed=utils.error_embed_generate(
-                        "Invalid value for if the item is takeable. Giving a simple"
-                        " 'yes' or 'no' will work."
-                    )
-                )
-                return
+                raise ipy.errors.BadArgument(
+                    "Invalid value for if the item is takeable. Giving a simple"
+                    " 'yes' or 'no' will work."
+                ) from None
 
             image: str | None = ctx.responses.get("item_image", "").strip() or None
             if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):
@@ -367,8 +368,8 @@ class ItemsManagement(utils.Extension):
             if name != old_name:
                 await ctx.send(
                     embed=utils.make_embed(
-                        f"Edited item `{text_utils.escape_markdown(old_name)}`, renamed"
-                        f" to `{text_utils.escape_markdown(name)}`."
+                        f"Edited item `{text_utils.escape_markdown(old_name)}`, now"
+                        f" renamed to `{text_utils.escape_markdown(name)}`."
                     )
                 )
             else:

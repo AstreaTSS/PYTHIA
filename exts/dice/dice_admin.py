@@ -7,7 +7,9 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """
 
+import asyncio
 import importlib
+from collections import defaultdict
 
 import d20
 import interactions as ipy
@@ -26,6 +28,12 @@ d20_roll = d20.Roller(d20.RollContext(100)).roll
 class DiceManagement(utils.Extension):
     def __init__(self, _: utils.THIABase) -> None:
         self.name = "Dice Management"
+
+        # i sure do love weird edge cases with race conditions!
+        # TODO: locks should be shared with dice_cmds cmds to prevent race conditions
+        self.dice_creation_locks: defaultdict[str, asyncio.Lock] = defaultdict(
+            asyncio.Lock
+        )
 
     config = tansy.SlashCommand(
         name="dice-config",
@@ -178,32 +186,35 @@ class DiceManagement(utils.Extension):
                 " server."
             )
 
-        if await models.DiceEntry.exists(
-            guild_id=ctx.guild_id, user_id=user.id, name=name
-        ):
-            raise ipy.errors.BadArgument(
-                "A dice with that name already exists for that user."
+        async with self.dice_creation_locks[f"{ctx.guild_id}-{user.id}-{name.lower()}"]:
+            if await models.DiceEntry.exists(
+                guild_id=ctx.guild_id, user_id=user.id, name__iexact=name
+            ):
+                raise ipy.errors.BadArgument(
+                    "A dice with that name already exists for that user."
+                )
+
+            await ctx.fetch_config({"dice": True})
+
+            try:
+                d20_roll(dice)
+            except d20.errors.RollSyntaxError as e:
+                raise ipy.errors.BadArgument(
+                    f"Invalid dice roll syntax.\n{e!s}"
+                ) from None
+            except d20.errors.TooManyRolls:
+                raise ipy.errors.BadArgument(
+                    "Too many dice rolls in the expression."
+                ) from None
+            except d20.errors.RollValueError:
+                raise ipy.errors.BadArgument("Invalid dice roll value.") from None
+
+            await models.DiceEntry.create(
+                guild_id=ctx.guild_id,
+                user_id=user.id,
+                name=name,
+                value=dice,
             )
-
-        await ctx.fetch_config({"dice": True})
-
-        try:
-            d20_roll(dice)
-        except d20.errors.RollSyntaxError as e:
-            raise ipy.errors.BadArgument(f"Invalid dice roll syntax.\n{e!s}") from None
-        except d20.errors.TooManyRolls:
-            raise ipy.errors.BadArgument(
-                "Too many dice rolls in the expression."
-            ) from None
-        except d20.errors.RollValueError:
-            raise ipy.errors.BadArgument("Invalid dice roll value.") from None
-
-        await models.DiceEntry.create(
-            guild_id=ctx.guild_id,
-            user_id=user.id,
-            name=name,
-            value=dice,
-        )
 
         await ctx.send(
             embed=utils.make_embed(f"Registered dice {name} for {user.mention}.")

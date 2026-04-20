@@ -7,6 +7,7 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """
 
+import asyncio
 import collections
 import importlib
 import typing
@@ -27,6 +28,11 @@ class BulletManagement(utils.Extension):
 
     def __init__(self, _: utils.THIABase) -> None:
         self.name = "Bullet"
+
+        # i sure do love weird edge cases with race conditions!
+        self.bullet_creation_locks: collections.defaultdict[str, asyncio.Lock] = (
+            collections.defaultdict(asyncio.Lock)
+        )
 
     manage = tansy.SlashCommand(
         name="bullet-manage",
@@ -291,6 +297,11 @@ class BulletManagement(utils.Extension):
             channel_id = int(ctx.custom_id.removeprefix("ui-modal:add_bullets-"))
             channel = await self.bot.fetch_channel(channel_id)
 
+            if not channel:
+                raise utils.CustomCheckFailure(
+                    "Could not find the channel this was associated to. Was it deleted?"
+                )
+
             if (
                 config.bullets.thread_behavior == models.BulletThreadBehavior.PARENT
                 and isinstance(channel, ipy.ThreadChannel)
@@ -300,51 +311,58 @@ class BulletManagement(utils.Extension):
                     " to follow the parent channel."
                 )
 
-            if await models.TruthBullet.validate(
-                channel_id, ctx.responses["truth_bullet_trigger"]
-            ):
-                await ctx.send(
-                    embed=utils.error_embed_generate(
-                        f"A Truth Bullet in <#{channel_id}> already has the trigger"
-                        f" `{ctx.responses['truth_bullet_trigger']}` or has an alias"
-                        " named that!"
+            async with self.bullet_creation_locks[
+                f"{channel_id}-{ctx.responses['truth_bullet_trigger'].lower()}"
+            ]:
+                if await models.TruthBullet.validate(
+                    channel_id, ctx.responses["truth_bullet_trigger"]
+                ):
+                    await ctx.send(
+                        embed=utils.error_embed_generate(
+                            f"A Truth Bullet in <#{channel_id}> already has the trigger"
+                            f" `{ctx.responses['truth_bullet_trigger']}` or has an"
+                            " alias named that!"
+                        )
                     )
+                    return
+
+                try:
+                    if isinstance(ctx.responses["truth_bullet_hidden"], list):
+                        hidden = utils.convert_to_bool(
+                            ctx.responses["truth_bullet_hidden"][0]
+                        )
+                    else:
+                        hidden = utils.convert_to_bool(
+                            ctx.responses["truth_bullet_hidden"]
+                        )
+                except ipy.errors.BadArgument:
+                    await ctx.send(
+                        embed=utils.error_embed_generate(
+                            "Invalid value for hiding the Truth Bullet! Giving a simple"
+                            " 'yes' or 'no' will work."
+                        )
+                    )
+                    return
+
+                image: str | None = (
+                    ctx.kwargs.get("truth_bullet_image", "").strip() or None
                 )
-                return
+                if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):
+                    raise ipy.errors.BadArgument("The image given must be a valid URL.")
 
-            try:
-                if isinstance(ctx.responses["truth_bullet_hidden"], list):
-                    hidden = utils.convert_to_bool(
-                        ctx.responses["truth_bullet_hidden"][0]
-                    )
-                else:
-                    hidden = utils.convert_to_bool(ctx.responses["truth_bullet_hidden"])
-            except ipy.errors.BadArgument:
-                await ctx.send(
-                    embed=utils.error_embed_generate(
-                        "Invalid value for hiding the Truth Bullet! Giving a simple"
-                        " 'yes' or 'no' will work."
-                    )
+                await models.TruthBullet.create(
+                    trigger=text_utils.replace_smart_punc(
+                        ctx.responses["truth_bullet_trigger"]
+                    ),
+                    aliases=[],
+                    description=ctx.responses["truth_bullet_desc"],
+                    channel_id=channel_id,
+                    guild_id=ctx.guild_id,
+                    found=False,
+                    finder=None,
+                    hidden=hidden,
+                    image=image,
                 )
-                return
-
-            image: str | None = ctx.kwargs.get("truth_bullet_image", "").strip() or None
-            if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):
-                raise ipy.errors.BadArgument("The image given must be a valid URL.")
-
-            await models.TruthBullet.create(
-                trigger=text_utils.replace_smart_punc(
-                    ctx.responses["truth_bullet_trigger"]
-                ),
-                aliases=[],
-                description=ctx.responses["truth_bullet_desc"],
-                channel_id=channel_id,
-                guild_id=ctx.guild_id,
-                found=False,
-                finder=None,
-                hidden=hidden,
-                image=image,
-            )
 
             await ctx.send(
                 embed=utils.make_embed(
@@ -658,12 +676,20 @@ class BulletManagement(utils.Extension):
 
             bullet = await models.TruthBullet.find_via_trigger(channel_id, trigger)
             if bullet is None:
-                await ctx.send(
-                    embed=utils.error_embed_generate(
-                        f"Truth Bullet with trigger `{trigger}` no longer exists!"
-                    )
+                raise utils.CustomCheckFailure("This Truth Bullet no longer exists.")
+
+            trigger = text_utils.replace_smart_punc(
+                ctx.responses["truth_bullet_trigger"]
+            )
+
+            if (
+                bullet.trigger.lower() != trigger.lower()
+                and await models.TruthBullet.validate(channel_id, trigger)
+            ):
+                raise ipy.errors.BadArgument(
+                    f"A Truth Bullet in <#{channel_id}> already has the trigger"
+                    f" `{trigger}` or has an alias named that."
                 )
-                return
 
             try:
                 if isinstance(ctx.responses["truth_bullet_hidden"], list):
@@ -673,21 +699,16 @@ class BulletManagement(utils.Extension):
                 else:
                     hidden = utils.convert_to_bool(ctx.responses["truth_bullet_hidden"])
             except ipy.errors.BadArgument:
-                await ctx.send(
-                    embed=utils.error_embed_generate(
-                        "Invalid value for hiding the Truth Bullet! Giving a simple"
-                        " 'yes' or 'no' will work."
-                    )
-                )
-                return
+                raise ipy.errors.BadArgument(
+                    "Invalid value for hiding the Truth Bullet. Giving a simple 'yes'"
+                    " or 'no' will work."
+                ) from None
 
             image: str | None = ctx.kwargs.get("truth_bullet_image", "").strip() or None
             if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):
                 raise ipy.errors.BadArgument("The image given must be a valid URL.")
 
-            bullet.trigger = text_utils.replace_smart_punc(
-                ctx.responses["truth_bullet_trigger"]
-            )
+            bullet.trigger = trigger
             bullet.description = ctx.responses["truth_bullet_desc"]
             bullet.hidden = hidden
             bullet.image = image
@@ -697,13 +718,13 @@ class BulletManagement(utils.Extension):
                 await ctx.send(
                     embed=utils.make_embed(
                         f"Edited Truth Bullet `{trigger}` (renamed to"
-                        f" `{bullet.trigger}`) in <#{channel_id}>!"
+                        f" `{bullet.trigger}`) in <#{channel_id}>."
                     )
                 )
             else:
                 await ctx.send(
                     embed=utils.make_embed(
-                        f"Edited Truth Bullet `{trigger}` in <#{channel_id}>!"
+                        f"Edited Truth Bullet `{trigger}` in <#{channel_id}>."
                     )
                 )
 

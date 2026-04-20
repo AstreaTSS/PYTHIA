@@ -10,6 +10,7 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 import asyncio
 import importlib
 import io
+from collections import defaultdict
 
 import aiohttp
 import d20
@@ -33,6 +34,12 @@ d20_roll = d20.Roller(d20.RollContext(100)).roll
 class DiceCMDs(ipy.Extension):
     def __init__(self, _: utils.THIABase) -> None:
         self.name = "Dice Commands"
+
+        # i sure do love weird edge cases with race conditions!
+        # TODO: locks should be shared with dice_admin cmds to prevent race conditions
+        self.dice_creation_locks: defaultdict[str, asyncio.Lock] = defaultdict(
+            asyncio.Lock
+        )
 
         self.add_ext_auto_defer(ephemeral=True)
 
@@ -185,30 +192,35 @@ class DiceCMDs(ipy.Extension):
                     " yourself."
                 )
 
-        if await models.DiceEntry.exists(
-            guild_id=guild_id, user_id=ctx.author_id, name=name
-        ):
-            raise ipy.errors.BadArgument("A dice with that name already exists.")
+        async with self.dice_creation_locks[
+            f"{guild_id}-{ctx.author_id}-{name.lower()}"
+        ]:
+            if await models.DiceEntry.exists(
+                guild_id=guild_id, user_id=ctx.author_id, name__iexact=name
+            ):
+                raise ipy.errors.BadArgument("A dice with that name already exists.")
 
-        await models.GuildConfig.fetch_create(guild_id, {"dice": True})
+            await models.GuildConfig.fetch_create(guild_id, {"dice": True})
 
-        try:
-            d20_roll(dice)
-        except d20.errors.RollSyntaxError as e:
-            raise ipy.errors.BadArgument(f"Invalid dice roll syntax.\n{e!s}") from None
-        except d20.errors.TooManyRolls:
-            raise ipy.errors.BadArgument(
-                "Too many dice rolls in the expression."
-            ) from None
-        except d20.errors.RollValueError:
-            raise ipy.errors.BadArgument("Invalid dice roll value.") from None
+            try:
+                d20_roll(dice)
+            except d20.errors.RollSyntaxError as e:
+                raise ipy.errors.BadArgument(
+                    f"Invalid dice roll syntax.\n{e!s}"
+                ) from None
+            except d20.errors.TooManyRolls:
+                raise ipy.errors.BadArgument(
+                    "Too many dice rolls in the expression."
+                ) from None
+            except d20.errors.RollValueError:
+                raise ipy.errors.BadArgument("Invalid dice roll value.") from None
 
-        await models.DiceEntry.create(
-            guild_id=guild_id,
-            user_id=ctx.author_id,
-            name=name,
-            value=dice,
-        )
+            await models.DiceEntry.create(
+                guild_id=guild_id,
+                user_id=ctx.author_id,
+                name=name,
+                value=dice,
+            )
 
         await ctx.send(
             embed=utils.make_embed(f"Registered dice {name}."), ephemeral=True
@@ -389,7 +401,7 @@ class DiceCMDs(ipy.Extension):
             entries_io.close()
 
     @dice.subcommand("import", sub_cmd_description="Imports dice from a JSON file.")
-    async def gacha_import_items(
+    async def dice_import_items(
         self,
         ctx: utils.THIASlashContext,
         json_file: ipy.Attachment = tansy.Option("The JSON file to import."),
@@ -493,6 +505,7 @@ class DiceCMDs(ipy.Extension):
                     )
 
         async with in_transaction():
+            # TODO: this is flawed - how do we do case insensitive unique checks without doing multiple queries?
             if await models.DiceEntry.exists(
                 guild_id=guild_id,
                 user_id=ctx.author.id,

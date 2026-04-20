@@ -10,6 +10,7 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 import asyncio
 import importlib
 import io
+from collections import defaultdict
 
 import aiohttp
 import interactions as ipy
@@ -126,6 +127,11 @@ class GachaItems(utils.Extension):
             custom_id="add_gacha_item",
         )
 
+        # i sure do love weird edge cases with race conditions!
+        self.item_creation_locks: defaultdict[str, asyncio.Lock] = defaultdict(
+            asyncio.Lock
+        )
+
     manage = tansy.SlashCommand(
         name="gacha-manage",
         description="Handles management of gacha mechanics.",
@@ -210,46 +216,47 @@ class GachaItems(utils.Extension):
         else:
             str_rarity: str = ctx.responses["item_rarity"]
 
-        if await models.GachaItem.exists(guild_id=ctx.guild_id, name__iexact=name):
-            raise ipy.errors.BadArgument("An item with that name already exists.")
+        async with self.item_creation_locks[f"{ctx.guild_id}-{name.lower()}"]:
+            if await models.GachaItem.exists(guild_id=ctx.guild_id, name__iexact=name):
+                raise ipy.errors.BadArgument("An item with that name already exists.")
 
-        try:
-            rarity = models.Rarity[str_rarity.upper()]
-        except (KeyError, ValueError):
-            raise ipy.errors.BadArgument(
-                "Invalid rarity. Rarity must be one of: common, uncommon, rare, epic,"
-                " legendary."
-            ) from None
+            try:
+                rarity = models.Rarity[str_rarity.upper()]
+            except (KeyError, ValueError):
+                raise ipy.errors.BadArgument(
+                    "Invalid rarity. Rarity must be one of: common, uncommon, rare,"
+                    " epic, legendary."
+                ) from None
 
-        try:
-            amount = int(str_amount)
-            if amount < -1:
-                raise ValueError
-        except ValueError:
-            raise ipy.errors.BadArgument(
-                "Quantity must be a positive number."
-            ) from None
+            try:
+                amount = int(str_amount)
+                if amount < -1:
+                    raise ValueError
+            except ValueError:
+                raise ipy.errors.BadArgument(
+                    "Quantity must be a positive number."
+                ) from None
 
-        if amount > 999:
-            raise ipy.errors.BadArgument(
-                "This amount is too high. Please set an amount at or lower than 999, or"
-                " leave the value empty to have an unlimited amount."
+            if amount > 999:
+                raise ipy.errors.BadArgument(
+                    "This amount is too high. Please set an amount at or lower than"
+                    " 999, or leave the value empty to have an unlimited amount."
+                )
+
+            if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):
+                raise ipy.errors.BadArgument("The image given must be a valid URL.")
+
+            # some configs needs to exist, lets make sure they do
+            await ctx.fetch_config({"gacha": True})
+
+            await models.GachaItem.create(
+                guild_id=ctx.guild_id,
+                name=name,
+                description=description,
+                rarity=rarity,
+                amount=amount,
+                image=image,
             )
-
-        if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):
-            raise ipy.errors.BadArgument("The image given must be a valid URL.")
-
-        # some configs needs to exist, lets make sure they do
-        await ctx.fetch_config({"gacha": True})
-
-        await models.GachaItem.create(
-            guild_id=ctx.guild_id,
-            name=name,
-            description=description,
-            rarity=rarity,
-            amount=amount,
-            image=image,
-        )
 
         await ctx.send(embed=utils.make_embed(f"Added item {name} to the gacha."))
 
@@ -399,8 +406,16 @@ class GachaItems(utils.Extension):
         else:
             str_rarity: str = ctx.responses["item_rarity"]
 
-        if not await models.GachaItem.exists(id=item_id, guild_id=ctx.guild_id):
-            raise ipy.errors.BadArgument("The item no longer exists.")
+        item = await models.GachaItem.get_or_none(id=item_id, guild_id=ctx.guild_id)
+        if not item:
+            raise ipy.errors.BadArgument("This item no longer exists.")
+
+        if name.lower() != item.name.lower() and await models.GachaItem.exists(
+            guild_id=int(ctx.guild_id), name__iexact=name
+        ):
+            raise ipy.errors.BadArgument(
+                f"An item named `{name}` already exists in this server."
+            )
 
         try:
             rarity = models.Rarity[str_rarity.upper()]
@@ -436,7 +451,19 @@ class GachaItems(utils.Extension):
             image=image,
         )
 
-        await ctx.send(embed=utils.make_embed(f"Edited item {name}."))
+        if name != item.name:
+            await ctx.send(
+                embed=utils.make_embed(
+                    f"Edited item `{text_utils.escape_markdown(item.name)}`, now"
+                    f" renamed to `{text_utils.escape_markdown(name)}`."
+                )
+            )
+        else:
+            await ctx.send(
+                embed=utils.make_embed(
+                    f"Edited item `{text_utils.escape_markdown(name)}`."
+                )
+            )
 
     @manage.subcommand(
         "delete-item",
@@ -731,6 +758,7 @@ class GachaItems(utils.Extension):
         await ctx.fetch_config({"gacha": True})
 
         async with in_transaction():
+            # TODO: this is flawed - how do we do case insensitive unique checks without doing multiple queries?
             if await models.GachaItem.exists(
                 guild_id=ctx.guild_id,
                 name__in=[item.name for item in items],
