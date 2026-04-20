@@ -110,11 +110,14 @@ class BulletFinding(utils.Extension):
                 color=ipy.RoleColors.GREEN,
             )
 
-        await bullet_chan.send(content, embed=embed)
-
-        config.bullets.bullets_enabled = False
-        await config.bullets.save()
-        self.bot.msg_enabled_bullets_guilds.discard(int(guild.id))
+        try:
+            await bullet_chan.send(content, embed=embed)
+        except ipy.errors.HTTPException:
+            return
+        finally:
+            config.bullets.bullets_enabled = False
+            await config.bullets.save()
+            self.bot.msg_enabled_bullets_guilds.discard(int(guild.id))
 
         if config.bullets.best_bullet_finder_role and (
             best_bullet_finder_obj := guild.get_role(
