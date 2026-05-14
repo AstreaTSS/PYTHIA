@@ -113,7 +113,7 @@ class GachaCommands(utils.Extension):
                     f" {name_for_action} the gacha. You need at least"
                     f" {config.gacha.currency_cost}"
                     f" {config.names.currency_name(config.gacha.currency_cost)} to do"
-                    f" so, but you have {player.currency_amount}"
+                    f" so, but you have {player.currency_amount if player else 0}"
                     f" {config.names.currency_name(config.gacha.currency_cost)}."
                 )
 
