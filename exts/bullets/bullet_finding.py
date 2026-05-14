@@ -149,6 +149,7 @@ class BulletFinding(utils.Extension):
             or not message.guild
             or message.type not in {ipy.MessageType.DEFAULT, ipy.MessageType.REPLY}
             or not message.content
+            or not message.channel
         ):
             return
 
