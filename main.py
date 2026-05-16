@@ -55,9 +55,12 @@ def default_sentry_filter(
         record: logging.LogRecord = hint["log_record"]
         if "interactions" in record.name or "pythiabot" in record.name:
             # there are some logging messages that are not worth sending to sentry
-            if ": 403" in record.message:
-                return None
-            if ": 404" in record.message:
+            ignore_errors = (": 403", ": 404", ": 503")
+            for err in ignore_errors:
+                if record.message.endswith(err):
+                    return None
+
+            if "503|Service Unavailable" in record.message:
                 return None
             if record.message.startswith("Ignoring exception in "):
                 return None
