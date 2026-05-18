@@ -44,45 +44,6 @@ class BulletManagement(utils.Extension):
     @staticmethod
     def add_truth_bullets_modal(
         channel: ipy.GuildText | ipy.GuildPublicThread,
-    ) -> ipy.Modal:
-        return ipy.Modal(
-            ipy.InputText(
-                label="Truth Bullet Trigger",
-                style=ipy.TextStyles.SHORT,
-                custom_id="truth_bullet_trigger",
-                max_length=60,
-            ),
-            ipy.InputText(
-                label="Truth Bullet Description",
-                style=ipy.TextStyles.PARAGRAPH,
-                custom_id="truth_bullet_desc",
-                max_length=3800,
-            ),
-            ipy.InputText(
-                label="Truth Bullet Image",
-                style=ipy.TextStyles.SHORT,
-                custom_id="truth_bullet_image",
-                placeholder="The image URL of the Truth Bullet.",
-                max_length=1000,
-                required=False,
-            ),
-            ipy.InputText(
-                label="Hide this Truth Bullet only to the finder?",
-                style=ipy.TextStyles.SHORT,
-                custom_id="truth_bullet_hidden",
-                value="no",
-                max_length=10,
-            ),
-            title=(
-                "Add Truth Bullets for"
-                f" #{text_utils.name_shorten(channel.name or 'this-channel')}"
-            ),
-            custom_id=f"ui-modal:add_bullets-{channel.id}",
-        )
-
-    @staticmethod
-    def beta_add_truth_bullets_modal(
-        channel: ipy.GuildText | ipy.GuildPublicThread,
     ) -> modalb.Modal:
         return modalb.Modal(
             ipy.InputText(
@@ -169,81 +130,44 @@ class BulletManagement(utils.Extension):
         if send_button:
             await ctx.defer()
 
-            if config.enabled_beta:
-                containers: list[ipy.ContainerComponent] = []
-                if (
-                    count > 0
-                    and await models.TruthBullet.filter(
-                        guild_id=ctx.guild_id, found=True
-                    ).exists()
-                ):
-                    containers.append(
-                        ipy.ContainerComponent(
-                            ipy.TextDisplayComponent("# Warning"),
-                            ipy.TextDisplayComponent(
-                                "This server has Truth Bullets that all have been"
-                                " found, likely from a previous investigation. If you"
-                                " want to start fresh with completely new Truth"
-                                " Bullets, you can clear the current ones with"
-                                f" {self.bot.mention_command('bullet-manage clear')}.",
-                            ),
-                            accent_color=ipy.RoleColors.YELLOW,
-                        )
-                    )
-
+            containers: list[ipy.ContainerComponent] = []
+            if (
+                count > 0
+                and await models.TruthBullet.filter(
+                    guild_id=ctx.guild_id, found=True
+                ).exists()
+            ):
                 containers.append(
                     ipy.ContainerComponent(
-                        ipy.SectionComponent(
-                            components=ipy.TextDisplayComponent(
-                                f"Add Truth Bullets for {channel.mention} with this"
-                                " button!"
-                            ),
-                            accessory=ipy.Button(
-                                style=ipy.ButtonStyle.GREEN,
-                                label="Add Truth Bullet",
-                                custom_id=f"thia:add-bullets|{channel.id}",
-                            ),
-                        ),
-                        accent_color=self.bot.color,
-                    )
-                )
-
-                await ctx.send(components=containers)
-            else:
-                embeds: list[ipy.Embed] = []
-                if (
-                    count > 0
-                    and await models.TruthBullet.filter(
-                        guild_id=ctx.guild_id, found=True
-                    ).exists()
-                ):
-                    embeds.append(
-                        ipy.Embed(
-                            "Warning",
-                            "This server has Truth Bullets that all have been found,"
-                            " likely from a previous investigation. If you want to"
-                            " start fresh with completely new Truth Bullets, you can"
-                            " clear the current ones with"
+                        ipy.TextDisplayComponent("# Warning"),
+                        ipy.TextDisplayComponent(
+                            "This server has Truth Bullets that all have been"
+                            " found, likely from a previous investigation. If you"
+                            " want to start fresh with completely new Truth"
+                            " Bullets, you can clear the current ones with"
                             f" {self.bot.mention_command('bullet-manage clear')}.",
-                            color=ipy.RoleColors.YELLOW,
-                        )
+                        ),
+                        accent_color=ipy.RoleColors.YELLOW,
                     )
-
-                button = ipy.Button(
-                    style=ipy.ButtonStyle.GREEN,
-                    label=f"Add Truth Bullets for #{channel.name}",
-                    custom_id=f"ui-button:add_bullets-{channel.id}",
-                )
-                embeds.append(
-                    utils.make_embed("Add Truth Bullets via the button below!")
                 )
 
-                await ctx.send(
-                    embeds=embeds,
-                    components=button,
+            containers.append(
+                ipy.ContainerComponent(
+                    ipy.SectionComponent(
+                        components=ipy.TextDisplayComponent(
+                            f"Add Truth Bullets for {channel.mention} with this button!"
+                        ),
+                        accessory=ipy.Button(
+                            style=ipy.ButtonStyle.GREEN,
+                            label="Add Truth Bullet",
+                            custom_id=f"thia:add-bullets|{channel.id}",
+                        ),
+                    ),
+                    accent_color=self.bot.color,
                 )
-        elif config.enabled_beta:
-            await ctx.send_modal(self.beta_add_truth_bullets_modal(channel))
+            )
+
+            await ctx.send(components=containers)
         else:
             await ctx.send_modal(self.add_truth_bullets_modal(channel))
 
@@ -276,7 +200,7 @@ class BulletManagement(utils.Extension):
                     "Could not find the channel this was associated to. Was it deleted?"
                 )
 
-            await ctx.send_modal(self.beta_add_truth_bullets_modal(channel))
+            await ctx.send_modal(self.add_truth_bullets_modal(channel))
 
     @ipy.listen("modal_completion")
     @utils.modal_event_error_handler
@@ -560,7 +484,7 @@ class BulletManagement(utils.Extension):
             converter=text_utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
-        config = await ctx.fetch_config()
+        await ctx.fetch_config()
 
         bullet = await models.TruthBullet.find_via_trigger(channel.id, trigger)
         if not bullet:
@@ -568,93 +492,54 @@ class BulletManagement(utils.Extension):
                 f"Truth Bullet with trigger `{trigger}` does not exist!"
             )
 
-        if config.enabled_beta:
-            modal = modalb.Modal(
-                ipy.InputText(
-                    label="Truth Bullet Trigger",
-                    style=ipy.TextStyles.SHORT,
-                    custom_id="truth_bullet_trigger",
-                    value=bullet.trigger,
-                    max_length=60,
-                ),
-                ipy.InputText(
-                    label="Truth Bullet Description",
-                    style=ipy.TextStyles.PARAGRAPH,
-                    custom_id="truth_bullet_desc",
-                    value=bullet.description,
-                    max_length=3800,
-                ),
-                modalb.LabelComponent(
-                    label="Truth Bullet Image",
-                    description="The image URL of the Truth Bullet.",
-                    component=modalb.InputText(
-                        style=ipy.TextStyles.SHORT,
-                        custom_id="truth_bullet_image",
-                        value=bullet.image or ipy.MISSING,
-                        max_length=1000,
-                        required=False,
-                    ),
-                ),
-                modalb.LabelComponent(
-                    label="Hide this Truth Bullet only to the finder?",
-                    component=modalb.StringSelectMenu(
-                        *(
-                            ipy.StringSelectOption(
-                                label=v,
-                                value=v.lower(),
-                                default=v.lower()
-                                == utils.yesno_friendly_str(bullet.hidden),
-                            )
-                            for v in ("Yes", "No")
-                        ),
-                        custom_id="truth_bullet_hidden",
-                        required=True,
-                    ),
-                ),
-                title=(
-                    f"Edit {text_utils.name_shorten(bullet.trigger, 10)} for"
-                    f" #{text_utils.name_shorten(channel.name, 14)}"
-                ),
-                custom_id=f"ui:edit-bullet-{channel.id}|{trigger}",
-            )
-        else:
-            modal = ipy.Modal(
-                ipy.InputText(
-                    label="Truth Bullet Trigger",
-                    style=ipy.TextStyles.SHORT,
-                    custom_id="truth_bullet_trigger",
-                    value=bullet.trigger,
-                    max_length=60,
-                ),
-                ipy.InputText(
-                    label="Truth Bullet Description",
-                    style=ipy.TextStyles.PARAGRAPH,
-                    custom_id="truth_bullet_desc",
-                    value=bullet.description,
-                    max_length=3800,
-                ),
-                ipy.InputText(
-                    label="Truth Bullet Image",
+        modal = modalb.Modal(
+            ipy.InputText(
+                label="Truth Bullet Trigger",
+                style=ipy.TextStyles.SHORT,
+                custom_id="truth_bullet_trigger",
+                value=bullet.trigger,
+                max_length=60,
+            ),
+            ipy.InputText(
+                label="Truth Bullet Description",
+                style=ipy.TextStyles.PARAGRAPH,
+                custom_id="truth_bullet_desc",
+                value=bullet.description,
+                max_length=3800,
+            ),
+            modalb.LabelComponent(
+                label="Truth Bullet Image",
+                description="The image URL of the Truth Bullet.",
+                component=modalb.InputText(
                     style=ipy.TextStyles.SHORT,
                     custom_id="truth_bullet_image",
-                    placeholder="The image URL of the Truth Bullet.",
                     value=bullet.image or ipy.MISSING,
                     max_length=1000,
                     required=False,
                 ),
-                ipy.InputText(
-                    label="Hide this Truth Bullet only to the finder?",
-                    style=ipy.TextStyles.SHORT,
+            ),
+            modalb.LabelComponent(
+                label="Hide this Truth Bullet only to the finder?",
+                component=modalb.StringSelectMenu(
+                    *(
+                        ipy.StringSelectOption(
+                            label=v,
+                            value=v.lower(),
+                            default=v.lower()
+                            == utils.yesno_friendly_str(bullet.hidden),
+                        )
+                        for v in ("Yes", "No")
+                    ),
                     custom_id="truth_bullet_hidden",
-                    value=utils.yesno_friendly_str(bullet.hidden),
-                    max_length=10,
+                    required=True,
                 ),
-                title=(
-                    f"Edit {text_utils.name_shorten(bullet.trigger, 10)} for"
-                    f" #{text_utils.name_shorten(channel.name, 14)}"
-                ),
-                custom_id=f"ui:edit-bullet-{channel.id}|{trigger}",
-            )
+            ),
+            title=(
+                f"Edit {text_utils.name_shorten(bullet.trigger, 10)} for"
+                f" #{text_utils.name_shorten(channel.name, 14)}"
+            ),
+            custom_id=f"ui:edit-bullet-{channel.id}|{trigger}",
+        )
         await ctx.send_modal(modal)
 
     edit_bullet_full = utils.alias(

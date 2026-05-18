@@ -159,85 +159,60 @@ class GachaCommands(utils.Extension):
 
             new_count = player.currency_amount - config.gacha.currency_cost
 
-            if not config.enabled_beta:
-                embed = item.embed(config.names, rarities, show_rarity=show_rarity)
-                embed.set_footer(
-                    f"{new_count} {config.names.currency_name(new_count)} left"
-                )
+            container = ipy.ContainerComponent(accent_color=rarities.color(item.rarity))
 
-                button: ipy.Button | None = None
-                if new_count >= config.gacha.currency_cost:
-                    button = ipy.Button(
+            str_builder: list[str] = [f"# {item.name}"]
+            if show_rarity:
+                str_builder.append(
+                    f"## Rarity: {config.names.rarity_name(item.rarity)}"
+                )
+            str_builder.append(item.description)
+
+            if item.image:
+                container.append(
+                    ipy.SectionComponent(
+                        components=ipy.TextDisplayComponent("\n".join(str_builder)),
+                        accessory=ipy.ThumbnailComponent(
+                            ipy.UnfurledMediaItem(item.image)
+                        ),
+                    )
+                )
+            else:
+                container.append(ipy.TextDisplayComponent("\n".join(str_builder)))
+
+            container.append(
+                ipy.SeparatorComponent(
+                    divider=True, spacing=ipy.SeparatorSpacingSize.LARGE
+                )
+            )
+
+            buttons: list[ipy.Button] = [
+                ipy.Button(
+                    style=ipy.ButtonStyle.SECONDARY,
+                    label=f"{new_count} {config.names.currency_name(new_count)} Left",
+                    disabled=True,
+                )
+            ]
+            if new_count >= config.gacha.currency_cost:
+                buttons.insert(
+                    0,
+                    ipy.Button(
                         style=ipy.ButtonStyle.PRIMARY,
                         label=f"{name_for_action.capitalize()} Again",
                         custom_id=f"gacha-roll-{name_for_action}",
-                    )
-
-                await ctx.send(
-                    content=ctx.author.mention if button_press else None,
-                    embed=embed,
-                    components=button,
-                    allowed_mentions=ipy.AllowedMentions.none(),
-                )
-            else:
-                container = ipy.ContainerComponent(
-                    accent_color=rarities.color(item.rarity)
-                )
-
-                str_builder: list[str] = [f"# {item.name}"]
-                if show_rarity:
-                    str_builder.append(
-                        f"## Rarity: {config.names.rarity_name(item.rarity)}"
-                    )
-                str_builder.append(item.description)
-
-                if item.image:
-                    container.append(
-                        ipy.SectionComponent(
-                            components=ipy.TextDisplayComponent("\n".join(str_builder)),
-                            accessory=ipy.ThumbnailComponent(
-                                ipy.UnfurledMediaItem(item.image)
-                            ),
-                        )
-                    )
-                else:
-                    container.append(ipy.TextDisplayComponent("\n".join(str_builder)))
-
-                container.append(
-                    ipy.SeparatorComponent(
-                        divider=True, spacing=ipy.SeparatorSpacingSize.LARGE
-                    )
-                )
-
-                buttons: list[ipy.Button] = [
-                    ipy.Button(
-                        style=ipy.ButtonStyle.SECONDARY,
-                        label=(
-                            f"{new_count} {config.names.currency_name(new_count)} Left"
-                        ),
-                        disabled=True,
-                    )
-                ]
-                if new_count >= config.gacha.currency_cost:
-                    buttons.insert(
-                        0,
-                        ipy.Button(
-                            style=ipy.ButtonStyle.PRIMARY,
-                            label=f"{name_for_action.capitalize()} Again",
-                            custom_id=f"gacha-roll-{name_for_action}",
-                        ),
-                    )
-
-                container.append(ipy.ActionRow(*buttons))
-
-                await ctx.send(
-                    components=(
-                        [ipy.TextDisplayComponent(ctx.author.mention), container]
-                        if button_press
-                        else container
                     ),
-                    allowed_mentions=utils.deny_mentions(ctx.author_id),
                 )
+
+            container.append(ipy.ActionRow(*buttons))
+
+            await ctx.send(
+                components=(
+                    [ipy.TextDisplayComponent(ctx.author.mention), container]
+                    if button_press
+                    else container
+                ),
+                allowed_mentions=utils.deny_mentions(ctx.author_id),
+            )
 
             async with in_transaction():
                 if item.amount != -1:
