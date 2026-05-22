@@ -9,34 +9,30 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 import asyncio
 import contextlib
-import functools
+import datetime
 import logging
 import os
 import subprocess
 import sys
 from collections import defaultdict
 
-import interactions as ipy
+import discord
+import humanize
+import ragwort
 import sentry_sdk
 import typing_extensions as typing
-from interactions.api.gateway.state import ConnectionState
-from interactions.ext import hybrid_commands as hybrid
-from interactions.ext import prefixed_commands as prefixed
+from discord.ext import commands, tasks
 from tortoise import Tortoise
 
 from load_env import load_env
 
 load_env()
 
-import common.help_tools as help_tools
 import common.models as models
 import common.utils as utils
 import db_settings
 
-if typing.TYPE_CHECKING:
-    import discord_typings
-
-logger = logging.getLogger("pythiabot")
+logger = logging.getLogger("discord")
 logger.setLevel(logging.INFO)
 handler = logging.FileHandler(
     filename=os.environ["LOG_FILE_PATH"], encoding="utf-8", mode="a"
@@ -53,20 +49,9 @@ def default_sentry_filter(
 ) -> dict[str, typing.Any] | None:
     if "log_record" in hint:
         record: logging.LogRecord = hint["log_record"]
-        if "interactions" in record.name or "pythiabot" in record.name:
-            # there are some logging messages that are not worth sending to sentry
-            ignore_errors = (": 403", ": 404", ": 503")
-            for err in ignore_errors:
-                if record.message.endswith(err):
-                    return None
-
-            if "503|Service Unavailable" in record.message:
-                return None
-            if record.message.startswith("Ignoring exception in "):
-                return None
-            if record.message.startswith("Unsupported channel type for "):
-                # please shut up
-                return None
+        if "discord" in record.name:
+            # TODO: find errors to ignore
+            pass
 
     if "exc_info" in hint:
         _, exc_value, __ = hint["exc_info"]
@@ -76,29 +61,24 @@ def default_sentry_filter(
     return event
 
 
-class MyHookedTask(ipy.Task):
-    def on_error_sentry_hook(self: ipy.Task, error: Exception) -> None:
-        scope = sentry_sdk.Scope.get_current_scope()
-
-        if isinstance(self.callback, functools.partial):
-            scope.set_tag("task", self.callback.func.__name__)
-        else:
-            scope.set_tag("task", self.callback.__name__)
-
-        scope.set_tag("iteration", self.iteration)
-        sentry_sdk.capture_exception(error)
+class HookedTask(tasks.Loop):
+    async def _error(self: tasks.Loop, *args: typing.Any) -> None:
+        error: Exception = args[-1]
+        await utils.error_handle(error)
 
 
-# im so sorry
+tasks.Loop._error = HookedTask._error
 if utils.SENTRY_ENABLED:
-    ipy.Task.on_error_sentry_hook = MyHookedTask.on_error_sentry_hook
     sentry_sdk.init(dsn=os.environ["SENTRY_DSN"], before_send=default_sentry_filter)
 
 
 class PYTHIA(utils.THIABase):
-    @ipy.listen("ready")
     async def on_ready(self) -> None:
-        utcnow = ipy.Timestamp.utcnow()
+        if not self.owner:
+            app_info = await self.application_info()
+            self.owner = app_info.owner  # type: ignore
+
+        utcnow = discord.utils.utcnow()
         time_format = f"<t:{int(utcnow.timestamp())}:f>"
 
         connect_msg = (
@@ -111,118 +91,105 @@ class PYTHIA(utils.THIABase):
 
         self.init_load = False
 
-        activity = ipy.Activity(
+        activity = discord.CustomActivity(
             name="Status",
-            type=ipy.ActivityType.CUSTOM,
             state="Assisting servers | pythia.astrea.cc",
         )
         await self.change_presence(activity=activity)
 
-    @ipy.listen("resume")
-    async def on_resume_func(self) -> None:
-        activity = ipy.Activity(
+    async def on_resumed(self) -> None:
+        activity = discord.CustomActivity(
             name="Status",
-            type=ipy.ActivityType.CUSTOM,
             state="Assisting servers | pythia.astrea.cc",
         )
         await self.change_presence(activity=activity)
 
-    @ipy.listen(ipy.events.ShardDisconnect)
-    async def shard_disconnect(self, event: ipy.events.ShardDisconnect) -> None:
-        # this usually means disconnect with an error, which is very unusual
-        # thus, we should log this and attempt to restart
-        try:
-            await self.wait_for(ipy.events.Disconnect, timeout=1)
-        except TimeoutError:
-            return
+    async def on_error(self, _: str, *__: typing.Any, **___: typing.Any) -> None:
+        error: Exception = sys.exc_info()[1]
+        await utils.error_handle(error)
 
-        await self.owner.send(
-            f"Shard {event.shard_id} disconnected due to an error. Attempting restart."
-        )
-        await asyncio.sleep(5)
-
-        self._connection_states[event.shard_id] = ConnectionState(
-            self, self.intents, event.shard_id
-        )
-        self.create_task(self._connection_states[event.shard_id].start())
-
-    # technically, this is in ipy itself now, but its easier for my purposes to do this
-    @ipy.listen("raw_application_command_permissions_update")
-    async def i_like_my_events_very_raw(
-        self, event: ipy.events.RawGatewayEvent
+    async def _pythia_error(
+        self, ctx: utils.THIABridgeContext | discord.Interaction, error: Exception
     ) -> None:
-        data: discord_typings.GuildApplicationCommandPermissionData = event.data  # type: ignore
-
-        guild_id = int(data["guild_id"])
-
-        if not self.slash_perms_cache[guild_id]:
-            await help_tools.process_bulk_slash_perms(self, guild_id)
-            return
-
-        cmds = help_tools.get_commands_for_scope_by_ids(self, guild_id)
-        if cmd := cmds.get(int(data["id"])):
-            self.slash_perms_cache[guild_id][
-                int(data["id"])
-            ] = help_tools.PermissionsResolver(
-                cmd.default_member_permissions, guild_id, data["permissions"]  # type: ignore
+        if isinstance(error, commands.CommandOnCooldown):
+            delta_wait = datetime.timedelta(seconds=error.retry_after)
+            await ctx.respond(
+                view=utils.error_view(
+                    "You're doing that command too fast! Try again in"
+                    f" `{humanize.precisedelta(delta_wait, format='%0.1f')}`."
+                )
             )
 
-    @ipy.listen(is_default_listener=True)
-    async def on_error(self, event: ipy.events.Error) -> None:
-        await utils.error_handle(event.error, ctx=event.ctx)
+        elif isinstance(error, utils.CustomCheckFailure | commands.BadArgument):
+            await ctx.respond(view=utils.error_view(str(error)))
+        elif isinstance(error, discord.CheckFailure):
+            if ctx.guild_id:
+                await ctx.respond(
+                    view=utils.error_view(
+                        "You do not have the proper permissions to use that command."
+                    )
+                )
+        else:
+            await utils.error_handle(error, ctx=ctx)
 
-    def create_task(self, coro: typing.Coroutine) -> asyncio.Task:
-        # see the "important" note below for why we do this (to prevent early gc)
-        # https://docs.python.org/3/library/asyncio-task.html#asyncio.create_task
-        task = asyncio.create_task(coro)
-        self.background_tasks.add(task)
-        task.add_done_callback(self.background_tasks.discard)
-        return task
+    async def on_view_error(
+        self, error: Exception, _: discord.ui.ViewItem, interaction: discord.Interaction
+    ) -> None:
+        await self._pythia_error(interaction, error)
 
-    async def stop(self) -> None:
+    async def on_modal_error(
+        self, error: Exception, interaction: discord.Interaction
+    ) -> None:
+        await self._pythia_error(interaction, error)
+
+    async def on_application_command_error(
+        self, context: utils.THIASlashContext, exception: discord.DiscordException
+    ) -> None:
+        await self._pythia_error(context, exception)
+
+    async def on_command_error(
+        self, context: utils.THIABridgeExtContext, exception: commands.CommandError
+    ) -> None:
+        await self._pythia_error(context, exception)
+
+    async def close(self) -> None:
+        await self.close()
         await Tortoise.close_connections()
-        await super().stop()
 
 
-intents = ipy.Intents.new(
+intents = discord.Intents(
     guilds=True,
-    guild_emojis_and_stickers=True,
+    members=True,
+    emojis_and_stickers=True,
+    integrations=True,
     messages=True,
-    reactions=True,
+    # reactions=True, is this needed?
     message_content=True,
-    guild_members=True,
 )
-mentions = ipy.AllowedMentions.all()
+mentions = discord.AllowedMentions.none()
 
 bot = PYTHIA(
-    activity=ipy.Activity(
-        name="Status", type=ipy.ActivityType.CUSTOM, state="Loading..."
+    status=discord.Status.idle,
+    activity=discord.CustomActivity(
+        name="Status",
+        state="Loading...",
     ),
-    status=ipy.Status.IDLE,
-    sync_interactions=False,  # big bots really shouldn't have this on
-    sync_ext=False,
-    allowed_mentions=mentions,
-    intents=intents,
-    interaction_context=utils.THIAInteractionContext,
-    component_context=utils.THIAComponentContext,
-    slash_context=utils.THIASlashContext,
-    modal_context=utils.THIAModalContext,
-    auto_defer=ipy.AutoDefer(enabled=True, time_until_defer=0),
-    message_cache=ipy.utils.TTLCache(30, 50, 150),
-    channel_cache=ipy.utils.TTLCache(600, 50, 250),
-    scheduled_events_cache=ipy.utils.NullCache(),
-    voice_state_cache=ipy.utils.NullCache(),
-    logger=logger,
+    default_command_contexts={
+        discord.InteractionContextType.guild,
+    },
+    auto_sync_commands=False,
+    case_insensitive=True,
+    help_command=None,
+    max_messages=100,
+    chunk_guilds_at_startup=False,
+    cache_default_sounds=False,
 )
+ragwort.setup_auto_defer(bot, default=True)
 bot.init_load = True
-bot.slash_perms_cache = defaultdict(dict)
-bot.mini_commands_per_scope = {}
 bot.background_tasks = set()
 bot.msg_enabled_bullets_guilds = set()
 bot.gacha_locks = defaultdict(asyncio.Lock)
-bot.color = ipy.Color(int(os.environ["BOT_COLOR"]))  # #723fb0 or 7487408
-prefixed.setup(bot, prefixed_context=utils.THIAPrefixedContext)
-hybrid.setup(bot, hybrid_context=utils.THIAHybridContext)
+bot.color = discord.Color(int(os.environ["BOT_COLOR"]))  # #723fb0 or 7487408
 
 
 async def start() -> None:
@@ -241,10 +208,14 @@ async def start() -> None:
 
         try:
             bot.load_extension(ext)
-        except ipy.errors.ExtensionLoadException:
+        except discord.ExtensionError:
             raise
 
-    await bot.astart(os.environ["MAIN_TOKEN"])
+    try:
+        await bot.start(os.environ["MAIN_TOKEN"])
+    finally:
+        if not bot.is_closed():
+            await bot.close()
 
 
 if __name__ == "__main__":

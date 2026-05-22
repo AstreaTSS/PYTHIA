@@ -11,13 +11,12 @@ import collections
 import os
 from enum import Enum, IntEnum
 
-import interactions as ipy
+import discord
 import typing_extensions as typing
 from tortoise import Model, fields
 from tortoise.connection import get_connection
 from tortoise.contrib.postgres.fields import ArrayField
 
-import common.text_utils as text_utils
 from common.models.gacha_models import GachaConfig, Rarity
 from common.models.utils import generate_regexp, guild_id_model, yesno_friendly_str
 
@@ -191,19 +190,19 @@ class ItemsSystemItem(Model):
     class Meta:
         table = "thiaitemssystemitems"
 
-    def embeds(self, *, count: int | None = None) -> list[ipy.Embed]:
-        embeds: list[ipy.Embed] = []
+    def embeds(self, *, count: int | None = None) -> list[discord.Embed]:
+        embeds: list[discord.Embed] = []
 
-        embed = ipy.Embed(
+        embed = discord.Embed(
             title=f"{self.name}{f' (x{count})' if count else ''}",
             description=self.description,
-            color=ipy.Color(int(os.environ["BOT_COLOR"])),
-            timestamp=ipy.Timestamp.utcnow(),
+            color=discord.Color(int(os.environ["BOT_COLOR"])),
+            timestamp=discord.utils.utcnow(),
         )
         if self.image:
-            embed.set_thumbnail(self.image)
+            embed.set_thumbnail(url=self.image)
 
-        embed.set_footer(f"Takeable: {yesno_friendly_str(self.takeable)}")
+        embed.set_footer(text=f"Takeable: {yesno_friendly_str(self.takeable)}")
 
         embeds.append(embed)
 
@@ -235,11 +234,11 @@ class ItemsSystemItem(Model):
 
                 if character_count + len(string_to_use) > 4000:
                     embeds.append(
-                        ipy.Embed(
+                        discord.Embed(
                             title=f"{self.name} - Possessors",
                             description="\n".join(str_builder),
-                            color=ipy.Color(int(os.environ["BOT_COLOR"])),
-                            timestamp=ipy.Timestamp.utcnow(),
+                            color=discord.Color(int(os.environ["BOT_COLOR"])),
+                            timestamp=discord.utils.utcnow(),
                         )
                     )
 
@@ -251,11 +250,11 @@ class ItemsSystemItem(Model):
 
             if str_builder:
                 embeds.append(
-                    ipy.Embed(
+                    discord.Embed(
                         title=f"{self.name} - Possessors",
                         description="\n".join(str_builder),
-                        color=ipy.Color(int(os.environ["BOT_COLOR"])),
-                        timestamp=ipy.Timestamp.utcnow(),
+                        color=discord.Color(int(os.environ["BOT_COLOR"])),
+                        timestamp=discord.utils.utcnow(),
                     )
                 )
 
@@ -354,24 +353,25 @@ class TruthBullet(Model):
     def chan_mention(self) -> str:
         return f"<#{self.channel_id}>"
 
-    def found_embed(self, user_mention: str, singular_bullet: str) -> ipy.Embed:
-        embed = ipy.Embed(
+    def found_embed(self, user_mention: str, singular_bullet: str) -> discord.Embed:
+        embed = discord.Embed(
             title=f"{singular_bullet} Discovered",
             color=int(os.environ["BOT_COLOR"]),
         )
         embed.description = (
-            f"# `{text_utils.escape_markdown(self.trigger)}` - {self.chan_mention}\n-#"
-            f" Discovered at: {ipy.Timestamp.utcnow().format()}\n-# Found by:"
+            f"# `{discord.utils.escape_markdown(self.trigger)}` -"
+            f" {self.chan_mention}\n-# Discovered at:"
+            f" {discord.utils.format_dt(discord.utils.utcnow())}\n-# Found by:"
             f" {user_mention}\n\n{self.description}"
         )
         if self.image:
-            embed.set_image(self.image)
+            embed.set_image(url=self.image)
 
         return embed
 
     @classmethod
     async def find(
-        cls, channel_id: ipy.Snowflake_Type, content: str
+        cls, channel_id: discord.Snowflake, content: str
     ) -> typing.Self | None:
         conn = get_connection("default")
         data = await conn.execute_query_dict(
@@ -381,7 +381,7 @@ class TruthBullet(Model):
 
     @classmethod
     async def find_exact(
-        cls, channel_id: ipy.Snowflake_Type, content: str
+        cls, channel_id: discord.Snowflake, content: str
     ) -> typing.Self | None:
         conn = get_connection("default")
         data = await conn.execute_query_dict(
@@ -391,7 +391,7 @@ class TruthBullet(Model):
 
     @classmethod
     async def find_via_trigger(
-        cls, channel_id: ipy.Snowflake_Type, trigger: str
+        cls, channel_id: discord.Snowflake, trigger: str
     ) -> typing.Self | None:
         return await cls.filter(
             channel_id=int(channel_id),
@@ -399,7 +399,7 @@ class TruthBullet(Model):
         ).first()
 
     @classmethod
-    async def validate(cls, channel_id: ipy.Snowflake_Type, trigger: str) -> bool:
+    async def validate(cls, channel_id: discord.Snowflake, trigger: str) -> bool:
         conn = get_connection("default")
         data = await conn.execute_query_dict(
             VALIDATE_TRUTH_BULLET_STR, values=[int(channel_id), trigger]

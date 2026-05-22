@@ -14,13 +14,12 @@ from decimal import Decimal
 from enum import IntEnum
 from itertools import accumulate
 
-import interactions as ipy
+import discord
 import typing_extensions as typing
 from tortoise import Model, fields
 from tortoise.connection import get_connection
 
-import common.text_utils as text_utils
-from common.models.utils import guild_id_model, short_desc
+from common.models.utils import guild_id_model, parse_hex_number, short_desc
 
 if typing.TYPE_CHECKING:
     from common.models.main_models import GuildConfig, Names
@@ -103,18 +102,18 @@ class GachaRarities(Model):
         max_digits=5, decimal_places=4, default=Decimal("0.01")
     )
 
-    def color(self, rarity: Rarity) -> ipy.Color:
+    def color(self, rarity: Rarity) -> discord.Color:
         match rarity:
             case Rarity.COMMON:
-                return ipy.Color.from_hex(self.common_color)
+                return parse_hex_number(self.common_color)
             case Rarity.UNCOMMON:
-                return ipy.Color.from_hex(self.uncommon_color)
+                return parse_hex_number(self.uncommon_color)
             case Rarity.RARE:
-                return ipy.Color.from_hex(self.rare_color)
+                return parse_hex_number(self.rare_color)
             case Rarity.EPIC:
-                return ipy.Color.from_hex(self.epic_color)
+                return parse_hex_number(self.epic_color)
             case Rarity.LEGENDARY:
-                return ipy.Color.from_hex(self.legendary_color)
+                return parse_hex_number(self.legendary_color)
             case _:
                 raise ValueError(f"Invalid rarity: {rarity}")
 
@@ -172,18 +171,20 @@ class GachaItem(Model):
         *,
         show_rarity: bool = True,
         show_amount: bool = False,
-    ) -> ipy.Embed:
-        embed = ipy.Embed(
+    ) -> discord.Embed:
+        embed = discord.Embed(
             title=self.name,
             description=self.description,
             color=rarities.color(self.rarity),
-            timestamp=ipy.Timestamp.utcnow(),
+            timestamp=discord.utils.utcnow(),
         )
         if self.image:
-            embed.set_thumbnail(self.image)
+            embed.set_thumbnail(url=self.image)
 
         if show_rarity:
-            embed.add_field("Rarity", names.rarity_name(self.rarity), inline=True)
+            embed.add_field(
+                name="Rarity", value=names.rarity_name(self.rarity), inline=True
+            )
 
         if show_amount:
             embed.add_field(
@@ -267,23 +268,23 @@ class GachaPlayer(Model):
 
     def _embedize_str_builder(
         self, str_builder: list[str], user_display_name: str, *, limit: int
-    ) -> list[ipy.Embed]:
+    ) -> list[discord.Embed]:
         if len(str_builder) <= limit:
             return [
-                ipy.Embed(
+                discord.Embed(
                     title=f"{user_display_name}'s Gacha Profile",
                     description="\n".join(str_builder),
-                    color=ipy.Color(int(os.environ["BOT_COLOR"])),
-                    timestamp=ipy.Timestamp.utcnow(),
+                    color=discord.Color(int(os.environ["BOT_COLOR"])),
+                    timestamp=discord.utils.utcnow(),
                 )
             ]
         chunks = [str_builder[x : x + limit] for x in range(0, len(str_builder), limit)]
         return [
-            ipy.Embed(
+            discord.Embed(
                 title=f"{user_display_name}'s Gacha Profile",
                 description="\n".join(chunk),
-                color=ipy.Color(int(os.environ["BOT_COLOR"])),
-                timestamp=ipy.Timestamp.utcnow(),
+                color=discord.Color(int(os.environ["BOT_COLOR"])),
+                timestamp=discord.utils.utcnow(),
             )
             for chunk in chunks
         ]
@@ -294,7 +295,7 @@ class GachaPlayer(Model):
         names: "Names",
         *,
         sort_by: typing.Literal["name", "rarity", "time_gotten"],
-    ) -> list[ipy.Embed]:
+    ) -> list[discord.Embed]:
         str_builder = [
             (
                 "Balance:"
@@ -310,7 +311,7 @@ class GachaPlayer(Model):
         ):
             counter_data = self._organize_gacha_items(sort_by)
             str_builder.extend(
-                f"**{text_utils.escape_markdown(entry.item.name)}**{f' (x{count})' if count > 1 else ''}"
+                f"**{discord.utils.escape_markdown(entry.item.name)}**{f' (x{count})' if count > 1 else ''}"
                 f" - {short_desc(entry.item.description)}"
                 for entry, count in counter_data
             )
@@ -325,7 +326,7 @@ class GachaPlayer(Model):
         names: "Names",
         *,
         sort_by: typing.Literal["name", "rarity", "time_gotten"],
-    ) -> list[ipy.Embed]:
+    ) -> list[discord.Embed]:
         str_builder = [
             (
                 "Balance:"
@@ -341,7 +342,7 @@ class GachaPlayer(Model):
         ):
             counter_data = self._organize_gacha_items(sort_by)
             str_builder.extend(
-                f"**{text_utils.escape_markdown(entry.item.name)}**{f' (x{count})' if count > 1 else ''}\n-#"
+                f"**{discord.utils.escape_markdown(entry.item.name)}**{f' (x{count})' if count > 1 else ''}\n-#"
                 f" {names.rarity_name(entry.item.rarity)} ●"
                 f" {short_desc(entry.item.description, length=50)}"
                 for entry, count in counter_data
@@ -356,9 +357,9 @@ class GachaPlayer(Model):
         names: "Names",
         *,
         sort_by: typing.Literal["name", "rarity", "time_gotten"],
-    ) -> list[list[ipy.BaseComponent]]:
+    ) -> list[list[discord.ui.ViewItem]]:
 
-        component_builder: list[ipy.BaseComponent] = []
+        component_builder: list[discord.ui.ViewItem] = []
 
         if (
             self.items._fetched
@@ -367,23 +368,23 @@ class GachaPlayer(Model):
         ):
             counter_data = self._organize_gacha_items(sort_by)
             component_builder.extend(
-                ipy.TextDisplayComponent(
-                    f"**{text_utils.escape_markdown(entry.item.name)}**{f' (x{count})' if count > 1 else ''}\n-#"
+                discord.ui.TextDisplay(
+                    f"**{discord.utils.escape_markdown(entry.item.name)}**{f' (x{count})' if count > 1 else ''}\n-#"
                     f" {names.rarity_name(entry.item.rarity)} ●"
                     f" {short_desc(entry.item.description, length=50)}"
                 )
                 for entry, count in counter_data
             )
         else:
-            component_builder.append(ipy.TextDisplayComponent("*No items.*"))
+            component_builder.append(discord.ui.TextDisplay("*No items.*"))
 
         chunks = [
             component_builder[x : x + 15] for x in range(0, len(component_builder), 15)
         ]
-        chunks[0].insert(0, ipy.SeparatorComponent(divider=True))
+        chunks[0].insert(0, discord.ui.Separator(divider=True))
         chunks[0].insert(
             0,
-            ipy.TextDisplayComponent(
+            discord.ui.TextDisplay(
                 "Balance:"
                 f" {self.currency_amount} {names.currency_name(self.currency_amount)}"
             ),
@@ -396,14 +397,14 @@ class GachaPlayer(Model):
         *,
         sort_by: typing.Literal["name", "rarity", "time_gotten"],
         admin: bool = False,
-    ) -> list[list[ipy.BaseComponent]]:
+    ) -> list[list[discord.ui.ViewItem]]:
 
-        component_builder: list[ipy.BaseComponent] = [
-            ipy.TextDisplayComponent(
+        component_builder: list[discord.ui.ViewItem] = [
+            discord.ui.TextDisplay(
                 "Balance:"
                 f" {self.currency_amount} {names.currency_name(self.currency_amount)}"
             ),
-            ipy.SeparatorComponent(divider=True),
+            discord.ui.Separator(divider=True),
         ]
 
         if (
@@ -413,14 +414,14 @@ class GachaPlayer(Model):
         ):
             counter_data = self._organize_gacha_items(sort_by)
             component_builder.extend(
-                ipy.SectionComponent(
-                    components=ipy.TextDisplayComponent(
+                discord.ui.Section(
+                    discord.ui.TextDisplay(
                         f"**{entry.item.name}**{f' (x{count})' if count > 1 else ''}\n-#"
                         f" {names.rarity_name(entry.item.rarity)} ●"
                         f" {short_desc(entry.item.description, length=50)}"
                     ),
-                    accessory=ipy.Button(
-                        style=ipy.ButtonStyle.GRAY,
+                    accessory=discord.ui.Button(
+                        style=discord.ButtonStyle.gray,
                         label="View",
                         custom_id=(
                             f"gacha-item-{entry.item.id}-admin"
@@ -432,7 +433,7 @@ class GachaPlayer(Model):
                 for entry, count in counter_data
             )
         else:
-            component_builder.append(ipy.TextDisplayComponent("*No items.*"))
+            component_builder.append(discord.ui.TextDisplay("*No items.*"))
 
         return [
             component_builder[x : x + 10] for x in range(0, len(component_builder), 10)
