@@ -29,6 +29,8 @@ class ContainerPaginator(discord.ui.DesignerView):
         self.author_id = author_id
         self.page_index = 0
 
+        self.update_items()
+
     @property
     def last_page_index(self) -> int:
         return len(self.pages) - 1
@@ -145,9 +147,3 @@ class ContainerPaginator(discord.ui.DesignerView):
             view=utils.error_view("You are not allowed to use this paginator."),
             ephemeral=True,
         )
-
-    async def respond(
-        self, ctx: utils.THIABridgeContext | discord.Interaction, **kwargs: typing.Any
-    ) -> None:
-        self.update_items()
-        await ctx.respond(view=self, **kwargs)
