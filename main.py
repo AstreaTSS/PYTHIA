@@ -21,7 +21,7 @@ import humanize
 import ragwort
 import sentry_sdk
 import typing_extensions as typing
-from discord.ext import commands
+from discord.ext import commands, tasks
 from tortoise import Tortoise
 
 from load_env import load_env
@@ -61,6 +61,13 @@ def default_sentry_filter(
     return event
 
 
+class HookedTask(tasks.Loop):
+    async def _error(self: tasks.Loop, *args: typing.Any) -> None:
+        error: Exception = args[-1]
+        await utils.error_handle(error)
+
+
+tasks.Loop._error = HookedTask._error
 if utils.SENTRY_ENABLED:
     sentry_sdk.init(dsn=os.environ["SENTRY_DSN"], before_send=default_sentry_filter)
 
