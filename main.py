@@ -114,18 +114,18 @@ class PYTHIA(utils.THIABase):
         if isinstance(error, commands.CommandOnCooldown):
             delta_wait = datetime.timedelta(seconds=error.retry_after)
             await ctx.respond(
-                view=utils.error_view_generate(
+                view=utils.error_view(
                     "You're doing that command too fast! Try again in"
                     f" `{humanize.precisedelta(delta_wait, format='%0.1f')}`."
                 )
             )
 
         elif isinstance(error, utils.CustomCheckFailure | commands.BadArgument):
-            await ctx.respond(view=utils.error_view_generate(str(error)))
+            await ctx.respond(view=utils.error_view(str(error)))
         elif isinstance(error, discord.CheckFailure):
             if ctx.guild_id:
                 await ctx.respond(
-                    view=utils.error_view_generate(
+                    view=utils.error_view(
                         "You do not have the proper permissions to use that command."
                     )
                 )
