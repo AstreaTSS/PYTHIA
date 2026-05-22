@@ -262,7 +262,7 @@ class OwnerCMDs(utils.Cog):
             title="Shell Output",
             author_id=ctx.author.id,
             content=output_str,
-            prefix="```py",
+            prefix="```sh",
             suffix="```",
         )
         return await ctx.message.reply(view=paginator)
