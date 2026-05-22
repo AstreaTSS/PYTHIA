@@ -18,6 +18,7 @@ import common.models as models
 
 __all__ = (
     "Cog",
+    "Interaction",
     "THIABase",
     "THIABridgeApplicationContext",
     "THIABridgeContext",
@@ -112,3 +113,10 @@ class THIABase(bridge.AutoShardedBot):
 class Cog(commands.Cog):
     def __init__(self, bot: THIABase) -> None:
         self.bot = bot
+
+
+# more of a typehint thing than anything else
+class Interaction(discord.Interaction):
+    @property
+    def client(self) -> THIABase:
+        return super().client  # type: ignore
