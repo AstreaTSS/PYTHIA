@@ -10,6 +10,7 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 import re
 import textwrap
 
+import discord
 import typing_extensions as typing
 from tortoise import Model
 
@@ -45,6 +46,15 @@ def short_desc(description: str, length: int = 25) -> str:
     if new_description == "...":  # word is too long, lets manually cut it
         return f"{description[:length-3].strip()}..."
     return new_description
+
+
+def parse_hex_number(hex_number: str) -> discord.Color:
+    if hex_number.startswith("#"):
+        hex_number = hex_number[1:]
+
+    arg = "".join(i * 2 for i in hex_number) if len(hex_number) == 3 else hex_number
+    value = int(arg, base=16)
+    return discord.Color(value=value)
 
 
 def new_init(old_init: typing.Callable) -> typing.Callable:
