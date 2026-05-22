@@ -99,10 +99,10 @@ class ContainerPaginator(discord.ui.DesignerView):
         self.update_items(disable=True)
         return self
 
-    async def _scheduled_edit(
+    async def _scheduled_task(
         self,
-        inter: utils.Interaction,
         item: discord.ui.ViewItem,
+        inter: utils.Interaction,
     ) -> None:
         try:
             if self.timeout:
@@ -112,41 +112,30 @@ class ContainerPaginator(discord.ui.DesignerView):
             if not allow:
                 return await self.on_check_failure(inter)
 
+            if (
+                not isinstance(item, (discord.ui.Button, discord.ui.Select))
+                or not item.custom_id
+            ):
+                return
+
+            match item.custom_id.split("|")[1]:
+                case "first":
+                    self.page_index = 0
+                case "last":
+                    self.page_index = self.last_page_index
+                case "next":
+                    if (self.page_index + 1) <= self.last_page_index:
+                        self.page_index += 1
+                case "back":
+                    if self.page_index >= 1:
+                        self.page_index -= 1
+                case "select":
+                    self.page_index = int(item.values[0])
+
+            self.update_items()
             await inter.response.edit_message(view=self)
         except Exception as e:
             return await self.on_error(e, item, inter)
-
-    def _dispatch_item(
-        self, item: discord.ui.ViewItem, inter: utils.Interaction
-    ) -> None:
-        if self._stopped.done():
-            return
-
-        if inter.message:
-            self.message = inter.message
-
-        if (
-            not isinstance(item, (discord.ui.Button, discord.ui.Select))
-            or not item.custom_id
-        ):
-            return
-
-        match item.custom_id.split("|")[1]:
-            case "first":
-                self.page_index = 0
-            case "last":
-                self.page_index = self.last_page_index
-            case "next":
-                if (self.page_index + 1) <= self.last_page_index:
-                    self.page_index += 1
-            case "back":
-                if self.page_index >= 1:
-                    self.page_index -= 1
-            case "select":
-                self.page_index = int(item.values[0])
-
-        self.update_items()
-        inter.client.create_task(self._scheduled_edit(inter, item))
 
     async def interaction_check(self, inter: utils.Interaction) -> bool:
         return inter.user.id == self.author_id
