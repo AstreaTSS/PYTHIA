@@ -18,6 +18,7 @@ from collections import defaultdict
 
 import discord
 import humanize
+import ragwort
 import sentry_sdk
 import typing_extensions as typing
 from discord.ext import commands
@@ -176,6 +177,7 @@ bot = PYTHIA(
     chunk_guilds_at_startup=False,
     cache_default_sounds=False,
 )
+ragwort.setup_auto_defer(bot, default=True)
 bot.init_load = True
 bot.background_tasks = set()
 bot.msg_enabled_bullets_guilds = set()
