@@ -79,6 +79,8 @@ class PYTHIA(utils.THIABase):
             self.owner = app_info.owner  # type: ignore
 
         utcnow = discord.utils.utcnow()
+        if not self.start_time:
+            self.start_time = utcnow
         time_format = f"<t:{int(utcnow.timestamp())}:f>"
 
         connect_msg = (
@@ -186,6 +188,7 @@ bot = PYTHIA(
 )
 ragwort.setup_auto_defer(bot, default=True)
 bot.init_load = True
+bot.start_time = None
 bot.background_tasks = set()
 bot.msg_enabled_bullets_guilds = set()
 bot.gacha_locks = defaultdict(asyncio.Lock)

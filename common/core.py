@@ -9,6 +9,7 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 import asyncio
 import collections
+import datetime
 
 import discord
 import typing_extensions as typing
@@ -72,6 +73,7 @@ THIABridgeContext = THIABridgeApplicationContext | THIABridgeExtContext
 class THIABase(bridge.AutoShardedBot):
     owner: discord.User
     color: discord.Color
+    start_time: datetime.datetime
     background_tasks: set[asyncio.Task]
     msg_enabled_bullets_guilds: set[int]
     gacha_locks: collections.defaultdict[str, asyncio.Lock]
@@ -110,7 +112,7 @@ class THIABase(bridge.AutoShardedBot):
         return task
 
 
-class Cog(commands.Cog):
+class Cog(discord.Cog):
     def __init__(self, bot: THIABase) -> None:
         self.bot = bot
 

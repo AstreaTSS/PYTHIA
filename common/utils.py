@@ -9,6 +9,7 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 import logging
 import os
+import platform
 import traceback
 from pathlib import Path
 
@@ -25,6 +26,8 @@ VOTING_ENABLED = bool(os.environ.get("TOP_GG_TOKEN") or os.environ.get("DBL_TOKE
 DOCKER_ENABLED = os.environ.get("DOCKER_MODE") in OS_TRUE_VALUES
 BOT_COLOR = discord.Color(int(os.environ["BOT_COLOR"]))
 MAX_DICE_ENTRIES: typing.Final[int] = 50
+PYTHON_VERSION = platform.python_version_tuple()
+PYTHON_IMPLEMENTATION = platform.python_implementation()
 
 logger = logging.getLogger("discord")
 
