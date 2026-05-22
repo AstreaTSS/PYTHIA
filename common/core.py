@@ -89,6 +89,17 @@ class THIABase(bridge.AutoShardedBot):
     ) -> THIABridgeExtContext:
         return await super().get_context(message, cls=THIABridgeExtContext)
 
+    async def getch_channel(
+        self, channel_id: int
+    ) -> discord.abc.GuildChannel | discord.abc.PrivateChannel | discord.Thread | None:
+        if chan := self.get_channel(channel_id):
+            return chan
+
+        try:
+            return await self.fetch_channel(channel_id)
+        except discord.HTTPException:
+            return None
+
     def create_task(self, coro: typing.Coroutine) -> asyncio.Task:
         # see the "important" note below for why we do this (to prevent early gc)
         # https://docs.python.org/3/library/asyncio-task.html#asyncio.create_task

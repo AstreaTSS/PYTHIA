@@ -85,7 +85,18 @@ def quick_designer_view(
     return CustomDesignerView(*items, store=False)
 
 
-def error_view_generate(error_msg: str) -> discord.ui.DesignerView:
+def make_view(description: str, *, title: str | None = None) -> discord.ui.DesignerView:
+    return quick_designer_view(
+        discord.ui.Container(
+            discord.ui.TextDisplay(
+                description if not title else f"# {title}\n{description}"
+            ),
+            color=BOT_COLOR,
+        )
+    )
+
+
+def error_view(error_msg: str) -> discord.ui.DesignerView:
     return quick_designer_view(
         discord.ui.Container(
             discord.ui.TextDisplay(f"# Error\n{error_msg}"),
@@ -118,7 +129,7 @@ async def error_handle(
         (THIABridgeApplicationContext, THIABridgeExtContext, discord.Interaction),
     ):
         await ctx.respond(
-            view=error_view_generate(
+            view=error_view(
                 "An internal error has occured. The bot owner has been notified and"
                 " will likely fix the issue soon."
             )
