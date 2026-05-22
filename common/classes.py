@@ -7,6 +7,8 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """
 
+import time
+
 import discord
 import typing_extensions as typing
 
@@ -97,9 +99,32 @@ class ContainerPaginator(discord.ui.DesignerView):
         self.update_items(disable=True)
         return self
 
+    async def _scheduled_edit(
+        self,
+        inter: utils.Interaction,
+        item: discord.ui.ViewItem,
+    ) -> None:
+        try:
+            if self.timeout:
+                self._timeout_expiry = time.monotonic() + self.timeout
+
+            allow = await self.interaction_check(inter)
+            if not allow:
+                return await self.on_check_failure(inter)
+
+            await inter.response.edit_message(view=self)
+        except Exception as e:
+            return await self.on_error(e, item, inter)
+
     def _dispatch_item(
         self, item: discord.ui.ViewItem, inter: utils.Interaction
     ) -> None:
+        if self._stopped.done():
+            return
+
+        if inter.message:
+            self.message = inter.message
+
         if (
             not isinstance(item, (discord.ui.Button, discord.ui.Select))
             or not item.custom_id
@@ -121,7 +146,7 @@ class ContainerPaginator(discord.ui.DesignerView):
                 self.page_index = int(item.values[0])
 
         self.update_items()
-        inter.client.create_task(inter.response.edit_message(view=self))
+        inter.client.create_task(self._scheduled_edit(inter, item))
 
     async def interaction_check(self, inter: utils.Interaction) -> bool:
         return inter.user.id == self.author_id
