@@ -145,7 +145,7 @@ class ConfigCMDs(utils.Cog):
             )
         )
 
-    @utils.modal_hander(custom_id="thia:clear-all-data-modal")
+    @utils.modal_handler(custom_id="thia:clear-all-data-modal")
     async def clear_all_data_modal_callback(
         self, inter: utils.Interaction, responses: dict[str, typing.Any]
     ) -> None:

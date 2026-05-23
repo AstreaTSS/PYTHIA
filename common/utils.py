@@ -160,7 +160,7 @@ async def error_handle(
         )
 
 
-def modal_hander(
+def modal_handler(
     custom_id: str | None = None,
     custom_id_prefix: str | None = None,
 ) -> typing.Callable[
@@ -195,6 +195,14 @@ def modal_hander(
             responses: dict[str, typing.Any] = {}
 
             for component in inter.data["components"]:
+                if component["type"] == discord.ComponentType.action_row:
+                    # old style modals
+                    responses[component["components"][0]["custom_id"]] = component[
+                        "components"
+                    ][0]["value"]
+                    continue
+
+                # we can assume it's a label component
                 held_component = component["component"]
 
                 if held_component["type"] in (
