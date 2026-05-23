@@ -110,7 +110,7 @@ class OwnerCMDs(utils.Cog):
             value=", ".join(self.bot.cogs.keys()),
             inline=False,
         )
-        e.add_field(name="Guilds", value=str(len(self.bot.guilds)))
+        e.add_field(name="Guilds", value=str(ctx.bot.guild_count))
 
         await ctx.reply(embeds=[e])
 
@@ -328,4 +328,4 @@ class OwnerCMDs(utils.Cog):
 
 def setup(bot: utils.THIABase) -> None:
     importlib.reload(utils)
-    OwnerCMDs(bot)
+    bot.add_cog(OwnerCMDs(bot))

@@ -179,6 +179,9 @@ bot = PYTHIA(
     default_command_contexts={
         discord.InteractionContextType.guild,
     },
+    default_command_integration_types={
+        discord.IntegrationType.guild_install,
+    },
     auto_sync_commands=False,
     case_insensitive=True,
     help_command=None,

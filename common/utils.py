@@ -31,6 +31,8 @@ PYTHON_IMPLEMENTATION = platform.python_implementation()
 
 logger = logging.getLogger("discord")
 
+CogT = typing.TypeVar("CogT", bound=discord.Cog)
+
 
 def parse_hex_number(hex_number: str) -> discord.Color:
     if hex_number.startswith("#"):
@@ -39,6 +41,14 @@ def parse_hex_number(hex_number: str) -> discord.Color:
     arg = "".join(i * 2 for i in hex_number) if len(hex_number) == 3 else hex_number
     value = int(arg, base=16)
     return discord.Color(value=value)
+
+
+def toggle_friendly_str(bool_to_convert: bool) -> typing.Literal["on", "off"]:
+    return "on" if bool_to_convert else "off"
+
+
+def yesno_friendly_str(bool_to_convert: bool) -> typing.Literal["yes", "no"]:
+    return "yes" if bool_to_convert else "no"
 
 
 def file_to_ext(str_path: str, base_path: str) -> str:
@@ -86,6 +96,17 @@ def quick_designer_view(
         pass
 
     return CustomDesignerView(*items, store=False)
+
+
+def quick_model(
+    *items: discord.ui.ModalItem,
+    title: str,
+    custom_id: str,
+) -> discord.ui.DesignerModal:
+    class CustomModal(discord.ui.DesignerModal):
+        pass
+
+    return CustomModal(*items, title=title, custom_id=custom_id, store=False)
 
 
 def make_view(description: str, *, title: str | None = None) -> discord.ui.DesignerView:
@@ -137,6 +158,78 @@ async def error_handle(
                 " will likely fix the issue soon."
             )
         )
+
+
+def modal_hander(
+    custom_id: str | None = None,
+    custom_id_prefix: str | None = None,
+) -> typing.Callable[
+    [
+        typing.Callable[
+            [CogT, Interaction, dict[str, typing.Any]], typing.Awaitable[None]
+        ]
+    ],
+    typing.Callable[[CogT, Interaction], typing.Awaitable[None]],
+]:
+    if not custom_id and not custom_id_prefix:
+        raise ValueError("Either custom_id or custom_id_prefix must be provided.")
+    if custom_id and custom_id_prefix:
+        raise ValueError("custom_id and custom_id_prefix cannot both be provided.")
+
+    async def inner(
+        func: typing.Callable[
+            [CogT, Interaction, dict[str, typing.Any]], typing.Awaitable[None]
+        ],
+    ) -> typing.Callable[[CogT, Interaction], typing.Awaitable[None]]:
+        async def wrapper(self: CogT, inter: Interaction) -> None:
+            if inter.type != discord.InteractionType.modal_submit or not inter.data:
+                return
+
+            if custom_id and inter.data["custom_id"] != custom_id:
+                return
+            if custom_id_prefix and not inter.data["custom_id"].startswith(
+                custom_id_prefix
+            ):
+                return
+
+            responses: dict[str, typing.Any] = {}
+
+            for component in inter.data["components"]:
+                held_component = component["component"]
+
+                if held_component["type"] in (
+                    discord.ComponentType.string_select,
+                    discord.ComponentType.user_select,
+                    discord.ComponentType.role_select,
+                    discord.ComponentType.channel_select,
+                    discord.ComponentType.mentionable_select,
+                ):
+                    # ...let's just let pycord handle this
+                    fake_select = discord.ui.Select(held_component["type"])
+                    fake_select.refresh_from_modal(inter, held_component)
+                    responses[held_component["custom_id"]] = fake_select.values
+                elif held_component["type"] == discord.ComponentType.file_upload:
+                    # ...and this
+                    fake_file = discord.ui.FileUpload()
+                    fake_file.refresh_from_modal(inter, held_component)
+                    responses[held_component["custom_id"]] = fake_file.values
+                elif held_component.get("values") is not None:
+                    responses[held_component["custom_id"]] = held_component["values"]
+                else:
+                    responses[held_component["custom_id"]] = held_component.get("value")
+
+            try:
+                await func(
+                    self,
+                    inter,
+                    responses,
+                )
+            except Exception as error:
+                inter.client.dispatch("modal_error", error, inter)
+
+        return discord.Cog.listener("on_interaction")(wrapper)
+
+    return inner
 
 
 class CustomCheckFailure(discord.CheckFailure):

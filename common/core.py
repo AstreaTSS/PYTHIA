@@ -28,6 +28,8 @@ __all__ = (
     "THIASlashContext",
 )
 
+CoroutineT = typing.TypeVar("CoroutineT", bound=typing.Coroutine)
+
 
 class THIAContextMixin:
     guild_config: models.GuildConfig | None
@@ -92,6 +94,13 @@ class THIABase(bridge.AutoShardedBot):
     ) -> THIABridgeExtContext:
         return await super().get_context(message, cls=THIABridgeExtContext)
 
+    @property
+    def guild_count(self) -> int:
+        return len(self._connection._guilds.keys())
+
+    def get_shard_id(self, guild_id: discord.Snowflake) -> int:
+        return (int(guild_id) >> 22) % len(self.shards.keys())
+
     async def getch_channel(
         self, channel_id: int
     ) -> discord.abc.GuildChannel | discord.abc.PrivateChannel | discord.Thread | None:
@@ -103,7 +112,7 @@ class THIABase(bridge.AutoShardedBot):
         except discord.HTTPException:
             return None
 
-    def create_task(self, coro: typing.Coroutine) -> asyncio.Task:
+    def create_task(self, coro: CoroutineT) -> asyncio.Task[CoroutineT]:
         # see the "important" note below for why we do this (to prevent early gc)
         # https://docs.python.org/3/library/asyncio-task.html#asyncio.create_task
         task = asyncio.create_task(coro)
