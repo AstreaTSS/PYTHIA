@@ -165,6 +165,7 @@ class PYTHIA(utils.THIABase):
             context.cog.cog_command_error
         ):
             return
+
         await self._pythia_error(context, exception)
 
     async def close(self) -> None:
