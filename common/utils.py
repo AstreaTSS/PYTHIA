@@ -10,6 +10,7 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 import logging
 import os
 import platform
+import re
 import traceback
 from pathlib import Path
 
@@ -17,6 +18,7 @@ import aiohttp
 import discord
 import sentry_sdk
 import typing_extensions as typing
+from discord.ext import commands
 
 from common.core import *
 
@@ -33,14 +35,8 @@ logger = logging.getLogger("discord")
 
 CogT = typing.TypeVar("CogT", bound=discord.Cog)
 
-
-def parse_hex_number(hex_number: str) -> discord.Color:
-    if hex_number.startswith("#"):
-        hex_number = hex_number[1:]
-
-    arg = "".join(i * 2 for i in hex_number) if len(hex_number) == 3 else hex_number
-    value = int(arg, base=16)
-    return discord.Color(value=value)
+SINGLE_QUOTE_REGEX = re.compile(r"‘|’")  # noqa: RUF001
+DOUBLE_QUOTE_REGEX = re.compile(r"“|”|„|‟|⹂|〝|〞|＂")  # noqa: RUF001
 
 
 def toggle_friendly_str(bool_to_convert: bool) -> typing.Literal["on", "off"]:
@@ -49,6 +45,20 @@ def toggle_friendly_str(bool_to_convert: bool) -> typing.Literal["on", "off"]:
 
 def yesno_friendly_str(bool_to_convert: bool) -> typing.Literal["yes", "no"]:
     return "yes" if bool_to_convert else "no"
+
+
+def replace_smart_punc(text: str) -> str:
+    text = SINGLE_QUOTE_REGEX.sub("'", text)
+    return DOUBLE_QUOTE_REGEX.sub('"', text)
+
+
+def parse_hex_number(hex_number: str) -> discord.Color:
+    if hex_number.startswith("#"):
+        hex_number = hex_number[1:]
+
+    arg = "".join(i * 2 for i in hex_number) if len(hex_number) == 3 else hex_number
+    value = int(arg, base=16)
+    return discord.Color(value=value)
 
 
 def file_to_ext(str_path: str, base_path: str) -> str:
@@ -246,6 +256,11 @@ def modal_handler(
         return discord.Cog.listener("on_interaction")(wrapper)
 
     return inner
+
+
+class ReplaceSmartPuncConverter(commands.Converter):
+    async def convert(self, _: THIABridgeContext, argument: str) -> str:
+        return replace_smart_punc(argument)
 
 
 class CustomCheckFailure(discord.CheckFailure):

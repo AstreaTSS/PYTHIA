@@ -106,20 +106,18 @@ class GeneralCMDs(utils.Cog):
                 " use the Invite Link instead."
             ),
         )
-        container.add_item(discord.ui.Separator(divider=False))
-        container.add_item(
-            discord.ui.ActionRow(
-                discord.ui.Button(
-                    style=discord.ButtonStyle.url,
-                    label="Server Setup Guides",
-                    url="https://pythia.astrea.cc/setup",
-                ),
-                discord.ui.Button(
-                    style=discord.ButtonStyle.url,
-                    label="Invite Link",
-                    url=self.invite_link,
-                ),
-            )
+        container.add_separator(divider=False)
+        container.add_row(
+            discord.ui.Button(
+                style=discord.ButtonStyle.url,
+                label="Server Setup Guides",
+                url="https://pythia.astrea.cc/setup",
+            ),
+            discord.ui.Button(
+                style=discord.ButtonStyle.url,
+                label="Invite Link",
+                url=self.invite_link,
+            ),
         )
         await ctx.respond(view=utils.quick_designer_view(container))
 
@@ -139,14 +137,12 @@ class GeneralCMDs(utils.Cog):
                 " support server!"
             ),
         )
-        container.add_item(discord.ui.Separator(divider=False))
-        container.add_item(
-            discord.ui.ActionRow(
-                discord.ui.Button(
-                    style=discord.ButtonStyle.url,
-                    label="Join Support Server",
-                    url="https://discord.gg/NSdetwGjpK",
-                )
+        container.add_separator(divider=False)
+        container.add_row(
+            discord.ui.Button(
+                style=discord.ButtonStyle.url,
+                label="Join Support Server",
+                url="https://discord.gg/NSdetwGjpK",
             )
         )
         await ctx.respond(view=utils.quick_designer_view(container))
@@ -169,20 +165,18 @@ class GeneralCMDs(utils.Cog):
                 " configure the bot."
             ),
         )
-        container.add_item(discord.ui.Separator(divider=False))
-        container.add_item(
-            discord.ui.ActionRow(
-                discord.ui.Button(
-                    style=discord.ButtonStyle.url,
-                    label="Usage Guides",
-                    url="https://pythia.astrea.cc/usage",
-                ),
-                discord.ui.Button(
-                    style=discord.ButtonStyle.url,
-                    label="Server Setup Guides",
-                    url="https://pythia.astrea.cc/setup",
-                ),
-            )
+        container.add_separator(divider=False)
+        container.add_row(
+            discord.ui.Button(
+                style=discord.ButtonStyle.url,
+                label="Usage Guides",
+                url="https://pythia.astrea.cc/usage",
+            ),
+            discord.ui.Button(
+                style=discord.ButtonStyle.url,
+                label="Server Setup Guides",
+                url="https://pythia.astrea.cc/setup",
+            ),
         )
         await ctx.respond(view=utils.quick_designer_view(container))
 

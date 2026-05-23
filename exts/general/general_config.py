@@ -182,15 +182,13 @@ class ConfigCMDs(utils.Cog):
             title="Setup Bot",
             description="To set up this bot, follow the Server Setup Guides below.",
         )
-        container.add_item(discord.ui.Separator(divider=False))
-        container.add_item(
-            discord.ui.ActionRow(
-                discord.ui.Button(
-                    style=discord.ButtonStyle.url,
-                    label="Server Setup Guides",
-                    url="https://pythia.astrea.cc/setup",
-                ),
-            )
+        container.add_separator(divider=False)
+        container.add_row(
+            discord.ui.Button(
+                style=discord.ButtonStyle.url,
+                label="Server Setup Guides",
+                url="https://pythia.astrea.cc/setup",
+            ),
         )
         await ctx.respond(view=utils.quick_designer_view(container))
 
