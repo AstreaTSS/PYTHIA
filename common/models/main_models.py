@@ -371,7 +371,7 @@ class TruthBullet(Model):
 
     @classmethod
     async def find(
-        cls, channel_id: discord.Snowflake, content: str
+        cls, channel_id: "discord.Snowflake", content: str
     ) -> typing.Self | None:
         conn = get_connection("default")
         data = await conn.execute_query_dict(
@@ -381,7 +381,7 @@ class TruthBullet(Model):
 
     @classmethod
     async def find_exact(
-        cls, channel_id: discord.Snowflake, content: str
+        cls, channel_id: "discord.Snowflake", content: str
     ) -> typing.Self | None:
         conn = get_connection("default")
         data = await conn.execute_query_dict(
@@ -391,7 +391,7 @@ class TruthBullet(Model):
 
     @classmethod
     async def find_via_trigger(
-        cls, channel_id: discord.Snowflake, trigger: str
+        cls, channel_id: "discord.Snowflake", trigger: str
     ) -> typing.Self | None:
         return await cls.filter(
             channel_id=int(channel_id),
@@ -399,7 +399,7 @@ class TruthBullet(Model):
         ).first()
 
     @classmethod
-    async def validate(cls, channel_id: discord.Snowflake, trigger: str) -> bool:
+    async def validate(cls, channel_id: "discord.Snowflake", trigger: str) -> bool:
         conn = get_connection("default")
         data = await conn.execute_query_dict(
             VALIDATE_TRUTH_BULLET_STR, values=[int(channel_id), trigger]

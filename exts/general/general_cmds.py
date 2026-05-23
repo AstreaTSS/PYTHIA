@@ -98,7 +98,7 @@ class GeneralCMDs(utils.Cog):
         },
     )
     async def invite(self, ctx: utils.THIASlashContext) -> None:
-        view = utils.make_view(
+        container = utils.make_container(
             title="Invite Bot",
             description=(
                 "If you want to invite me to your server, it's a good idea to use the"
@@ -106,7 +106,8 @@ class GeneralCMDs(utils.Cog):
                 " use the Invite Link instead."
             ),
         )
-        view.add_item(
+        container.add_item(discord.ui.Separator(divider=False))
+        container.add_item(
             discord.ui.ActionRow(
                 discord.ui.Button(
                     style=discord.ButtonStyle.url,
@@ -120,7 +121,7 @@ class GeneralCMDs(utils.Cog):
                 ),
             )
         )
-        await ctx.respond(view=view)
+        await ctx.respond(view=utils.quick_designer_view(container))
 
     @discord.slash_command(
         name="support",
@@ -131,14 +132,15 @@ class GeneralCMDs(utils.Cog):
         },
     )
     async def support(self, ctx: utils.THIASlashContext) -> None:
-        view = utils.make_view(
+        container = utils.make_container(
             title="Support Server",
             description=(
                 "If you need help with the bot, or just want to hang out, join the"
                 " support server!"
             ),
         )
-        view.add_item(
+        container.add_item(discord.ui.Separator(divider=False))
+        container.add_item(
             discord.ui.ActionRow(
                 discord.ui.Button(
                     style=discord.ButtonStyle.url,
@@ -147,7 +149,7 @@ class GeneralCMDs(utils.Cog):
                 )
             )
         )
-        await ctx.respond(view=view)
+        await ctx.respond(view=utils.quick_designer_view(container))
 
     @discord.slash_command(
         name="help",
@@ -158,7 +160,7 @@ class GeneralCMDs(utils.Cog):
         },
     )
     async def help(self, ctx: utils.THIASlashContext) -> None:
-        view = utils.make_view(
+        container = utils.make_container(
             title="Help",
             description=(
                 "For regular users, the best way to learn how to use the bot and its"
@@ -167,7 +169,8 @@ class GeneralCMDs(utils.Cog):
                 " configure the bot."
             ),
         )
-        view.add_item(
+        container.add_item(discord.ui.Separator(divider=False))
+        container.add_item(
             discord.ui.ActionRow(
                 discord.ui.Button(
                     style=discord.ButtonStyle.url,
@@ -181,7 +184,7 @@ class GeneralCMDs(utils.Cog):
                 ),
             )
         )
-        await ctx.respond(view=view)
+        await ctx.respond(view=utils.quick_designer_view(container))
 
     @discord.slash_command(
         name="about",
@@ -288,7 +291,7 @@ class GeneralCMDs(utils.Cog):
         shard_id = self.bot.get_shard_id(ctx.guild_id) if ctx.guild_id else 0
         about_embed.set_footer(text=f"Shard ID: {shard_id}")
 
-        await ctx.send(embed=about_embed)
+        await ctx.respond(embed=about_embed)
 
 
 def setup(bot: utils.THIABase) -> None:

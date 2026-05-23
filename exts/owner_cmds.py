@@ -90,7 +90,7 @@ class OwnerCMDs(utils.Cog):
             name="Version Info",
             value=(
                 f"pycord@{discord.__version__} |"
-                f" {utils.PYTHON_IMPLEMENTATION}@{utils.PYTHON_VERSION}"
+                f" {utils.PYTHON_IMPLEMENTATION}@{'.'.join(utils.PYTHON_VERSION)}"
             ),
         )
 
@@ -107,8 +107,7 @@ class OwnerCMDs(utils.Cog):
 
         e.add_field(
             name="Loaded Extensions",
-            value=", ".join(self.bot.cogs.keys()),
-            inline=False,
+            value=", ".join(self.bot.cogs),
         )
         e.add_field(name="Guilds", value=str(ctx.bot.guild_count))
 
@@ -306,8 +305,8 @@ class OwnerCMDs(utils.Cog):
         self, ctx: utils.THIABridgeExtContext, error: Exception
     ) -> None:
         if isinstance(error, commands.CheckFailure):
-            if hasattr(ctx, "send"):
-                await ctx.send("Nice try.")
+            if hasattr(ctx, "respond"):
+                await ctx.respond("Nice try.")
             return
 
         error_str = error_format(error)
@@ -323,7 +322,7 @@ class OwnerCMDs(utils.Cog):
         to_send = final_chunks
 
         await msg_to_owner(self.bot, to_send)
-        await ctx.send("An error occured. Please check your DMs.")
+        await ctx.respond("An error occured. Please check your DMs.")
 
 
 def setup(bot: utils.THIABase) -> None:

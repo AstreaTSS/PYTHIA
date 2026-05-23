@@ -43,7 +43,7 @@ class ConfigCMDs(utils.Cog):
             " bit empty? This is the general configuration display - check out the"
             " other config commands for more of your configuration.*"
         )
-        await ctx.send(
+        await ctx.respond(
             view=utils.make_view(only_option_rn, title="General Configuration")
         )
 
@@ -65,7 +65,7 @@ class ConfigCMDs(utils.Cog):
         config.player_role = role.id
         await config.save()
 
-        await ctx.send(
+        await ctx.respond(
             view=utils.make_view(f"Player role set to {role.mention}!"),
         )
 
@@ -78,7 +78,7 @@ class ConfigCMDs(utils.Cog):
         config.player_role = None
         await config.save()
 
-        await ctx.send(view=utils.make_view("Player role unset."))
+        await ctx.respond(view=utils.make_view("Player role unset."))
 
     @config.command(
         name="beta",
@@ -103,9 +103,13 @@ class ConfigCMDs(utils.Cog):
         await guild_config.save()
 
         if toggle:
-            await ctx.send(view=utils.make_view("Beta features have been turned on!"))
+            await ctx.respond(
+                view=utils.make_view("Beta features have been turned on!")
+            )
         else:
-            await ctx.send(view=utils.make_view("Beta features have been turned off."))
+            await ctx.respond(
+                view=utils.make_view("Beta features have been turned off.")
+            )
 
     @config.command(
         name="clear-all-data",
@@ -174,11 +178,12 @@ class ConfigCMDs(utils.Cog):
         self,
         ctx: utils.THIASlashContext,
     ) -> None:
-        view = utils.make_view(
+        container = utils.make_container(
             title="Setup Bot",
             description="To set up this bot, follow the Server Setup Guides below.",
         )
-        view.add_item(
+        container.add_item(discord.ui.Separator(divider=False))
+        container.add_item(
             discord.ui.ActionRow(
                 discord.ui.Button(
                     style=discord.ButtonStyle.url,
@@ -187,7 +192,7 @@ class ConfigCMDs(utils.Cog):
                 ),
             )
         )
-        await ctx.respond(view=view)
+        await ctx.respond(view=utils.quick_designer_view(container))
 
 
 def setup(bot: utils.THIABase) -> None:

@@ -94,15 +94,13 @@ class PYTHIA(utils.THIABase):
         self.init_load = False
 
         activity = discord.CustomActivity(
-            name="Status",
-            state="Assisting servers | pythia.astrea.cc",
+            name="Assisting servers | pythia.astrea.cc",
         )
         await self.change_presence(activity=activity)
 
     async def on_resumed(self) -> None:
         activity = discord.CustomActivity(
-            name="Status",
-            state="Assisting servers | pythia.astrea.cc",
+            name="Assisting servers | pythia.astrea.cc",
         )
         await self.change_presence(activity=activity)
 
@@ -147,15 +145,30 @@ class PYTHIA(utils.THIABase):
     async def on_application_command_error(
         self, context: utils.THIASlashContext, exception: discord.DiscordException
     ) -> None:
+        if context.command and getattr(context.command, "on_error", None):
+            return
+
+        if context.cog and context.cog.__class__._get_overridden_method(
+            context.cog.cog_command_error
+        ):
+            return
+
         await self._pythia_error(context, exception)
 
     async def on_command_error(
         self, context: utils.THIABridgeExtContext, exception: commands.CommandError
     ) -> None:
+        if context.command and getattr(context.command, "on_error", None):
+            return
+
+        if context.cog and context.cog.__class__._get_overridden_method(
+            context.cog.cog_command_error
+        ):
+            return
         await self._pythia_error(context, exception)
 
     async def close(self) -> None:
-        await self.close()
+        await super().close()
         await Tortoise.close_connections()
 
 
@@ -163,42 +176,43 @@ intents = discord.Intents(
     guilds=True,
     members=True,
     emojis_and_stickers=True,
-    integrations=True,
     messages=True,
-    # reactions=True, is this needed?
     message_content=True,
 )
 mentions = discord.AllowedMentions.none()
 
-bot = PYTHIA(
-    status=discord.Status.idle,
-    activity=discord.CustomActivity(
-        name="Status",
-        state="Loading...",
-    ),
-    default_command_contexts={
-        discord.InteractionContextType.guild,
-    },
-    default_command_integration_types={
-        discord.IntegrationType.guild_install,
-    },
-    auto_sync_commands=False,
-    case_insensitive=True,
-    help_command=None,
-    max_messages=100,
-    chunk_guilds_at_startup=False,
-    cache_default_sounds=False,
-)
-ragwort.setup_auto_defer(bot, default=True)
-bot.init_load = True
-bot.start_time = None
-bot.background_tasks = set()
-bot.msg_enabled_bullets_guilds = set()
-bot.gacha_locks = defaultdict(asyncio.Lock)
-bot.color = discord.Color(int(os.environ["BOT_COLOR"]))  # #723fb0 or 7487408
-
 
 async def start() -> None:
+    # have to create it here because of loop shienanigans
+    bot = PYTHIA(
+        intents=intents,
+        allowed_mentions=mentions,
+        status=discord.Status.idle,
+        activity=discord.CustomActivity(
+            name="Loading...",
+        ),
+        default_command_contexts={
+            discord.InteractionContextType.guild,
+        },
+        default_command_integration_types={
+            discord.IntegrationType.guild_install,
+        },
+        auto_sync_commands=False,
+        case_insensitive=True,
+        help_command=None,
+        max_messages=100,
+        chunk_guilds_at_startup=False,
+        cache_default_sounds=False,
+    )
+    ragwort.setup_auto_defer(bot, default=True)
+    bot.init_load = True
+    bot.start_time = None
+    bot.owner = None
+    bot.background_tasks = set()
+    bot.msg_enabled_bullets_guilds = set()
+    bot.gacha_locks = defaultdict(asyncio.Lock)
+    bot.color = discord.Color(int(os.environ["BOT_COLOR"]))  # #723fb0 or 7487408
+
     await Tortoise.init(db_settings.TORTOISE_ORM)
 
     async for model in models.BulletConfig.filter(

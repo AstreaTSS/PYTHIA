@@ -33,7 +33,7 @@ CoroutineT = typing.TypeVar("CoroutineT", bound=typing.Coroutine)
 
 class THIAContextMixin:
     guild_config: models.GuildConfig | None
-    guild_id: discord.Snowflake
+    guild_id: "discord.Snowflake"
     bot: "THIABase"
 
     def __init__(self, *args: typing.Any, **kwargs: typing.Any) -> None:
@@ -96,9 +96,9 @@ class THIABase(bridge.AutoShardedBot):
 
     @property
     def guild_count(self) -> int:
-        return len(self._connection._guilds.keys())
+        return len(self._connection._guilds)
 
-    def get_shard_id(self, guild_id: discord.Snowflake) -> int:
+    def get_shard_id(self, guild_id: "discord.Snowflake") -> int:
         return (int(guild_id) >> 22) % len(self.shards.keys())
 
     async def getch_channel(

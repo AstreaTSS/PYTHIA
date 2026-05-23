@@ -109,14 +109,20 @@ def quick_model(
     return CustomModal(*items, title=title, custom_id=custom_id, store=False)
 
 
+def make_container(
+    description: str, *, title: str | None = None
+) -> discord.ui.Container:
+    return discord.ui.Container(
+        discord.ui.TextDisplay(
+            description if not title else f"# {title}\n{description}"
+        ),
+        color=BOT_COLOR,
+    )
+
+
 def make_view(description: str, *, title: str | None = None) -> discord.ui.DesignerView:
     return quick_designer_view(
-        discord.ui.Container(
-            discord.ui.TextDisplay(
-                description if not title else f"# {title}\n{description}"
-            ),
-            color=BOT_COLOR,
-        )
+        make_container(description, title=title),
     )
 
 
@@ -176,7 +182,7 @@ def modal_handler(
     if custom_id and custom_id_prefix:
         raise ValueError("custom_id and custom_id_prefix cannot both be provided.")
 
-    async def inner(
+    def inner(
         func: typing.Callable[
             [CogT, Interaction, dict[str, typing.Any]], typing.Awaitable[None]
         ],
@@ -235,6 +241,8 @@ def modal_handler(
             except Exception as error:
                 inter.client.dispatch("modal_error", error, inter)
 
+        wrapper.__name__ = func.__name__
+        wrapper.__doc__ = func.__doc__
         return discord.Cog.listener("on_interaction")(wrapper)
 
     return inner

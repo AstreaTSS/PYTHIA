@@ -1,5 +1,5 @@
 py-cord==2.8.0
-ragwort==0.1.2
+ragwort==0.1.3
 tortoise-orm[asyncpg]==1.1.7
 pydantic==2.13.4
 msgspec==0.21.1
