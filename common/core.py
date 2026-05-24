@@ -33,7 +33,8 @@ CoroutineT = typing.TypeVar("CoroutineT", bound=typing.Coroutine)
 
 class THIAContextMixin:
     guild_config: models.GuildConfig | None
-    guild_id: "discord.Snowflake"
+    guild_id: int
+    guild: discord.Guild
     bot: "THIABase"
 
     def __init__(self, *args: typing.Any, **kwargs: typing.Any) -> None:
@@ -66,7 +67,9 @@ THIASlashContext = THIABridgeApplicationContext
 
 
 class THIABridgeExtContext(THIAContextMixin, bridge.BridgeExtContext):
-    pass
+    @property
+    def guild_id(self) -> int:
+        return self.guild.id
 
 
 THIABridgeContext = THIABridgeApplicationContext | THIABridgeExtContext

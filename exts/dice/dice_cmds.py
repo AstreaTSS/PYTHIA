@@ -556,7 +556,7 @@ class DiceCMDs(utils.Cog):
                 url="https://pythia.astrea.cc/usage/dice",
             )
         )
-        await ctx.respond(view=utils.quick_designer_view(container), ephemeral=True)
+        await ctx.respond(view=utils.quick_view(container), ephemeral=True)
 
     @dice_remove.autocomplete("name")
     @dice_roll_registered.autocomplete("name")

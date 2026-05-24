@@ -190,7 +190,7 @@ class ConfigCMDs(utils.Cog):
                 url="https://pythia.astrea.cc/setup",
             ),
         )
-        await ctx.respond(view=utils.quick_designer_view(container))
+        await ctx.respond(view=utils.quick_view(container))
 
 
 def setup(bot: utils.THIABase) -> None:

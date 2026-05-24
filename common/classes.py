@@ -19,7 +19,7 @@ import common.utils as utils
 class ContainerPaginator(discord.ui.DesignerView):
     def __init__(
         self,
-        *pages: list[discord.ui.ViewItem],
+        *pages: typing.Iterable[discord.ui.ViewItem],
         title: str,
         author_id: int,
         timeout: float = 120,

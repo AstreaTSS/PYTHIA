@@ -119,7 +119,7 @@ class GeneralCMDs(utils.Cog):
                 url=self.invite_link,
             ),
         )
-        await ctx.respond(view=utils.quick_designer_view(container))
+        await ctx.respond(view=utils.quick_view(container))
 
     @discord.slash_command(
         name="support",
@@ -145,7 +145,7 @@ class GeneralCMDs(utils.Cog):
                 url="https://discord.gg/NSdetwGjpK",
             )
         )
-        await ctx.respond(view=utils.quick_designer_view(container))
+        await ctx.respond(view=utils.quick_view(container))
 
     @discord.slash_command(
         name="help",
@@ -178,7 +178,7 @@ class GeneralCMDs(utils.Cog):
                 url="https://pythia.astrea.cc/setup",
             ),
         )
-        await ctx.respond(view=utils.quick_designer_view(container))
+        await ctx.respond(view=utils.quick_view(container))
 
     @discord.slash_command(
         name="about",

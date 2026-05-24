@@ -34,6 +34,7 @@ PYTHON_IMPLEMENTATION = platform.python_implementation()
 logger = logging.getLogger("discord")
 
 CogT = typing.TypeVar("CogT", bound=discord.Cog)
+ChannelT = typing.TypeVar("ChannelT", bound=discord.abc.MessageableChannel)
 
 SINGLE_QUOTE_REGEX = re.compile(r"‘|’")  # noqa: RUF001
 DOUBLE_QUOTE_REGEX = re.compile(r"“|”|„|‟|⹂|〝|〞|＂")  # noqa: RUF001
@@ -92,15 +93,6 @@ def get_all_extensions(str_path: str, folder: str = "exts") -> list[str]:
 
 def quick_view(
     *items: discord.ui.ViewItem,
-) -> discord.ui.View:
-    class CustomView(discord.ui.View):
-        pass
-
-    return CustomView(*items, store=False)
-
-
-def quick_designer_view(
-    *items: discord.ui.ViewItem,
 ) -> discord.ui.DesignerView:
     class CustomDesignerView(discord.ui.DesignerView):
         pass
@@ -131,18 +123,41 @@ def make_container(
 
 
 def make_view(description: str, *, title: str | None = None) -> discord.ui.DesignerView:
-    return quick_designer_view(
+    return quick_view(
         make_container(description, title=title),
     )
 
 
 def error_view(error_msg: str) -> discord.ui.DesignerView:
-    return quick_designer_view(
+    return quick_view(
         discord.ui.Container(
             discord.ui.TextDisplay(f"# Error\n{error_msg}"),
             color=parse_hex_number("#FF9800"),
         )
     )
+
+
+def valid_channel_check(channel: ChannelT, perms: discord.Permissions) -> ChannelT:
+    if not perms:
+        raise commands.BadArgument(f"Cannot resolve permissions for {channel.name}.")
+
+    if not perms.is_superset(discord.Permissions(view_channel=True)):
+        raise commands.BadArgument(f"Cannot read messages in {channel.name}.")
+    elif not perms.is_superset(discord.Permissions(read_message_history=True)):
+        raise commands.BadArgument(f"Cannot read message history in {channel.name}.")
+    elif not perms.is_superset(discord.Permissions(send_messages=True)):
+        raise commands.BadArgument(f"Cannot send messages in {channel.name}.")
+    elif not perms.is_superset(discord.Permissions(embed_links=True)):
+        raise commands.BadArgument(f"Cannot send embeds in {channel.name}.")
+    elif not perms.is_superset(discord.Permissions(attach_files=True)):
+        raise commands.BadArgument(f"Cannot attach files in {channel.name}.")
+
+    if isinstance(channel, discord.Thread) and not perms.is_superset(
+        discord.Permissions(send_messages_in_threads=True)
+    ):
+        raise commands.BadArgument(f"Cannot send messages in {channel.name}.")
+
+    return channel
 
 
 async def error_handle(

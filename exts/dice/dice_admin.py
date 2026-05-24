@@ -106,7 +106,7 @@ class DiceManagement(utils.Cog):
                 url="https://pythia.astrea.cc/setup/dice_management",
             )
         )
-        await ctx.respond(view=utils.quick_designer_view(container))
+        await ctx.respond(view=utils.quick_view(container))
 
     manage = ragwort.SlashCommandGroup(
         name="dice-manage",
