@@ -26,7 +26,7 @@ class ConfigCMDs(utils.Cog):
     config = ragwort.SlashCommandGroup(
         name="config",
         description="Handles configuration of general bot settings.",
-        default_member_permissions=discord.Permissions.manage_guild,
+        default_member_permissions=discord.Permissions(manage_guild=True),
     )
 
     @config.command(

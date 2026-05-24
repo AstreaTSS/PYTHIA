@@ -39,7 +39,7 @@ class DiceManagement(utils.Cog):
     config = ragwort.SlashCommandGroup(
         name="dice-config",
         description="Handles configuration of dice mechanics.",
-        default_member_permissions=discord.Permissions.manage_guild,
+        default_member_permissions=discord.Permissions(manage_guild=True),
         contexts={
             discord.InteractionContextType.guild,
         },
@@ -111,7 +111,7 @@ class DiceManagement(utils.Cog):
     manage = ragwort.SlashCommandGroup(
         name="dice-manage",
         description="Handles management of dice mechanics.",
-        default_member_permissions=discord.Permissions.manage_guild,
+        default_member_permissions=discord.Permissions(manage_guild=True),
         contexts={
             discord.InteractionContextType.guild,
         },
@@ -250,7 +250,7 @@ class DiceManagement(utils.Cog):
             return
 
         chunks = [str_builder[x : x + 15] for x in range(0, len(str_builder), 15)]
-        pages = [[discord.ui.TextDisplay("\n".join(chunk)) for chunk in chunks]]
+        pages = [[discord.ui.TextDisplay("\n".join(chunk))] for chunk in chunks]
         pag = classes.ContainerPaginator(
             *pages,
             title=f"Registered dice for {user.display_name}",

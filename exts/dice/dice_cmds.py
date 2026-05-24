@@ -254,7 +254,7 @@ class DiceCMDs(utils.Cog):
             return
 
         chunks = [str_builder[x : x + 15] for x in range(0, len(str_builder), 15)]
-        pages = [[discord.ui.TextDisplay("\n".join(chunk)) for chunk in chunks]]
+        pages = [[discord.ui.TextDisplay("\n".join(chunk))] for chunk in chunks]
         pag = classes.ContainerPaginator(
             *pages, title=f"Registered dice{extra}:", author_id=ctx.author.id
         )
