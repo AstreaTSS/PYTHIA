@@ -207,9 +207,8 @@ class GeneralCMDs(utils.Cog):
         ]
 
         about_embed = discord.Embed(
-            title="About",
             color=self.bot.color,
-            description="\n\n".join(msg_list),
+            description="# About\n" + "\n\n".join(msg_list),
         )
         about_embed.set_thumbnail(
             url=(
