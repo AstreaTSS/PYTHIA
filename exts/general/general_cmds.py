@@ -84,7 +84,7 @@ class GeneralCMDs(utils.Cog):
                 title="Pong!",
                 description=(
                     f"Average Ping: `{average_ping}` ms\nShard Ping: `{shard_ping}`"
-                    f" ms\nRTT Ping: `{rtt_ping}`\n-# Shard ID: {shard_id}"
+                    f" ms\nRTT Ping: `{rtt_ping}` ms\n-# Shard ID: {shard_id}"
                 ),
             )
         )
