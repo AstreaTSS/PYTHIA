@@ -242,7 +242,7 @@ class DiceCMDs(utils.Cog):
         if not entries:
             raise commands.BadArgument(f"No registered dice{extra} found.")
 
-        str_builder = [f"**{e.name}**: {e.value}" for e in entries]
+        str_builder = [f"- **{e.name}**: {e.value}" for e in entries]
 
         if len(str_builder) <= 15:
             await ctx.respond(

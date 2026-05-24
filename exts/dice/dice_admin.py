@@ -238,7 +238,7 @@ class DiceManagement(utils.Cog):
         if not entries:
             raise commands.BadArgument("No registered dice found for that user.")
 
-        str_builder = [f"**{e.name}**: {e.value}" for e in entries]
+        str_builder = [f"- **{e.name}**: {e.value}" for e in entries]
 
         if len(str_builder) <= 15:
             await ctx.respond(
