@@ -79,7 +79,7 @@ class MessageManagement(utils.Cog):
 
         await models.MessageConfig.filter(guild_id=ctx.guild_id).update(enabled=toggle)
 
-        await ctx.send(
+        await ctx.respond(
             view=utils.make_view(
                 f"Messaging system turned {utils.toggle_friendly_str(toggle)}!"
             )
@@ -108,7 +108,7 @@ class MessageManagement(utils.Cog):
             anon_enabled=toggle
         )
 
-        await ctx.send(
+        await ctx.respond(
             view=utils.make_view(
                 f"Anonymous messaging turned {utils.toggle_friendly_str(toggle)}!"
             )
@@ -137,7 +137,7 @@ class MessageManagement(utils.Cog):
             ping_for_message=toggle
         )
 
-        await ctx.send(
+        await ctx.respond(
             view=utils.make_view(
                 f"Pinging on messages turned {utils.toggle_friendly_str(toggle)}!"
             )
@@ -204,11 +204,29 @@ class MessageManagement(utils.Cog):
                 channel_id=channel.id,
             )
 
-        await ctx.send(
+        await ctx.respond(
             view=utils.make_view(
                 f"Created/updated link: {user.mention} -> {channel.mention}"
             )
         )
+
+    message_add_link = utils.alias(
+        message_link,
+        name="add-link",
+        description=(
+            "Creates/updates a messaging link between a user and a channel. Alias for"
+            " /message-manage link."
+        ),
+    )
+
+    message_update_link = utils.alias(
+        message_link,
+        name="update-link",
+        description=(
+            "Creates/updates a messaging link between a user and a channel. Alias for"
+            " /message-manage link."
+        ),
+    )
 
     @manage.command(
         name="list-links", description="Lists all messaging links for this server."
@@ -231,7 +249,7 @@ class MessageManagement(utils.Cog):
             )
             await ctx.respond(view=pag)
         else:
-            await ctx.send(
+            await ctx.respond(
                 view=utils.make_view(
                     "\n".join(links_list),
                     title="Items",
@@ -252,7 +270,7 @@ class MessageManagement(utils.Cog):
         if num_deleted < 1:
             raise utils.CustomCheckFailure("There's no messaging link to remove!")
 
-        await ctx.send(
+        await ctx.respond(
             view=utils.make_view(f"The messaging link for {user.id} has been removed.")
         )
 
@@ -276,7 +294,7 @@ class MessageManagement(utils.Cog):
         if num_deleted < 1:
             raise utils.CustomCheckFailure("There's no messaging links to clear!")
 
-        await ctx.send(
+        await ctx.respond(
             view=utils.make_view(
                 "All messaging links for this server have been cleared."
             )
@@ -286,4 +304,4 @@ class MessageManagement(utils.Cog):
 def setup(bot: utils.THIABase) -> None:
     importlib.reload(utils)
     importlib.reload(classes)
-    MessageManagement(bot)
+    bot.add_cog(MessageManagement(bot))

@@ -241,7 +241,7 @@ class DiceManagement(utils.Cog):
         str_builder = [f"**{e.name}**: {e.value}" for e in entries]
 
         if len(str_builder) <= 15:
-            await ctx.send(
+            await ctx.respond(
                 view=utils.make_view(
                     "\n".join(str_builder),
                     title=f"Registered dice for {user.display_name}",

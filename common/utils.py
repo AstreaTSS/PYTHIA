@@ -34,7 +34,9 @@ PYTHON_IMPLEMENTATION = platform.python_implementation()
 logger = logging.getLogger("discord")
 
 CogT = typing.TypeVar("CogT", bound=discord.Cog)
-ChannelT = typing.TypeVar("ChannelT", bound=discord.abc.MessageableChannel)
+
+if typing.TYPE_CHECKING:
+    ChannelT = typing.TypeVar("ChannelT", bound=discord.abc.MessageableChannel)
 
 SINGLE_QUOTE_REGEX = re.compile(r"‘|’")  # noqa: RUF001
 DOUBLE_QUOTE_REGEX = re.compile(r"“|”|„|‟|⹂|〝|〞|＂")  # noqa: RUF001
@@ -51,6 +53,15 @@ def yesno_friendly_str(bool_to_convert: bool) -> typing.Literal["yes", "no"]:
 def replace_smart_punc(text: str) -> str:
     text = SINGLE_QUOTE_REGEX.sub("'", text)
     return DOUBLE_QUOTE_REGEX.sub('"', text)
+
+
+def user_string(user: discord.User | discord.Member) -> str:
+    if isinstance(user, discord.Member):
+        user = user._user
+
+    if user.is_migrated:
+        return f"@{user.name}"
+    return f"{user.name}#{user.discriminator}"
 
 
 def parse_hex_number(hex_number: str) -> discord.Color:
@@ -137,7 +148,7 @@ def error_view(error_msg: str) -> discord.ui.DesignerView:
     )
 
 
-def valid_channel_check(channel: ChannelT, perms: discord.Permissions) -> ChannelT:
+def valid_channel_check(channel: "ChannelT", perms: discord.Permissions) -> "ChannelT":
     if not perms:
         raise commands.BadArgument(f"Cannot resolve permissions for {channel.name}.")
 
@@ -158,6 +169,24 @@ def valid_channel_check(channel: ChannelT, perms: discord.Permissions) -> Channe
         raise commands.BadArgument(f"Cannot send messages in {channel.name}.")
 
     return channel
+
+
+def alias(
+    command: discord.SlashCommand,
+    *,
+    name: str,
+    description: str,
+    parent: discord.SlashCommandGroup | None = None,
+) -> discord.SlashCommand:
+    parent = parent or command.parent
+    new_cmd = command.copy()
+    new_cmd.name = name
+    new_cmd.description = description
+    new_cmd.parent = parent
+
+    if parent:
+        parent.add_command(new_cmd)
+    return new_cmd
 
 
 async def error_handle(

@@ -52,6 +52,9 @@ class MessageCMDs(utils.Cog):
     ) -> None:
         await ctx.defer(ephemeral=True)
 
+        if user.id == ctx.author.id:
+            raise utils.CustomCheckFailure("You cannot message yourself.")
+
         config = await ctx.fetch_config({"messages": True})
         if typing.TYPE_CHECKING:
             assert config.messages and isinstance(config.messages, models.MessageConfig)
@@ -80,7 +83,7 @@ class MessageCMDs(utils.Cog):
         try:
             other_chan = self.bot.get_partial_messageable(other_user_link.channel_id)
             container = utils.make_container(
-                message, title=f"Message from {ctx.author!s}"
+                message, title=f"Message from {ctx.author.mention}"
             )
 
             if config.messages.ping_for_message:
@@ -95,7 +98,7 @@ class MessageCMDs(utils.Cog):
                 view=view,
                 allowed_mentions=discord.AllowedMentions(
                     users=(
-                        [other_user_link.user_id]
+                        [discord.Object(other_user_link.user_id)]
                         if config.messages.ping_for_message
                         else False  # type: ignore
                     )
@@ -109,7 +112,7 @@ class MessageCMDs(utils.Cog):
         try:
             ctx_user_chan = self.bot.get_partial_messageable(ctx_user_link.channel_id)
             await ctx_user_chan.send(
-                view=utils.make_view(message, title=f"Message sent to {user!s}")
+                view=utils.make_view(message, title=f"Message sent to {user.mention}")
             )
         except discord.HTTPException:
             raise utils.CustomCheckFailure(
@@ -133,6 +136,9 @@ class MessageCMDs(utils.Cog):
         message: str = ragwort.BridgeOption("The message to send."),
     ) -> None:
         await ctx.defer(ephemeral=True)
+
+        if user.id == ctx.author.id:
+            raise utils.CustomCheckFailure("You cannot message yourself.")
 
         config = await ctx.fetch_config({"messages": True})
         if typing.TYPE_CHECKING:
@@ -179,7 +185,7 @@ class MessageCMDs(utils.Cog):
                 view=view,
                 allowed_mentions=discord.AllowedMentions(
                     users=(
-                        [other_user_link.user_id]
+                        [discord.Object(other_user_link.user_id)]
                         if config.messages.ping_for_message
                         else False  # type: ignore
                     )
@@ -194,7 +200,7 @@ class MessageCMDs(utils.Cog):
             ctx_user_chan = self.bot.get_partial_messageable(ctx_user_link.channel_id)
             await ctx_user_chan.send(
                 view=utils.make_view(
-                    message, title=f"Anonymous message sent to {user!s}"
+                    message, title=f"Anonymous message sent to {user.mention}"
                 )
             )
         except discord.HTTPException:

@@ -120,7 +120,10 @@ class PYTHIA(utils.THIABase):
                 )
             )
 
-        elif isinstance(error, utils.CustomCheckFailure | commands.BadArgument):
+        elif isinstance(
+            error,
+            utils.CustomCheckFailure | commands.BadArgument | commands.UserInputError,
+        ):
             await ctx.respond(view=utils.error_view(str(error)))
         elif isinstance(error, discord.CheckFailure):
             if ctx.guild_id:
@@ -182,38 +185,37 @@ intents = discord.Intents(
 )
 mentions = discord.AllowedMentions.none()
 
+bot = PYTHIA(
+    intents=intents,
+    allowed_mentions=mentions,
+    status=discord.Status.idle,
+    activity=discord.CustomActivity(
+        name="Loading...",
+    ),
+    default_command_contexts={
+        discord.InteractionContextType.guild,
+    },
+    default_command_integration_types={
+        discord.IntegrationType.guild_install,
+    },
+    auto_sync_commands=False,
+    case_insensitive=True,
+    help_command=None,
+    max_messages=100,
+    chunk_guilds_at_startup=False,
+    cache_default_sounds=False,
+)
+ragwort.setup_auto_defer(bot, default=True)
+bot.init_load = True
+bot.start_time = None
+bot.owner = None
+bot.background_tasks = set()
+bot.msg_enabled_bullets_guilds = set()
+bot.gacha_locks = defaultdict(asyncio.Lock)
+bot.color = discord.Color(int(os.environ["BOT_COLOR"]))  # #723fb0 or 7487408
+
 
 async def start() -> None:
-    # have to create it here because of loop shienanigans
-    bot = PYTHIA(
-        intents=intents,
-        allowed_mentions=mentions,
-        status=discord.Status.idle,
-        activity=discord.CustomActivity(
-            name="Loading...",
-        ),
-        default_command_contexts={
-            discord.InteractionContextType.guild,
-        },
-        default_command_integration_types={
-            discord.IntegrationType.guild_install,
-        },
-        auto_sync_commands=False,
-        case_insensitive=True,
-        help_command=None,
-        max_messages=100,
-        chunk_guilds_at_startup=False,
-        cache_default_sounds=False,
-    )
-    ragwort.setup_auto_defer(bot, default=True)
-    bot.init_load = True
-    bot.start_time = None
-    bot.owner = None
-    bot.background_tasks = set()
-    bot.msg_enabled_bullets_guilds = set()
-    bot.gacha_locks = defaultdict(asyncio.Lock)
-    bot.color = discord.Color(int(os.environ["BOT_COLOR"]))  # #723fb0 or 7487408
-
     await Tortoise.init(db_settings.TORTOISE_ORM)
 
     async for model in models.BulletConfig.filter(
@@ -232,11 +234,8 @@ async def start() -> None:
         except discord.ExtensionError:
             raise
 
-    try:
+    async with bot:
         await bot.start(os.environ["MAIN_TOKEN"])
-    finally:
-        if not bot.is_closed():
-            await bot.close()
 
 
 if __name__ == "__main__":
