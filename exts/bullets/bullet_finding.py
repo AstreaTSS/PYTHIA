@@ -44,6 +44,8 @@ class BulletFinding(utils.Extension):
         guild: ipy.Guild,
         bullet_chan: ipy.GuildText | None,
         config: models.GuildConfig,
+        *,
+        okay_if_no_chan: bool = False,
     ) -> None:
         if await models.TruthBullet.filter(guild_id=guild.id, found=False).exists():
             return
@@ -53,6 +55,9 @@ class BulletFinding(utils.Extension):
             assert config.names and isinstance(config.names, models.Names)
 
         if not bullet_chan:
+            if okay_if_no_chan:
+                return
+
             bullet_chan = await self.bot.fetch_channel(config.bullets.bullet_chan_id)
             if not bullet_chan or not isinstance(bullet_chan, SendMixin):
                 config.bullets.bullets_enabled = False
@@ -308,8 +313,12 @@ class BulletFinding(utils.Extension):
 
         message = await ctx.send(embeds=embed, ephemeral=ctx.ephemeral)
 
-        if not truth_bullet.hidden:
-            bullet_chan = await self.bot.fetch_channel(config.bullets.bullet_chan_id)
+        if not truth_bullet.hidden and (
+            config.bullets.bullet_chan_id or not kwargs.get("manual_trigger")
+        ):
+            bullet_chan = await self.bot.fetch_channel(
+                config.bullets.bullet_chan_id or 0
+            )
             if not bullet_chan or not isinstance(bullet_chan, SendMixin):
                 config.bullets.bullets_enabled = False
                 self.bot.msg_enabled_bullets_guilds.discard(int(ctx.guild_id))
@@ -337,7 +346,12 @@ class BulletFinding(utils.Extension):
                 )
 
         await truth_bullet.save(force_update=True)
-        await self.check_for_finish(ctx.guild, bullet_chan, config)
+        await self.check_for_finish(
+            ctx.guild,
+            bullet_chan,
+            config,
+            okay_if_no_chan=kwargs.get("manual_trigger", False),
+        )
 
     config = tansy.SlashCommand(
         name="bullet-manage",
