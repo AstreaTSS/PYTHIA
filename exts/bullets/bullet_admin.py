@@ -177,7 +177,7 @@ class BulletManagement(utils.Cog):
                 )
             )
 
-            await ctx.send(view=utils.quick_view(*containers))
+            await ctx.respond(view=utils.quick_view(*containers))
         else:
             await ctx.send_modal(self.add_truth_bullets_modal(channel))
 
@@ -810,7 +810,7 @@ class BulletManagement(utils.Cog):
 
         await possible_bullet.save(force_update=True)
 
-        await ctx.send(
+        await ctx.respond(
             view=utils.make_view(
                 f"Alias `{alias}` removed from Truth Bullet with trigger `{trigger}` in"
                 f" {channel.mention}!"
