@@ -18,6 +18,141 @@ import common.models as models
 import common.utils as utils
 
 
+class EditBulletNamesModal(discord.ui.DesignerModal):
+    def __init__(self, names: models.Names) -> None:
+        super().__init__(
+            discord.ui.Label(
+                label="Singular Bullet Name",
+                item=discord.ui.InputText(
+                    style=discord.InputTextStyle.short,
+                    custom_id="singular_name",
+                    value=names.singular_bullet,
+                    max_length=40,
+                ),
+            ),
+            discord.ui.Label(
+                label="Plural Bullet Name",
+                item=discord.ui.InputText(
+                    style=discord.InputTextStyle.short,
+                    custom_id="plural_name",
+                    value=names.plural_bullet,
+                    max_length=40,
+                ),
+            ),
+            title="Edit Truth Bullet Names",
+            custom_id="bullet_names",
+        )
+
+    async def callback(self, inter: utils.Interaction) -> None:
+        await inter.response.defer()
+
+        config = await models.GuildConfig.fetch_create(inter.guild_id, {"names": True})
+        if typing.TYPE_CHECKING:
+            assert config.names and isinstance(config.names, models.Names)
+        names = config.names
+
+        names.singular_bullet = self.children[0].item.value
+        names.plural_bullet = self.children[1].item.value
+        await names.save()
+
+        await inter.respond(
+            view=utils.make_view(
+                "Updated! Please note this will only affect public-facing aspects - IE"
+                f" finding items.\nSingular: {names.singular_bullet}\nPlural:"
+                f" {names.plural_bullet}"
+            )
+        )
+
+
+class EditBulletFinderNamesModal(discord.ui.DesignerModal):
+    def __init__(self, names: models.Names) -> None:
+        super().__init__(
+            discord.ui.Label(
+                label="Singular Truth Bullet Finder",
+                item=discord.ui.InputText(
+                    style=discord.InputTextStyle.short,
+                    custom_id="singular_truth_bullet_finder",
+                    value=names.singular_truth_bullet_finder,
+                    max_length=70,
+                ),
+            ),
+            discord.ui.Label(
+                label="Plural Truth Bullet Finder",
+                item=discord.ui.InputText(
+                    style=discord.InputTextStyle.short,
+                    custom_id="plural_truth_bullet_finder",
+                    value=names.plural_truth_bullet_finder,
+                    max_length=70,
+                ),
+            ),
+            discord.ui.Label(
+                label="Best Bullet Finder Name",
+                item=discord.ui.InputText(
+                    style=discord.InputTextStyle.short,
+                    custom_id="best_bullet_finder",
+                    value=names.best_bullet_finder,
+                    max_length=70,
+                ),
+            ),
+            title="Edit Truth Bullet Finder Names",
+            custom_id="bullet_finders",
+        )
+
+    async def callback(self, inter: utils.Interaction) -> None:
+        await inter.response.defer()
+
+        config = await models.GuildConfig.fetch_create(inter.guild_id, {"names": True})
+        if typing.TYPE_CHECKING:
+            assert config.names and isinstance(config.names, models.Names)
+        names = config.names
+
+        singular_truth_bullet_finder: str = self.children[0].item.value
+        plural_truth_bullet_finder: str = self.children[1].item.value
+        best_bullet_finder: str = self.children[2].item.value
+
+        if (
+            var_name := models.TEMPLATE_MARKDOWN.search(singular_truth_bullet_finder)
+        ) and var_name.group(2) != "bullet_name":
+            raise commands.BadArgument(
+                "Invalid variable name in Singular Truth Bullet Finder. Only"
+                " `{{bullet_name}}`, the Truth Bullet name, is allowed."
+            )
+
+        if (
+            var_name := models.TEMPLATE_MARKDOWN.search(plural_truth_bullet_finder)
+        ) and var_name.group(2) != "bullet_name":
+            raise commands.BadArgument(
+                "Invalid variable name in Plural Truth Bullet Finder. Only"
+                " `{{bullet_name}}`, the Truth Bullet name, is allowed."
+            )
+
+        if (
+            var_name := models.TEMPLATE_MARKDOWN.search(best_bullet_finder)
+        ) and var_name.group(2) != "bullet_finder":
+            raise commands.BadArgument(
+                "Invalid variable name in Best Truth Bullet Finder. Only"
+                " `{{bullet_finder}}`, the Truth Bullet Finder name, is allowed."
+            )
+
+        names.singular_truth_bullet_finder = singular_truth_bullet_finder
+        names.plural_truth_bullet_finder = plural_truth_bullet_finder
+        names.best_bullet_finder = best_bullet_finder
+        await names.save()
+
+        await inter.respond(
+            view=utils.make_view(
+                "Updated! Please note this will only affect public-facing aspects - IE"
+                " finding all items.\nSingular Finder:"
+                f" {models.code_template(names.singular_truth_bullet_finder)}\nPlural"
+                " Finders:"
+                f" {models.code_template(names.plural_truth_bullet_finder)}\nBest"
+                f" Finder: {models.code_template(names.best_bullet_finder)}\n\n*Note:"
+                " anything in `{}` is a field to be replaced dynamically by the"
+                " appropriate value.*",
+            )
+        )
+
+
 class BulletConfigCMDs(utils.Cog):
     """Commands for using and modifying BDA investigation server settings."""
 
@@ -349,138 +484,11 @@ class BulletConfigCMDs(utils.Cog):
         names = config.names
 
         if to_change == "bullet_names":
-            modal = utils.quick_model(
-                discord.ui.Label(
-                    label="Singular Bullet Name",
-                    item=discord.ui.InputText(
-                        style=discord.InputTextStyle.short,
-                        custom_id="singular_name",
-                        value=names.singular_bullet,
-                        max_length=40,
-                    ),
-                ),
-                discord.ui.Label(
-                    label="Plural Bullet Name",
-                    item=discord.ui.InputText(
-                        style=discord.InputTextStyle.short,
-                        custom_id="plural_name",
-                        value=names.plural_bullet,
-                        max_length=40,
-                    ),
-                ),
-                title="Edit Truth Bullet Names",
-                custom_id="bullet_names",
-            )
+            modal = EditBulletNamesModal(names)
         else:
-            modal = utils.quick_model(
-                discord.ui.Label(
-                    label="Singular Truth Bullet Finder",
-                    item=discord.ui.InputText(
-                        style=discord.InputTextStyle.short,
-                        custom_id="singular_truth_bullet_finder",
-                        value=names.singular_truth_bullet_finder,
-                        max_length=70,
-                    ),
-                ),
-                discord.ui.Label(
-                    label="Plural Truth Bullet Finder",
-                    item=discord.ui.InputText(
-                        style=discord.InputTextStyle.short,
-                        custom_id="plural_truth_bullet_finder",
-                        value=names.plural_truth_bullet_finder,
-                        max_length=70,
-                    ),
-                ),
-                discord.ui.Label(
-                    label="Best Bullet Finder Name",
-                    item=discord.ui.InputText(
-                        style=discord.InputTextStyle.short,
-                        custom_id="best_bullet_finder",
-                        value=names.best_bullet_finder,
-                        max_length=70,
-                    ),
-                ),
-                title="Edit Truth Bullet Finder Names",
-                custom_id="bullet_finders",
-            )
+            modal = EditBulletFinderNamesModal(names)
 
         await ctx.send_modal(modal)
-
-    @utils.modal_handler("bullet_names")
-    async def bullet_names_edit(
-        self, inter: utils.Interaction, responses: dict[str, typing.Any]
-    ) -> None:
-        config = await models.GuildConfig.fetch_create(inter.guild_id, {"names": True})
-        if typing.TYPE_CHECKING:
-            assert config.names and isinstance(config.names, models.Names)
-        names = config.names
-
-        names.singular_bullet = responses["singular_name"]
-        names.plural_bullet = responses["plural_name"]
-        await names.save()
-
-        await inter.respond(
-            view=utils.make_view(
-                "Updated! Please note this will only affect public-facing aspects - IE"
-                f" finding items.\nSingular: {names.singular_bullet}\nPlural:"
-                f" {names.plural_bullet}"
-            )
-        )
-
-    @utils.modal_handler("bullet_finders")
-    async def bullet_finders_edit(
-        self, inter: utils.Interaction, responses: dict[str, typing.Any]
-    ) -> None:
-        config = await models.GuildConfig.fetch_create(inter.guild_id, {"names": True})
-        if typing.TYPE_CHECKING:
-            assert config.names and isinstance(config.names, models.Names)
-        names = config.names
-
-        if (
-            var_name := models.TEMPLATE_MARKDOWN.search(
-                responses["singular_truth_bullet_finder"]
-            )
-        ) and var_name.group(2) != "bullet_name":
-            raise commands.BadArgument(
-                "Invalid variable name in Singular Truth Bullet Finder. Only"
-                " `{{bullet_name}}`, the Truth Bullet name, is allowed."
-            )
-
-        if (
-            var_name := models.TEMPLATE_MARKDOWN.search(
-                responses["plural_truth_bullet_finder"]
-            )
-        ) and var_name.group(2) != "bullet_name":
-            raise commands.BadArgument(
-                "Invalid variable name in Plural Truth Bullet Finder. Only"
-                " `{{bullet_name}}`, the Truth Bullet name, is allowed."
-            )
-
-        if (
-            var_name := models.TEMPLATE_MARKDOWN.search(responses["best_bullet_finder"])
-        ) and var_name.group(2) != "bullet_finder":
-            raise commands.BadArgument(
-                "Invalid variable name in Best Truth Bullet Finder. Only"
-                " `{{bullet_finder}}`, the Truth Bullet Finder name, is allowed."
-            )
-
-        names.singular_truth_bullet_finder = responses["singular_truth_bullet_finder"]
-        names.plural_truth_bullet_finder = responses["plural_truth_bullet_finder"]
-        names.best_bullet_finder = responses["best_bullet_finder"]
-        await names.save()
-
-        await inter.respond(
-            view=utils.make_view(
-                "Updated! Please note this will only affect public-facing aspects - IE"
-                " finding all items.\nSingular Finder:"
-                f" {models.code_template(names.singular_truth_bullet_finder)}\nPlural"
-                " Finders:"
-                f" {models.code_template(names.plural_truth_bullet_finder)}\nBest"
-                f" Finder: {models.code_template(names.best_bullet_finder)}\n\n*Note:"
-                " anything in `{}` is a field to be replaced dynamically by the"
-                " appropriate value.*",
-            )
-        )
 
     def enable_check(self, config: models.GuildConfig) -> None:
         if not config.player_role:

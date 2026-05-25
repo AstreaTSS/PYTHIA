@@ -11,11 +11,49 @@ import importlib
 
 import discord
 import ragwort
-import typing_extensions as typing
 from discord.ext import commands
 
 import common.models as models
 import common.utils as utils
+
+
+class ClearAllDataModal(discord.ui.DesignerModal):
+    def __init__(self) -> None:
+        super().__init__(
+            discord.ui.Label(
+                label="Type 'Clear all data.' to confirm.",
+                description=(
+                    "'Clear all data.' is case-sensitive. Do not put the quotes."
+                ),
+                item=discord.ui.InputText(
+                    style=discord.InputTextStyle.short,
+                    custom_id="confirm_input",
+                    min_length=15,
+                    max_length=15,
+                    required=True,
+                ),
+            ),
+            title="Confirm Clear All Data",
+            custom_id="thia:clear-all-data-modal",
+        )
+
+    async def callback(self, inter: utils.Interaction) -> None:
+        await inter.response.defer()
+
+        confirm_input: str = self.children[0].item.value
+
+        if confirm_input != "Clear all data.":
+            raise commands.BadArgument("Confirmation input did not match.")
+
+        await models.GuildConfig.filter(guild_id=int(inter.guild_id)).delete()
+        await models.TruthBullet.filter(guild_id=int(inter.guild_id)).delete()
+
+        await inter.followup.send(
+            view=utils.make_view(
+                title="Data Cleared",
+                description="All data for this server has been cleared.",
+            )
+        )
 
 
 class ConfigCMDs(utils.Cog):
@@ -129,46 +167,7 @@ class ConfigCMDs(utils.Cog):
                 " true to continue."
             )
 
-        await ctx.send_modal(
-            utils.quick_model(
-                discord.ui.Label(
-                    label="Type 'Clear all data.' to confirm.",
-                    description=(
-                        "'Clear all data.' is case-sensitive. Do not put the quotes."
-                    ),
-                    item=discord.ui.InputText(
-                        style=discord.InputTextStyle.short,
-                        custom_id="confirm_input",
-                        min_length=15,
-                        max_length=15,
-                        required=True,
-                    ),
-                ),
-                title="Confirm Clear All Data",
-                custom_id="thia:clear-all-data-modal",
-            )
-        )
-
-    @utils.modal_handler(custom_id="thia:clear-all-data-modal")
-    async def clear_all_data_modal_callback(
-        self, inter: utils.Interaction, responses: dict[str, typing.Any]
-    ) -> None:
-        await inter.response.defer()
-
-        confirm_input: str = responses["confirm_input"]
-
-        if confirm_input != "Clear all data.":
-            raise commands.BadArgument("Confirmation input did not match.")
-
-        await models.GuildConfig.filter(guild_id=int(inter.guild_id)).delete()
-        await models.TruthBullet.filter(guild_id=int(inter.guild_id)).delete()
-
-        await inter.followup.send(
-            view=utils.make_view(
-                title="Data Cleared",
-                description="All data for this server has been cleared.",
-            )
-        )
+        await ctx.send_modal(ClearAllDataModal())
 
     @config.command(
         name="help",

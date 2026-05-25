@@ -24,23 +24,16 @@ import common.utils as utils
 from ._bullet_common import bullet_manage
 
 
-class BulletManagement(utils.Cog):
-    """Commands for using and modifying Truth Bullets."""
-
-    def __init__(self, bot: utils.THIABase) -> None:
-        self.bot = bot
-        self.name = "Bullet"
-
-        # i sure do love weird edge cases with race conditions!
-        self.bullet_creation_locks: collections.defaultdict[str, asyncio.Lock] = (
-            collections.defaultdict(asyncio.Lock)
-        )
-
-    @staticmethod
-    def add_truth_bullets_modal(
+class AddTruthBulletModal(discord.ui.DesignerModal):
+    def __init__(
+        self,
         channel: discord.TextChannel | discord.Thread,
-    ) -> discord.ui.DesignerModal:
-        return utils.quick_model(
+        bullet_creation_locks: collections.defaultdict[str, asyncio.Lock],
+    ) -> None:
+        self.bullet_creation_locks = bullet_creation_locks
+        self.channel = channel
+
+        super().__init__(
             discord.ui.Label(
                 label="Truth Bullet Trigger",
                 item=discord.ui.InputText(
@@ -84,6 +77,219 @@ class BulletManagement(utils.Cog):
                 f" #{utils.short_string(channel.name or 'this-channel', length=16)}"
             ),
             custom_id=f"ui-modal:add_bullets-{channel.id}",
+        )
+
+    async def callback(self, inter: utils.Interaction) -> None:
+        await inter.response.defer()
+
+        responses: dict[str, typing.Any] = {
+            child.item.custom_id: getattr(child.item, "values", child.item.value)
+            for child in self.children
+            if isinstance(child, discord.ui.Label)
+        }
+
+        config = await models.GuildConfig.fetch_create(
+            inter.guild_id, {"bullets": True}
+        )
+        if typing.TYPE_CHECKING:
+            assert config.bullets and isinstance(config.bullets, models.BulletConfig)
+
+        if (
+            config.bullets.thread_behavior == models.BulletThreadBehavior.PARENT
+            and isinstance(self.channel, discord.Thread)
+        ):
+            raise utils.CustomCheckFailure(
+                "Cannot add Truth Bullets to a thread while thread behavior is set"
+                " to follow the parent channel."
+            )
+
+        async with self.bullet_creation_locks[
+            f"{self.channel.id}-{responses['truth_bullet_trigger'].lower()}"
+        ]:
+            if await models.TruthBullet.validate(
+                self.channel.id, responses["truth_bullet_trigger"]
+            ):
+                raise commands.BadArgument(
+                    f"A Truth Bullet in {self.channel.mention} already has the trigger"
+                    f" `{responses['truth_bullet_trigger']}` or has an"
+                    " alias named that!"
+                )
+
+            try:
+                if isinstance(responses["truth_bullet_hidden"], list):
+                    hidden = utils.convert_to_bool(responses["truth_bullet_hidden"][0])
+                else:
+                    hidden = utils.convert_to_bool(responses["truth_bullet_hidden"])
+            except commands.BadArgument:
+                raise commands.BadArgument(
+                    "Invalid value for hiding the Truth Bullet! Giving a simple"
+                    " 'yes' or 'no' will work."
+                ) from None
+
+            image: str | None = (
+                responses["truth_bullet_image"].strip()
+                if responses.get("truth_bullet_image")
+                else None
+            )
+            if image and not utils.HTTP_URL_REGEX.fullmatch(image):
+                raise commands.BadArgument("The image given must be a valid URL.")
+
+            await models.TruthBullet.create(
+                trigger=utils.replace_smart_punc(responses["truth_bullet_trigger"]),
+                aliases=[],
+                description=responses["truth_bullet_desc"],
+                channel_id=self.channel.id,
+                guild_id=inter.guild_id,
+                found=False,
+                finder=None,
+                hidden=hidden,
+                image=image,
+            )
+
+        await inter.respond(
+            view=utils.make_view(
+                "Added Truth Bullet with trigger"
+                f" `{responses['truth_bullet_trigger']}` to {self.channel.mention}!"
+            ),
+        )
+
+
+class EditTruthBulletModal(discord.ui.DesignerModal):
+    def __init__(
+        self, bullet: models.TruthBullet, channel: discord.TextChannel | discord.Thread
+    ) -> None:
+        self.channel = channel
+        self.bullet = bullet
+
+        super().__init__(
+            discord.ui.Label(
+                label="Truth Bullet Trigger",
+                item=discord.ui.InputText(
+                    style=discord.InputTextStyle.short,
+                    custom_id="truth_bullet_trigger",
+                    max_length=60,
+                    value=bullet.trigger,
+                ),
+            ),
+            discord.ui.Label(
+                label="Truth Bullet Description",
+                item=discord.ui.InputText(
+                    style=discord.InputTextStyle.paragraph,
+                    custom_id="truth_bullet_desc",
+                    max_length=3800,
+                    value=bullet.description,
+                ),
+            ),
+            discord.ui.Label(
+                label="Truth Bullet Image",
+                description="The image URL of the Truth Bullet.",
+                item=discord.ui.InputText(
+                    style=discord.InputTextStyle.short,
+                    custom_id="truth_bullet_image",
+                    max_length=1000,
+                    required=False,
+                    value=bullet.image,
+                ),
+            ),
+            discord.ui.Label(
+                label="Hide this Truth Bullet only to the finder?",
+                item=discord.ui.Select(
+                    discord.ComponentType.string_select,
+                    options=[
+                        discord.SelectOption(
+                            label=v,
+                            value=v.lower(),
+                            default=v.lower()
+                            == utils.yesno_friendly_str(bullet.hidden),
+                        )
+                        for v in ("Yes", "No")
+                    ],
+                    custom_id="truth_bullet_hidden",
+                    required=True,
+                ),
+            ),
+            title=(
+                f"Edit {utils.short_string(bullet.trigger, 10)} for"
+                f" #{utils.short_string(channel.name, 14)}"
+            ),
+            custom_id=f"ui:edit-bullet-{channel.id}|{bullet.trigger}",
+        )
+
+    async def callback(self, inter: utils.Interaction) -> None:
+        await inter.response.defer()
+
+        responses: dict[str, typing.Any] = {
+            child.item.custom_id: getattr(child.item, "values", child.item.value)
+            for child in self.children
+            if isinstance(child, discord.ui.Label)
+        }
+
+        # quick re-verify
+        bullet = await models.TruthBullet.get_or_none(id=self.bullet.id)
+        if bullet is None:
+            raise utils.CustomCheckFailure("This Truth Bullet no longer exists.")
+
+        trigger = utils.replace_smart_punc(responses["truth_bullet_trigger"])
+
+        if (
+            bullet.trigger.lower() != trigger.lower()
+            and await models.TruthBullet.validate(self.channel.id, trigger)
+        ):
+            raise commands.BadArgument(
+                f"A Truth Bullet in {self.channel.mention} already has the trigger"
+                f" `{trigger}` or has an alias named that."
+            )
+
+        try:
+            if isinstance(responses["truth_bullet_hidden"], list):
+                hidden = utils.convert_to_bool(responses["truth_bullet_hidden"][0])
+            else:
+                hidden = utils.convert_to_bool(responses["truth_bullet_hidden"])
+        except commands.BadArgument:
+            raise commands.BadArgument(
+                "Invalid value for hiding the Truth Bullet. Giving a simple 'yes'"
+                " or 'no' will work."
+            ) from None
+
+        image: str | None = (
+            responses["truth_bullet_image"].strip()
+            if responses.get("truth_bullet_image")
+            else None
+        )
+        if image and not utils.HTTP_URL_REGEX.fullmatch(image):
+            raise commands.BadArgument("The image given must be a valid URL.")
+
+        bullet.trigger = trigger
+        bullet.description = responses["truth_bullet_desc"]
+        bullet.hidden = hidden
+        bullet.image = image
+        await bullet.save(force_update=True)
+
+        if bullet.trigger != trigger:
+            await inter.respond(
+                view=utils.make_view(
+                    f"Edited Truth Bullet `{trigger}` (renamed to"
+                    f" `{bullet.trigger}`) in {self.channel.mention}."
+                )
+            )
+        else:
+            await inter.respond(
+                view=utils.make_view(
+                    f"Edited Truth Bullet `{trigger}` in {self.channel.mention}."
+                )
+            )
+
+
+class BulletManagement(utils.Cog):
+    """Commands for using and modifying Truth Bullets."""
+
+    def __init__(self, bot: utils.THIABase) -> None:
+        self.bot = bot
+        self.name = "Bullet"
+
+        # i sure do love weird edge cases with race conditions!
+        self.bullet_creation_locks: collections.defaultdict[str, asyncio.Lock] = (
+            collections.defaultdict(asyncio.Lock)
         )
 
     @bullet_manage.command(
@@ -179,7 +385,9 @@ class BulletManagement(utils.Cog):
 
             await ctx.respond(view=utils.quick_view(*containers))
         else:
-            await ctx.send_modal(self.add_truth_bullets_modal(channel))
+            await ctx.send_modal(
+                AddTruthBulletModal(channel, self.bullet_creation_locks)
+            )
 
     add_bullet_full = utils.alias(
         add_bullets,
@@ -198,7 +406,9 @@ class BulletManagement(utils.Cog):
             raise utils.CustomCheckFailure(
                 "Could not find the channel this was associated to. Was it deleted?"
             )
-        await inter.response.send_modal(self.add_truth_bullets_modal(channel))
+        await inter.response.send_modal(
+            AddTruthBulletModal(channel, self.bullet_creation_locks)
+        )
 
     @utils.button_handler(custom_id_prefix="ui-button:add_bullets-")
     async def on_add_bullets_button_old(
@@ -211,85 +421,8 @@ class BulletManagement(utils.Cog):
             raise utils.CustomCheckFailure(
                 "Could not find the channel this was associated to. Was it deleted?"
             )
-        await inter.response.send_modal(self.add_truth_bullets_modal(channel))
-
-    @utils.modal_handler(custom_id_prefix="ui-modal:add_bullets-")
-    async def on_modal_add_bullet(
-        self, inter: utils.Interaction, responses: dict[str, typing.Any]
-    ) -> None:
-        await inter.response.defer()
-
-        config = await models.GuildConfig.fetch_create(
-            inter.guild_id, {"bullets": True}
-        )
-        if typing.TYPE_CHECKING:
-            assert config.bullets and isinstance(config.bullets, models.BulletConfig)
-
-        channel_id = int(inter.data["custom_id"].removeprefix("ui-modal:add_bullets-"))
-        channel = await self.bot.fetch_channel(channel_id)
-
-        if not channel:
-            raise utils.CustomCheckFailure(
-                "Could not find the channel this was associated to. Was it deleted?"
-            )
-
-        if (
-            config.bullets.thread_behavior == models.BulletThreadBehavior.PARENT
-            and isinstance(channel, discord.Thread)
-        ):
-            raise utils.CustomCheckFailure(
-                "Cannot add Truth Bullets to a thread while thread behavior is set"
-                " to follow the parent channel."
-            )
-
-        async with self.bullet_creation_locks[
-            f"{channel_id}-{responses['truth_bullet_trigger'].lower()}"
-        ]:
-            if await models.TruthBullet.validate(
-                channel_id, responses["truth_bullet_trigger"]
-            ):
-                raise commands.BadArgument(
-                    f"A Truth Bullet in <#{channel_id}> already has the trigger"
-                    f" `{responses['truth_bullet_trigger']}` or has an"
-                    " alias named that!"
-                )
-
-            try:
-                if isinstance(responses["truth_bullet_hidden"], list):
-                    hidden = utils.convert_to_bool(responses["truth_bullet_hidden"][0])
-                else:
-                    hidden = utils.convert_to_bool(responses["truth_bullet_hidden"])
-            except commands.BadArgument:
-                raise commands.BadArgument(
-                    "Invalid value for hiding the Truth Bullet! Giving a simple"
-                    " 'yes' or 'no' will work."
-                ) from None
-
-            image: str | None = (
-                responses["truth_bullet_image"].strip()
-                if responses.get("truth_bullet_image")
-                else None
-            )
-            if image and not utils.HTTP_URL_REGEX.fullmatch(image):
-                raise commands.BadArgument("The image given must be a valid URL.")
-
-            await models.TruthBullet.create(
-                trigger=utils.replace_smart_punc(responses["truth_bullet_trigger"]),
-                aliases=[],
-                description=responses["truth_bullet_desc"],
-                channel_id=channel_id,
-                guild_id=inter.guild_id,
-                found=False,
-                finder=None,
-                hidden=hidden,
-                image=image,
-            )
-
-        await inter.respond(
-            view=utils.make_view(
-                "Added Truth Bullet with trigger"
-                f" `{responses['truth_bullet_trigger']}` to <#{channel_id}>!"
-            ),
+        await inter.response.send_modal(
+            AddTruthBulletModal(channel, self.bullet_creation_locks)
         )
 
     @bullet_manage.command(
@@ -501,133 +634,13 @@ class BulletManagement(utils.Cog):
                 f"Truth Bullet with trigger `{trigger}` does not exist!"
             )
 
-        modal = utils.quick_model(
-            discord.ui.Label(
-                label="Truth Bullet Trigger",
-                item=discord.ui.InputText(
-                    style=discord.InputTextStyle.short,
-                    custom_id="truth_bullet_trigger",
-                    max_length=60,
-                    value=bullet.trigger,
-                ),
-            ),
-            discord.ui.Label(
-                label="Truth Bullet Description",
-                item=discord.ui.InputText(
-                    style=discord.InputTextStyle.paragraph,
-                    custom_id="truth_bullet_desc",
-                    max_length=3800,
-                    value=bullet.description,
-                ),
-            ),
-            discord.ui.Label(
-                label="Truth Bullet Image",
-                description="The image URL of the Truth Bullet.",
-                item=discord.ui.InputText(
-                    style=discord.InputTextStyle.short,
-                    custom_id="truth_bullet_image",
-                    max_length=1000,
-                    required=False,
-                    value=bullet.image,
-                ),
-            ),
-            discord.ui.Label(
-                label="Hide this Truth Bullet only to the finder?",
-                item=discord.ui.Select(
-                    discord.ComponentType.string_select,
-                    options=[
-                        discord.SelectOption(
-                            label=v,
-                            value=v.lower(),
-                            default=v.lower()
-                            == utils.yesno_friendly_str(bullet.hidden),
-                        )
-                        for v in ("Yes", "No")
-                    ],
-                    custom_id="truth_bullet_hidden",
-                    required=True,
-                ),
-            ),
-            title=(
-                f"Edit {utils.short_string(bullet.trigger, 10)} for"
-                f" #{utils.short_string(channel.name, 14)}"
-            ),
-            custom_id=f"ui:edit-bullet-{channel.id}|{trigger}",
-        )
-        await ctx.send_modal(modal)
+        await ctx.send_modal(EditTruthBulletModal(bullet, channel))
 
     edit_bullet_full = utils.alias(
         edit_bullet,
         name="edit-bullet",
         description="Edits a Truth Bullet. Alias to /bullet-manage edit.",
     )
-
-    @utils.modal_handler(custom_id_prefix="ui:edit-bullet-")
-    async def on_modal_edit_bullet(
-        self, inter: utils.Interaction, responses: dict[str, typing.Any]
-    ) -> None:
-        await inter.response.defer()
-
-        channel_id, trigger = (
-            inter.data["custom_id"]
-            .removeprefix("ui:edit-bullet-")
-            .split("|", maxsplit=1)
-        )
-        channel_id = int(channel_id)
-
-        bullet = await models.TruthBullet.find_via_trigger(channel_id, trigger)
-        if bullet is None:
-            raise utils.CustomCheckFailure("This Truth Bullet no longer exists.")
-
-        trigger = utils.replace_smart_punc(responses["truth_bullet_trigger"])
-
-        if (
-            bullet.trigger.lower() != trigger.lower()
-            and await models.TruthBullet.validate(channel_id, trigger)
-        ):
-            raise commands.BadArgument(
-                f"A Truth Bullet in <#{channel_id}> already has the trigger"
-                f" `{trigger}` or has an alias named that."
-            )
-
-        try:
-            if isinstance(responses["truth_bullet_hidden"], list):
-                hidden = utils.convert_to_bool(responses["truth_bullet_hidden"][0])
-            else:
-                hidden = utils.convert_to_bool(responses["truth_bullet_hidden"])
-        except commands.BadArgument:
-            raise commands.BadArgument(
-                "Invalid value for hiding the Truth Bullet. Giving a simple 'yes'"
-                " or 'no' will work."
-            ) from None
-
-        image: str | None = (
-            responses["truth_bullet_image"].strip()
-            if responses.get("truth_bullet_image")
-            else None
-        )
-        if image and not utils.HTTP_URL_REGEX.fullmatch(image):
-            raise commands.BadArgument("The image given must be a valid URL.")
-
-        bullet.trigger = trigger
-        bullet.description = responses["truth_bullet_desc"]
-        bullet.hidden = hidden
-        bullet.image = image
-        await bullet.save(force_update=True)
-
-        if bullet.trigger != trigger:
-            await inter.respond(
-                view=utils.make_view(
-                    f"Edited Truth Bullet `{trigger}` (renamed to"
-                    f" `{bullet.trigger}`) in <#{channel_id}>."
-                )
-            )
-        else:
-            await inter.respond(
-                view=utils.make_view(
-                    f"Edited Truth Bullet `{trigger}` in <#{channel_id}>."
-                )
-            )
 
     @bullet_manage.command(name="unfind", description="Un-finds a Truth Bullet.")
     async def unfind_bullet(
