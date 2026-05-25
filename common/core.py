@@ -131,6 +131,9 @@ class Cog(discord.Cog):
 
 # more of a typehint thing than anything else
 class Interaction(discord.Interaction):
+    guild_id: int
+    guild: discord.Guild
+
     @property
     def client(self) -> THIABase:
         return super().client  # type: ignore

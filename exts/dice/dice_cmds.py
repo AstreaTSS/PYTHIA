@@ -546,7 +546,7 @@ class DiceCMDs(utils.Cog):
     async def dice_help(self, ctx: utils.THIASlashContext) -> None:
         container = utils.make_container(
             "To see to use the dice system, follow the dice usage guide below.",
-            title="Setup Bot",
+            title="Set Up Dice System",
         )
         container.add_separator(divider=False)
         container.add_row(

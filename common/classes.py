@@ -61,6 +61,36 @@ class ContainerPaginator(discord.ui.DesignerView):
             timeout=timeout,
         )
 
+    @classmethod
+    def create_from_list(
+        cls,
+        entries: typing.Iterable[str],
+        *,
+        title: str,
+        author_id: int,
+        page_size: int = 3900,
+        timeout: float = 120,
+    ) -> typing.Self:
+        pages: list[list[discord.ui.ViewItem]] = []
+        page_length = 0
+        page = ""
+        for entry in entries:
+            if len(page) + len(f"\n{entry}") <= page_size:
+                page += f"{entry}\n"
+            else:
+                pages.append([discord.ui.TextDisplay(page)])
+                page_length += 1
+                page = ""
+        if page != "":
+            pages.append([discord.ui.TextDisplay(page)])
+
+        return cls(
+            *pages,
+            title=title,
+            author_id=author_id,
+            timeout=timeout,
+        )
+
     @property
     def last_page_index(self) -> int:
         return len(self.pages) - 1

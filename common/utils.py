@@ -11,6 +11,7 @@ import logging
 import os
 import platform
 import re
+import textwrap
 import traceback
 from pathlib import Path
 
@@ -40,6 +41,9 @@ if typing.TYPE_CHECKING:
 
 SINGLE_QUOTE_REGEX = re.compile(r"‘|’")  # noqa: RUF001
 DOUBLE_QUOTE_REGEX = re.compile(r"“|”|„|‟|⹂|〝|〞|＂")  # noqa: RUF001
+HTTP_URL_REGEX = re.compile(
+    r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
+)
 
 
 def toggle_friendly_str(bool_to_convert: bool) -> typing.Literal["on", "off"]:
@@ -53,6 +57,13 @@ def yesno_friendly_str(bool_to_convert: bool) -> typing.Literal["yes", "no"]:
 def replace_smart_punc(text: str) -> str:
     text = SINGLE_QUOTE_REGEX.sub("'", text)
     return DOUBLE_QUOTE_REGEX.sub('"', text)
+
+
+def short_string(string: str, length: int = 25) -> str:
+    new_description = textwrap.shorten(string, length, placeholder="...")
+    if new_description == "...":  # word is too long, lets manually cut it
+        return f"{string[:length-3].strip()}..."
+    return new_description
 
 
 def user_string(user: discord.User | discord.Member) -> str:
@@ -71,6 +82,15 @@ def parse_hex_number(hex_number: str) -> discord.Color:
     arg = "".join(i * 2 for i in hex_number) if len(hex_number) == 3 else hex_number
     value = int(arg, base=16)
     return discord.Color(value=value)
+
+
+def convert_to_bool(argument: str) -> bool:
+    lowered = argument.lower()
+    if lowered in {"yes", "y", "true", "t", "1", "enable", "on"}:
+        return True
+    if lowered in {"no", "n", "false", "f", "0", "disable", "off"}:
+        return False
+    raise commands.BadArgument(f"{argument} is not a recognised boolean option.")
 
 
 def file_to_ext(str_path: str, base_path: str) -> str:
@@ -148,6 +168,19 @@ def error_view(error_msg: str) -> discord.ui.DesignerView:
     )
 
 
+def role_check(ctx: THIASlashContext, role: discord.Role) -> discord.Role:
+    top_role = ctx.guild.me.top_role
+
+    if role > top_role:
+        raise CustomCheckFailure(
+            "The role provided is a role that is higher than the roles I can edit. "
+            + "Please move either that role or my role so that "
+            + "my role is higher than the role you want to use."
+        )
+
+    return role
+
+
 def valid_channel_check(channel: "ChannelT", perms: discord.Permissions) -> "ChannelT":
     if not perms:
         raise commands.BadArgument(f"Cannot resolve permissions for {channel.name}.")
@@ -218,6 +251,51 @@ async def error_handle(
                 " will likely fix the issue soon."
             )
         )
+
+
+def button_handler(
+    custom_id: str | None = None,
+    custom_id_prefix: str | None = None,
+) -> typing.Callable[
+    [typing.Callable[[CogT, Interaction, str], typing.Awaitable[None]]],
+    typing.Callable[[CogT, Interaction], typing.Awaitable[None]],
+]:
+    if not custom_id and not custom_id_prefix:
+        raise ValueError("Either custom_id or custom_id_prefix must be provided.")
+    if custom_id and custom_id_prefix:
+        raise ValueError("custom_id and custom_id_prefix cannot both be provided.")
+
+    def inner(
+        func: typing.Callable[[CogT, Interaction, str], typing.Awaitable[None]],
+    ) -> typing.Callable[[CogT, Interaction], typing.Awaitable[None]]:
+        async def wrapper(self: CogT, inter: Interaction) -> None:
+            if inter.type != discord.InteractionType.component or not inter.data:
+                return
+
+            if inter.data["component_type"] != discord.ComponentType.button:
+                return
+
+            if custom_id and inter.data["custom_id"] != custom_id:
+                return
+            if custom_id_prefix and not inter.data["custom_id"].startswith(
+                custom_id_prefix
+            ):
+                return
+
+            try:
+                await func(
+                    self,
+                    inter,
+                    inter.data["custom_id"],
+                )
+            except Exception as error:
+                inter.client.dispatch("view_error", error, None, inter)
+
+        wrapper.__name__ = func.__name__
+        wrapper.__doc__ = func.__doc__
+        return discord.Cog.listener("on_interaction")(wrapper)
+
+    return inner
 
 
 def modal_handler(
