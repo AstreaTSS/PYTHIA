@@ -500,7 +500,7 @@ class GachaManagement(utils.Extension):
                 await ctx.send(
                     components=ipy.ContainerComponent(
                         ipy.TextDisplayComponent(
-                            f"# {ctx.author.display_name}'s Gacha Profile"
+                            f"# {user.display_name}'s Gacha Profile"
                         ),
                         *chunks[0],
                         accent_color=self.bot.color,
@@ -510,7 +510,7 @@ class GachaManagement(utils.Extension):
 
             pag = classes.ContainerPaginator(
                 self.bot,
-                title=f"{ctx.author.display_name}'s Gacha Profile",
+                title=f"{user.display_name}'s Gacha Profile",
                 pages_data=chunks,
             )
             await pag.send(ctx)
@@ -518,11 +518,11 @@ class GachaManagement(utils.Extension):
 
         if mode == "cozy":
             embeds = player.create_profile_cozy(
-                ctx.author.display_name, config.names, sort_by=sort_by
+                user.display_name, config.names, sort_by=sort_by
             )
         else:
             embeds = player.create_profile_compact(
-                ctx.author.display_name, config.names, sort_by=sort_by
+                user.display_name, config.names, sort_by=sort_by
             )
 
         if len(embeds) > 1:
