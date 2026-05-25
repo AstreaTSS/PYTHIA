@@ -49,6 +49,8 @@ class BulletFinding(utils.Cog):
         guild: discord.Guild,
         bullet_chan: discord.TextChannel | discord.Thread | None,
         config: models.GuildConfig,
+        *,
+        okay_if_no_chan: bool = False,
     ) -> None:
         if await models.TruthBullet.filter(guild_id=guild.id, found=False).exists():
             return
@@ -58,7 +60,12 @@ class BulletFinding(utils.Cog):
             assert config.names and isinstance(config.names, models.Names)
 
         if not bullet_chan:
-            bullet_chan = await self.bot.getch_channel(config.bullets.bullet_chan_id)
+            if okay_if_no_chan:
+                return
+
+            bullet_chan = await self.bot.getch_channel(
+                config.bullets.bullet_chan_id or 0
+            )
             if not bullet_chan or not isinstance(bullet_chan, discord.abc.Messageable):
                 config.bullets.bullets_enabled = False
                 self.bot.msg_enabled_bullets_guilds.discard(int(guild.id))
@@ -323,8 +330,12 @@ class BulletFinding(utils.Cog):
 
         message = await ctx.respond(embed=embed, ephemeral=truth_bullet.hidden)
 
-        if not truth_bullet.hidden:
-            bullet_chan = await self.bot.getch_channel(config.bullets.bullet_chan_id)
+        if not truth_bullet.hidden and (
+            config.bullets.bullet_chan_id or not kwargs.get("manual_trigger")
+        ):
+            bullet_chan = await self.bot.getch_channel(
+                config.bullets.bullet_chan_id or 0
+            )
             if not bullet_chan or not isinstance(bullet_chan, discord.abc.Messageable):
                 config.bullets.bullets_enabled = False
                 self.bot.msg_enabled_bullets_guilds.discard(int(ctx.guild_id))
@@ -357,7 +368,12 @@ class BulletFinding(utils.Cog):
                 ) from None
 
         await truth_bullet.save(force_update=True)
-        await self.check_for_finish(ctx.guild, bullet_chan, config)
+        await self.check_for_finish(
+            ctx.guild,
+            bullet_chan,
+            config,
+            okay_if_no_chan=kwargs.get("manual_trigger", False),
+        )
 
     @bullet_manage.command(
         name="manual-trigger",
