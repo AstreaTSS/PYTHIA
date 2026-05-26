@@ -61,12 +61,15 @@ class AddTruthBulletModal(discord.ui.DesignerModal):
                 ),
             ),
             discord.ui.Label(
-                label="Hide this Truth Bullet only to the finder?",
-                item=discord.ui.Select(
-                    discord.ComponentType.string_select,
+                label="Show this Truth Bullet only to the finder?",
+                description=(
+                    "If enabled, only the person who finds the Truth Bullet will be"
+                    " able to see it."
+                ),
+                item=discord.ui.RadioGroup(
                     options=[
-                        discord.SelectOption(label="Yes", value="yes"),
-                        discord.SelectOption(label="No", value="no", default=True),
+                        discord.RadioGroupOption(label="Yes", value="yes"),
+                        discord.RadioGroupOption(label="No", value="no", default=True),
                     ],
                     custom_id="truth_bullet_hidden",
                     required=True,
@@ -188,11 +191,14 @@ class EditTruthBulletModal(discord.ui.DesignerModal):
                 ),
             ),
             discord.ui.Label(
-                label="Hide this Truth Bullet only to the finder?",
-                item=discord.ui.Select(
-                    discord.ComponentType.string_select,
+                label="Show this Truth Bullet only to the finder?",
+                description=(
+                    "If enabled, only the person who finds the Truth Bullet will be"
+                    " able to see it."
+                ),
+                item=discord.ui.RadioGroup(
                     options=[
-                        discord.SelectOption(
+                        discord.RadioGroupOption(
                             label=v,
                             value=v.lower(),
                             default=v.lower()

@@ -57,11 +57,12 @@ class CreateItemModal(discord.ui.DesignerModal):
             ),
             discord.ui.Label(
                 label="Is this item takeable?",
-                item=discord.ui.Select(
-                    discord.ComponentType.string_select,
+                item=discord.ui.RadioGroup(
                     options=[
-                        discord.SelectOption(label="Yes", value="yes", default=True),
-                        discord.SelectOption(label="No", value="no"),
+                        discord.RadioGroupOption(
+                            label="Yes", value="yes", default=True
+                        ),
+                        discord.RadioGroupOption(label="No", value="no"),
                     ],
                     custom_id="item_takeable",
                     required=True,
@@ -165,10 +166,9 @@ class EditItemModal(discord.ui.DesignerModal):
             ),
             discord.ui.Label(
                 label="Is this item takeable?",
-                item=discord.ui.Select(
-                    discord.ComponentType.string_select,
+                item=discord.ui.RadioGroup(
                     options=[
-                        discord.SelectOption(
+                        discord.RadioGroupOption(
                             label=v,
                             value=v.lower(),
                             default=v.lower()
