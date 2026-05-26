@@ -374,10 +374,17 @@ class DiceCMDs(utils.Cog):
             ),
         )
 
+        container = utils.make_container(
+            "Exported registered dice to JSON file.", title="Dice Export"
+        )
+        container.add_separator(divider=False)
+        container.add_file(url=f"attachment://{entries_file.filename}")
+
         try:
             await ctx.respond(
-                view=utils.make_view("Exported registered dice to JSON file."),
+                view=utils.quick_view(container),
                 file=entries_file,
+                ephemeral=True,
             )
         finally:
             entries_io.close()
@@ -536,7 +543,8 @@ class DiceCMDs(utils.Cog):
             await models.DiceEntry.bulk_create(to_create)
 
         await ctx.respond(
-            view=utils.make_view("Imported dice from JSON file."), ephemeral=True
+            view=utils.make_view("Imported dice from JSON file.", title="Dice Import"),
+            ephemeral=True,
         )
 
     @dice.command(
