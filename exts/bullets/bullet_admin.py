@@ -21,7 +21,7 @@ import common.fuzzy as fuzzy
 import common.models as models
 import common.utils as utils
 
-from ._bullet_common import bullet_manage
+from . import bullet_common
 
 
 class AddTruthBulletModal(discord.ui.DesignerModal):
@@ -82,11 +82,7 @@ class AddTruthBulletModal(discord.ui.DesignerModal):
     async def callback(self, inter: utils.Interaction) -> None:
         await inter.response.defer()
 
-        responses: dict[str, typing.Any] = {
-            child.item.custom_id: getattr(child.item, "values", child.item.value)
-            for child in self.children
-            if isinstance(child, discord.ui.Label)
-        }
+        responses = utils.parse_modal_responses(self)
 
         config = await models.GuildConfig.fetch_create(
             inter.guild_id, {"bullets": True}
@@ -218,11 +214,7 @@ class EditTruthBulletModal(discord.ui.DesignerModal):
     async def callback(self, inter: utils.Interaction) -> None:
         await inter.response.defer()
 
-        responses: dict[str, typing.Any] = {
-            child.item.custom_id: getattr(child.item, "values", child.item.value)
-            for child in self.children
-            if isinstance(child, discord.ui.Label)
-        }
+        responses = utils.parse_modal_responses(self)
 
         # quick re-verify
         bullet = await models.TruthBullet.get_or_none(id=self.bullet.id)
@@ -292,7 +284,16 @@ class BulletManagement(utils.Cog):
             collections.defaultdict(asyncio.Lock)
         )
 
-    @bullet_manage.command(
+    manage = ragwort.SlashCommandGroup(
+        name="bullet-manage",
+        description="Handles management of Truth Bullets.",
+        default_member_permissions=discord.Permissions(manage_guild=True),
+        contexts={
+            discord.InteractionContextType.guild,
+        },
+    )
+
+    @manage.command(
         name="add",
         description="Adds a Truth Bullet to a channel.",
     )
@@ -425,7 +426,7 @@ class BulletManagement(utils.Cog):
             AddTruthBulletModal(channel, self.bullet_creation_locks)
         )
 
-    @bullet_manage.command(
+    @manage.command(
         name="remove",
         description="Removes a Truth Bullet.",
     )
@@ -468,7 +469,7 @@ class BulletManagement(utils.Cog):
         description="Deletes a Truth Bullet. Alias to /bullet-manage remove.",
     )
 
-    @bullet_manage.command(
+    @manage.command(
         name="clear",
         description="Removes all Truth Bullets. This action is irreversible.",
     )
@@ -501,7 +502,7 @@ class BulletManagement(utils.Cog):
         description="Clears all Truth Bullets. Alias to /bullet-manage clear.",
     )
 
-    @bullet_manage.command(
+    @manage.command(
         name="list",
         description="Lists all Truth Bullets in the server.",
     )
@@ -532,11 +533,11 @@ class BulletManagement(utils.Cog):
             str_builder.append("")
 
         pag = classes.ContainerPaginator.create_from_list(
-            str_builder, title="Truth Bullets in this Server", author_id=ctx.author.id
+            str_builder, title="Truth Bullets in this server", author_id=ctx.author.id
         )
         if len(pag.pages) == 1:
             item: discord.ui.TextDisplay = pag.pages[0][0]  # type: ignore
-            view = utils.make_view(item.content, title="Truth Bullets in this Server")
+            view = utils.make_view(item.content, title="Truth Bullets in this server")
             await ctx.respond(view=view)
             return
 
@@ -548,7 +549,7 @@ class BulletManagement(utils.Cog):
         description="Lists all Truth Bullets. Alias to /bullet-manage list.",
     )
 
-    @bullet_manage.command(
+    @manage.command(
         name="info", description="Displays information about a Truth Bullet."
     )
     async def bullet_info(
@@ -608,7 +609,7 @@ class BulletManagement(utils.Cog):
         description="Views a Truth Bullet. Alias to /bullet-manage info.",
     )
 
-    @bullet_manage.command(name="edit", description="Edits a Truth Bullet.")
+    @manage.command(name="edit", description="Edits a Truth Bullet.")
     @ragwort.auto_defer(enabled=False)
     async def edit_bullet(
         self,
@@ -642,7 +643,7 @@ class BulletManagement(utils.Cog):
         description="Edits a Truth Bullet. Alias to /bullet-manage edit.",
     )
 
-    @bullet_manage.command(name="unfind", description="Un-finds a Truth Bullet.")
+    @manage.command(name="unfind", description="Un-finds a Truth Bullet.")
     async def unfind_bullet(
         self,
         ctx: utils.THIASlashContext,
@@ -682,7 +683,7 @@ class BulletManagement(utils.Cog):
         description="Un-finds a Truth Bullet. Alias to /bullet-manage unfind.",
     )
 
-    @bullet_manage.command(
+    @manage.command(
         name="override-finder",
         description="Overrides who found a Truth Bullet with the person specified.",
     )
@@ -715,7 +716,7 @@ class BulletManagement(utils.Cog):
 
         await ctx.respond(view=utils.make_view("Truth Bullet overrided and found!"))
 
-    @bullet_manage.command(
+    @manage.command(
         name="add-alias", description="Adds an alias to the Truth Bullet specified."
     )
     async def add_alias(
@@ -783,7 +784,7 @@ class BulletManagement(utils.Cog):
             )
         )
 
-    @bullet_manage.command(
+    @manage.command(
         name="remove-alias",
         description="Removes an alias from the Truth Bullet specified.",
     )
@@ -830,10 +831,34 @@ class BulletManagement(utils.Cog):
             )
         )
 
+    @manage.command(
+        name="manual-trigger",
+        description="Manually trigger a Truth Bullet in the current channel.",
+    )
+    @ragwort.auto_defer(enabled=False)
+    async def manual_trigger(
+        self,
+        ctx: utils.THIASlashContext,
+        trigger: str = ragwort.Option(
+            "The trigger of the Truth Bullet to manually trigger.",
+            input_type=utils.ReplaceSmartPuncConverter,
+        ),
+        finder: discord.Member | None = ragwort.Option(
+            "The person who will find the Truth Bullet.", default=None
+        ),
+    ) -> None:
+        await bullet_common.command_investigate(
+            ctx, trigger, manual_trigger=True, finder=finder
+        )
+
     @remove_bullet.autocomplete("trigger")
+    @delete_bullet.autocomplete("trigger")
     @bullet_info.autocomplete("trigger")
+    @view_bullet.autocomplete("trigger")
     @edit_bullet.autocomplete("trigger")
+    @edit_bullet_full.autocomplete("trigger")
     @unfind_bullet.autocomplete("trigger")
+    @unfind_bullet_full.autocomplete("trigger")
     @override_bullet.autocomplete("trigger")
     @add_alias.autocomplete("trigger")
     @remove_alias.autocomplete("trigger")
@@ -849,9 +874,34 @@ class BulletManagement(utils.Cog):
     ) -> list[discord.OptionChoice]:
         return await fuzzy.autocomplete_aliases(**ctx.options)
 
+    @manual_trigger.autocomplete("trigger")
+    async def _manual_trigger_autocomplete(
+        self, ctx: discord.AutocompleteContext
+    ) -> list[discord.OptionChoice]:
+        if not ctx.interaction.guild_id:
+            return []
+
+        config = await models.BulletConfig.get_or_none(
+            guild_id=ctx.interaction.guild_id
+        )
+
+        if (
+            config
+            and config.thread_behavior == models.BulletThreadBehavior.PARENT
+            and isinstance(ctx.interaction.channel, discord.Thread)
+        ):
+            channel_id = ctx.interaction.channel.parent_id
+        else:
+            channel_id = ctx.interaction.channel_id
+
+        return await fuzzy.autocomplete_bullets(
+            ctx.options["trigger"], channel=str(channel_id), only_not_found=True
+        )
+
 
 def setup(bot: utils.THIABase) -> None:
     importlib.reload(utils)
     importlib.reload(fuzzy)
     importlib.reload(classes)
+    importlib.reload(bullet_common)
     bot.add_cog(BulletManagement(bot))

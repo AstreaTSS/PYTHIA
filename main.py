@@ -228,7 +228,7 @@ async def start() -> None:
     for ext in ext_list:
         if "voting" in ext and not utils.VOTING_ENABLED:
             continue
-        if ext.split(".")[-1].startswith("_"):
+        if ext.split(".")[-1].endswith("common"):
             continue
 
         try:
