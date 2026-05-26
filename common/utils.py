@@ -38,6 +38,7 @@ CogT = typing.TypeVar("CogT", bound=discord.Cog)
 
 if typing.TYPE_CHECKING:
     ChannelT = typing.TypeVar("ChannelT", bound=discord.abc.MessageableChannel)
+    SlashCommandT = typing.TypeVar("SlashCommandT", bound=discord.SlashCommand)
 
 SINGLE_QUOTE_REGEX = re.compile(r"‘|’")  # noqa: RUF001
 DOUBLE_QUOTE_REGEX = re.compile(r"“|”|„|‟|⹂|〝|〞|＂")  # noqa: RUF001
@@ -205,12 +206,12 @@ def valid_channel_check(channel: "ChannelT", perms: discord.Permissions) -> "Cha
 
 
 def alias(
-    command: discord.SlashCommand,
+    command: "SlashCommandT",
     *,
     name: str,
     description: str,
     parent: discord.SlashCommandGroup | None = None,
-) -> discord.SlashCommand:
+) -> "SlashCommandT":
     parent = parent or command.parent
     new_cmd = command.copy()
     new_cmd.name = name
@@ -251,6 +252,16 @@ async def error_handle(
                 " will likely fix the issue soon."
             )
         )
+
+
+def parse_modal_responses(view: discord.ui.DesignerModal) -> dict[str, typing.Any]:
+    return {
+        child.item.custom_id: getattr(
+            child.item, "values", getattr(child.item, "value", None)
+        )
+        for child in view.children
+        if isinstance(child, discord.ui.Label)
+    }
 
 
 def button_handler(

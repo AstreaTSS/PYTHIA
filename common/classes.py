@@ -349,7 +349,10 @@ class EmbedPaginator(discord.ui.View):
 
 class ButtonToModal(discord.ui.DesignerView):
     def __init__(
-        self, text: str, button: discord.ui.Button, modal: discord.ui.BaseModal
+        self,
+        text: str,
+        button: discord.ui.Button,
+        modal: typing.Callable[[], discord.ui.DesignerModal],
     ) -> None:
         self.button = button
         self.modal = modal
@@ -368,4 +371,4 @@ class ButtonToModal(discord.ui.DesignerView):
         )
 
     async def handle_button(self, interaction: discord.Interaction) -> None:
-        await interaction.response.send_modal(self.modal)
+        await interaction.response.send_modal(self.modal())

@@ -537,8 +537,9 @@ class BulletManagement(utils.Cog):
         )
         if len(pag.pages) == 1:
             item: discord.ui.TextDisplay = pag.pages[0][0]  # type: ignore
-            view = utils.make_view(item.content, title="Truth Bullets in this server")
-            await ctx.respond(view=view)
+            await ctx.respond(
+                view=utils.make_view(item.content, title="Truth Bullets in this server")
+            )
             return
 
         await ctx.respond(view=pag)

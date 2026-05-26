@@ -60,7 +60,7 @@ class THIAContextMixin:
 
 
 class THIABridgeApplicationContext(THIAContextMixin, bridge.BridgeApplicationContext):
-    pass
+    channel_id: int
 
 
 THIASlashContext = THIABridgeApplicationContext
