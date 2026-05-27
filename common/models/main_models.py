@@ -194,10 +194,10 @@ class ItemsSystemItem(Model):
         embeds: list[discord.Embed] = []
 
         embed = discord.Embed(
-            title=f"{self.name}{f' (x{count})' if count else ''}",
-            description=self.description,
+            description=(
+                f"# {self.name}{f' (x{count})' if count else ''}]\n{self.description}"
+            ),
             color=discord.Color(int(os.environ["BOT_COLOR"])),
-            timestamp=discord.utils.utcnow(),
         )
         if self.image:
             embed.set_thumbnail(url=self.image)
@@ -235,10 +235,9 @@ class ItemsSystemItem(Model):
                 if character_count + len(string_to_use) > 4000:
                     embeds.append(
                         discord.Embed(
-                            title=f"{self.name} - Possessors",
-                            description="\n".join(str_builder),
+                            description=f"# {self.name} - Possessors\n"
+                            + "\n".join(str_builder),
                             color=discord.Color(int(os.environ["BOT_COLOR"])),
-                            timestamp=discord.utils.utcnow(),
                         )
                     )
 
@@ -251,10 +250,9 @@ class ItemsSystemItem(Model):
             if str_builder:
                 embeds.append(
                     discord.Embed(
-                        title=f"{self.name} - Possessors",
-                        description="\n".join(str_builder),
+                        description=f"# {self.name} - Possessors\n"
+                        + "\n".join(str_builder),
                         color=discord.Color(int(os.environ["BOT_COLOR"])),
-                        timestamp=discord.utils.utcnow(),
                     )
                 )
 

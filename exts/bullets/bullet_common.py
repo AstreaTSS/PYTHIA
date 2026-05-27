@@ -88,14 +88,14 @@ async def check_for_finish(
         content = " ".join(f"<@{person_id}>" for person_id in most_found_people)
 
         embed = discord.Embed(
-            title=f"All {config.names.plural_bullet} have been found.",
-            description="\n".join(str_builder),
+            description=f"# All {config.names.plural_bullet} have been found.\n"
+            + "\n".join(str_builder),
             color=discord.Color.green(),
         )
         embed.set_footer(text=f"Found {most_found_num} {bullet_name}")
     else:
         embed = discord.Embed(
-            title=f"All {config.names.plural_bullet} have been found.",
+            description=f"# All {config.names.plural_bullet} have been found.",
             color=discord.Color.green(),
         )
 
