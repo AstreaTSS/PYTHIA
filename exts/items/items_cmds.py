@@ -399,7 +399,7 @@ class ItemsCommands(utils.Cog):
 
     alias_item_drop = utils.alias(
         item_drop,
-        name="inventory drop",
+        name="drop",
         description=(
             "Drops an item from your inventory into the current channel. Alias for"
             " /items drop."

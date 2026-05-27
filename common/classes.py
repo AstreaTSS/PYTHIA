@@ -364,7 +364,7 @@ class ButtonToModal(discord.ui.DesignerView):
             discord.ui.Container(
                 discord.ui.Section(
                     discord.ui.TextDisplay(text),
-                    self.button,
+                    accessory=self.button,
                 ),
                 color=utils.BOT_COLOR,
             )

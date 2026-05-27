@@ -122,7 +122,7 @@ class CreateItemModal(discord.ui.DesignerModal):
 
 
 create_item_button = classes.ButtonToModal(
-    text="Create items via the button below!",
+    text="Create items through this button!",
     button=discord.ui.Button(
         style=discord.ButtonStyle.green,
         label="Create item",
