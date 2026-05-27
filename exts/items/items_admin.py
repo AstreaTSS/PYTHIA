@@ -14,7 +14,6 @@ import importlib
 import discord
 import ragwort
 import typing_extensions as typing
-from discord.ext import commands
 
 import common.classes as classes
 import common.fuzzy as fuzzy
@@ -82,7 +81,7 @@ class CreateItemModal(discord.ui.DesignerModal):
             if await models.ItemsSystemItem.exists(
                 guild_id=int(inter.guild_id), name__iexact=name
             ):
-                raise commands.BadArgument(
+                raise utils.BadArgument(
                     f"An item named `{discord.utils.escape_markdown(name)}` already"
                     " exists in this server."
                 )
@@ -92,8 +91,8 @@ class CreateItemModal(discord.ui.DesignerModal):
                     takeable = utils.convert_to_bool(responses["item_takeable"][0])
                 else:
                     takeable = utils.convert_to_bool(responses["item_takeable"])
-            except commands.BadArgument:
-                raise commands.BadArgument(
+            except utils.BadArgument:
+                raise utils.BadArgument(
                     "Invalid value for if the item is takeable. Giving a simple"
                     " 'yes' or 'no' will work."
                 ) from None
@@ -102,7 +101,7 @@ class CreateItemModal(discord.ui.DesignerModal):
                 responses["item_image"].strip() if responses.get("item_image") else None
             )
             if image and not utils.HTTP_URL_REGEX.fullmatch(image):
-                raise commands.BadArgument("The image given must be a valid URL.")
+                raise utils.BadArgument("The image given must be a valid URL.")
 
             await models.GuildConfig.fetch_create(inter.guild_id, {"items": True})
 
@@ -193,7 +192,7 @@ class EditItemModal(discord.ui.DesignerModal):
         # quick re-verify
         item = await models.ItemsSystemItem.get_or_none(id=self.item.id)
         if not item:
-            raise commands.BadArgument("This item no longer exists.")
+            raise utils.BadArgument("This item no longer exists.")
 
         old_name = item.name
         name = utils.replace_smart_punc(responses["item_name"])
@@ -201,7 +200,7 @@ class EditItemModal(discord.ui.DesignerModal):
         if name.lower() != old_name.lower() and await models.ItemsSystemItem.exists(
             guild_id=int(inter.guild_id), name__iexact=name
         ):
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 f"An item named `{name}` already exists in this server."
             )
 
@@ -210,8 +209,8 @@ class EditItemModal(discord.ui.DesignerModal):
                 takeable = utils.convert_to_bool(responses["item_takeable"][0])
             else:
                 takeable = utils.convert_to_bool(responses["item_takeable"])
-        except commands.BadArgument:
-            raise commands.BadArgument(
+        except utils.BadArgument:
+            raise utils.BadArgument(
                 "Invalid value for if the item is takeable. Giving a simple"
                 " 'yes' or 'no' will work."
             ) from None
@@ -220,7 +219,7 @@ class EditItemModal(discord.ui.DesignerModal):
             responses["item_image"].strip() if responses.get("item_image") else None
         )
         if image and not utils.HTTP_URL_REGEX.fullmatch(image):
-            raise commands.BadArgument("The image given must be a valid URL.")
+            raise utils.BadArgument("The image given must be a valid URL.")
 
         item.name = name
         item.description = responses["item_description"]
@@ -414,7 +413,7 @@ class ItemsManagement(utils.Cog):
             name=name,
         )
         if not item:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 f"Item `{discord.utils.escape_markdown(name)}` does not exist in this"
                 " server."
             )
@@ -438,7 +437,7 @@ class ItemsManagement(utils.Cog):
         ),
     ) -> None:
         if mode not in ("cozy", "compact"):
-            raise commands.BadArgument("Invalid mode.")
+            raise utils.BadArgument("Invalid mode.")
 
         items = await models.ItemsSystemItem.filter(guild_id=ctx.guild_id)
         if not items:
@@ -548,7 +547,7 @@ class ItemsManagement(utils.Cog):
         ),
     ) -> None:
         if mode not in ("cozy", "compact"):
-            raise commands.BadArgument("Invalid mode.")
+            raise utils.BadArgument("Invalid mode.")
 
         channel_items = await models.ItemRelation.filter(
             object_id=channel.id,
@@ -626,7 +625,7 @@ class ItemsManagement(utils.Cog):
             name=name,
         )
         if not item:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 f"Item `{discord.utils.escape_markdown(name)}` does not exist in this"
                 " server."
             )
@@ -696,7 +695,7 @@ class ItemsManagement(utils.Cog):
             name=name,
         )
         if not item:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 f"Item `{discord.utils.escape_markdown(name)}` does not exist in this"
                 " server."
             )
@@ -761,7 +760,7 @@ class ItemsManagement(utils.Cog):
 
         item = await queryset
         if not item:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 f"Item `{discord.utils.escape_markdown(name)}` does not exist in this"
                 " server."
             )
@@ -790,7 +789,7 @@ class ItemsManagement(utils.Cog):
             guild_id=ctx.guild_id, name=name
         ).delete()
         if count == 0:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 f"Item `{discord.utils.escape_markdown(name)}` does not exist in this"
                 " server."
             )
@@ -844,7 +843,7 @@ class ItemsManagement(utils.Cog):
         ),
     ) -> None:
         if not confirm:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 "Confirm option not set to true. Please set the option `confirm` to"
                 " true to continue."
             )

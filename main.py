@@ -122,7 +122,7 @@ class PYTHIA(utils.THIABase):
 
         elif isinstance(
             error,
-            utils.CustomCheckFailure | commands.BadArgument | commands.UserInputError,
+            utils.CustomCheckFailure | utils.BadArgument | commands.UserInputError,
         ):
             await ctx.respond(view=utils.error_view(str(error)))
         elif isinstance(error, discord.CheckFailure):

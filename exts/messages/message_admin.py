@@ -12,7 +12,6 @@ import typing
 
 import discord
 import ragwort
-from discord.ext import commands
 
 import common.classes as classes
 import common.models as models
@@ -285,7 +284,7 @@ class MessageManagement(utils.Cog):
         ),
     ) -> None:
         if not confirm:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 "Confirm option not set to true. Please set the option `confirm` to"
                 " true to continue."
             )

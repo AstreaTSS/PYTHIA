@@ -76,7 +76,7 @@ class MessageCMDs(utils.Cog):
             guild_id=ctx.guild_id, user_id=user.id
         )
         if not other_user_link:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 "The specified user is not set up with the messaging system."
             )
 
@@ -165,7 +165,7 @@ class MessageCMDs(utils.Cog):
             guild_id=ctx.guild_id, user_id=user.id
         )
         if not other_user_link:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 "The specified user is not set up with the messaging system."
             )
 

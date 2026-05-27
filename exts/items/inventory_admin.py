@@ -12,7 +12,6 @@ import importlib
 
 import discord
 import ragwort
-from discord.ext import commands
 
 import common.classes as classes
 import common.fuzzy as fuzzy
@@ -54,7 +53,7 @@ class InventoryManagement(utils.Cog):
         ),
     ) -> None:
         if mode not in ("cozy", "compact"):
-            raise commands.BadArgument("Invalid mode.")
+            raise utils.BadArgument("Invalid mode.")
 
         user_items = await models.ItemRelation.filter(
             guild_id=ctx.guild_id,
@@ -128,7 +127,7 @@ class InventoryManagement(utils.Cog):
             guild_id=ctx.guild_id, name=name
         )
         if not item:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 f"Item `{discord.utils.escape_markdown(name)}` does not exist in this"
                 " server."
             )
@@ -187,7 +186,7 @@ class InventoryManagement(utils.Cog):
             guild_id=ctx.guild_id, name=name
         )
         if not item:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 f"Item `{discord.utils.escape_markdown(name)}` does not exist in this"
                 " server."
             )
@@ -252,7 +251,7 @@ class InventoryManagement(utils.Cog):
             guild_id=ctx.guild_id, name=name
         )
         if not item:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 f"Item `{discord.utils.escape_markdown(name)}` does not exist in this"
                 " server."
             )

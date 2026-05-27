@@ -11,7 +11,6 @@ import importlib
 
 import discord
 import ragwort
-from discord.ext import commands
 
 import common.models as models
 import common.utils as utils
@@ -43,7 +42,7 @@ class ClearAllDataModal(discord.ui.DesignerModal):
         confirm_input: str = self.children[0].item.value
 
         if confirm_input != "Clear all data.":
-            raise commands.BadArgument("Confirmation input did not match.")
+            raise utils.BadArgument("Confirmation input did not match.")
 
         await models.GuildConfig.filter(guild_id=int(inter.guild_id)).delete()
         await models.TruthBullet.filter(guild_id=int(inter.guild_id)).delete()
@@ -162,7 +161,7 @@ class ConfigCMDs(utils.Cog):
         ),
     ) -> None:
         if not confirm:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 "Confirm option not set to true. Please set the option `confirm` to"
                 " true to continue."
             )

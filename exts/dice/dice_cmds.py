@@ -86,13 +86,11 @@ class DiceCMDs(utils.Cog):
         try:
             result = d20_roll(dice)
         except d20.errors.RollSyntaxError as e:
-            raise commands.BadArgument(f"Invalid dice roll syntax.\n{e!s}") from None
+            raise utils.BadArgument(f"Invalid dice roll syntax.\n{e!s}") from None
         except d20.errors.TooManyRolls:
-            raise commands.BadArgument(
-                "Too many dice rolls in the expression."
-            ) from None
+            raise utils.BadArgument("Too many dice rolls in the expression.") from None
         except d20.errors.RollValueError:
-            raise commands.BadArgument("Invalid dice roll value.") from None
+            raise utils.BadArgument("Invalid dice roll value.") from None
 
         await ctx.respond(view=utils.make_view(result.result), ephemeral=not visible)
 
@@ -129,18 +127,16 @@ class DiceCMDs(utils.Cog):
             guild_id=guild_id, user_id=ctx.author.id, name=name
         )
         if not entry:
-            raise commands.BadArgument("No registered dice found with that name.")
+            raise utils.BadArgument("No registered dice found with that name.")
 
         try:
             result = d20_roll(entry.value)
         except d20.errors.RollSyntaxError as e:
-            raise commands.BadArgument(f"Invalid dice roll syntax.\n{e!s}") from None
+            raise utils.BadArgument(f"Invalid dice roll syntax.\n{e!s}") from None
         except d20.errors.TooManyRolls:
-            raise commands.BadArgument(
-                "Too many dice rolls in the expression."
-            ) from None
+            raise utils.BadArgument("Too many dice rolls in the expression.") from None
         except d20.errors.RollValueError:
-            raise commands.BadArgument("Invalid dice roll value.") from None
+            raise utils.BadArgument("Invalid dice roll value.") from None
 
         await ctx.respond(view=utils.make_view(result.result), ephemeral=not visible)
 
@@ -191,22 +187,20 @@ class DiceCMDs(utils.Cog):
             if await models.DiceEntry.exists(
                 guild_id=guild_id, user_id=ctx.author.id, name__iexact=name
             ):
-                raise commands.BadArgument("A dice with that name already exists.")
+                raise utils.BadArgument("A dice with that name already exists.")
 
             await models.GuildConfig.fetch_create(int(guild_id), {"dice": True})
 
             try:
                 d20_roll(dice)
             except d20.errors.RollSyntaxError as e:
-                raise commands.BadArgument(
-                    f"Invalid dice roll syntax.\n{e!s}"
-                ) from None
+                raise utils.BadArgument(f"Invalid dice roll syntax.\n{e!s}") from None
             except d20.errors.TooManyRolls:
-                raise commands.BadArgument(
+                raise utils.BadArgument(
                     "Too many dice rolls in the expression."
                 ) from None
             except d20.errors.RollValueError:
-                raise commands.BadArgument("Invalid dice roll value.") from None
+                raise utils.BadArgument("Invalid dice roll value.") from None
 
             await models.DiceEntry.create(
                 guild_id=guild_id,
@@ -240,7 +234,7 @@ class DiceCMDs(utils.Cog):
             guild_id=guild_id, user_id=ctx.author.id
         )
         if not entries:
-            raise commands.BadArgument(f"No registered dice{extra} found.")
+            raise utils.BadArgument(f"No registered dice{extra} found.")
 
         str_builder = [f"- **{e.name}**: {e.value}" for e in entries]
 
@@ -286,7 +280,7 @@ class DiceCMDs(utils.Cog):
             ).delete()
             < 1
         ):
-            raise commands.BadArgument("No registered dice found with that name.")
+            raise utils.BadArgument("No registered dice found with that name.")
         await ctx.respond(view=utils.make_view(f"Removed dice {name}."), ephemeral=True)
 
     @dice.command(
@@ -301,7 +295,7 @@ class DiceCMDs(utils.Cog):
         ),
     ) -> None:
         if not confirm:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 "Confirm option not set to true. Please set the option `confirm` to"
                 " true to continue."
             )
@@ -320,7 +314,7 @@ class DiceCMDs(utils.Cog):
             ).delete()
             < 1
         ):
-            raise commands.BadArgument("You have no registered dice to clear.")
+            raise utils.BadArgument("You have no registered dice to clear.")
         await ctx.respond(
             view=utils.make_view("Cleared all registered dice."), ephemeral=True
         )
@@ -346,7 +340,7 @@ class DiceCMDs(utils.Cog):
             guild_id=guild_id, user_id=ctx.author.id
         )
         if not entries:
-            raise commands.BadArgument(f"No registered dice{extra} found.")
+            raise utils.BadArgument(f"No registered dice{extra} found.")
 
         entries_dict: list[exports.DiceEntryDict] = [
             {
@@ -410,12 +404,12 @@ class DiceCMDs(utils.Cog):
         if not json_file.content_type or not json_file.content_type.startswith(
             "application/json"
         ):
-            raise commands.BadArgument("The file must be a JSON file.")
+            raise utils.BadArgument("The file must be a JSON file.")
 
         async with aiohttp.ClientSession() as session:
             async with session.get(json_file.url) as response:
                 if response.status != 200:
-                    raise commands.BadArgument("Failed to fetch the file.")
+                    raise utils.BadArgument("Failed to fetch the file.")
 
                 try:
                     await response.content.readexactly(10485760 + 1)
@@ -433,27 +427,25 @@ class DiceCMDs(utils.Cog):
                 entry.value = entry.value.strip()
 
                 if not entry.name:
-                    raise commands.BadArgument("Dice entry names cannot be empty.")
+                    raise utils.BadArgument("Dice entry names cannot be empty.")
                 if not entry.value:
-                    raise commands.BadArgument(
+                    raise utils.BadArgument(
                         f"Dice entry value for `{entry.name}` cannot be empty."
                     )
 
                 if len(entry.name) > 100:
-                    raise commands.BadArgument(
+                    raise utils.BadArgument(
                         f"Dice entry name `{entry.name}` is too long. Names must be 100"
                         " characters or fewer."
                     )
                 if len(entry.value) > 100:
-                    raise commands.BadArgument(
+                    raise utils.BadArgument(
                         f"Dice entry value for `{entry.name}` is too long. Values must"
                         " be 100 characters or fewer."
                     )
 
         except msgspec.DecodeError:
-            raise commands.BadArgument(
-                "The file is not in the correct format."
-            ) from None
+            raise utils.BadArgument("The file is not in the correct format.") from None
 
         guild_id = 0
         if (
@@ -505,7 +497,7 @@ class DiceCMDs(utils.Cog):
                         name__in=[entry.name for entry in entries],
                     ).delete()
                 else:
-                    raise commands.BadArgument(
+                    raise utils.BadArgument(
                         "One or more die in the file shares a name with an existing"
                         " registered die."
                     )
@@ -516,17 +508,17 @@ class DiceCMDs(utils.Cog):
                 try:
                     d20_roll(entry.value)
                 except d20.errors.RollSyntaxError as e:
-                    raise commands.BadArgument(
+                    raise utils.BadArgument(
                         "Invalid dice roll syntax for"
                         f" `{discord.utils.escape_markdown(entry.name)}`.\n{e!s}"
                     ) from None
                 except d20.errors.TooManyRolls:
-                    raise commands.BadArgument(
+                    raise utils.BadArgument(
                         "Too many dice rolls in the expression for"
                         f" `{discord.utils.escape_markdown(entry.name)}`."
                     ) from None
                 except d20.errors.RollValueError:
-                    raise commands.BadArgument(
+                    raise utils.BadArgument(
                         "Invalid dice roll value for"
                         f" `{discord.utils.escape_markdown(entry.name)}`."
                     ) from None

@@ -12,7 +12,6 @@ import importlib
 import discord
 import ragwort
 import typing_extensions as typing
-from discord.ext import commands
 
 import common.models as models
 import common.utils as utils
@@ -113,7 +112,7 @@ class EditBulletFinderNamesModal(discord.ui.DesignerModal):
         if (
             var_name := models.TEMPLATE_MARKDOWN.search(singular_truth_bullet_finder)
         ) and var_name.group(2) != "bullet_name":
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 "Invalid variable name in Singular Truth Bullet Finder. Only"
                 " `{{bullet_name}}`, the Truth Bullet name, is allowed."
             )
@@ -121,7 +120,7 @@ class EditBulletFinderNamesModal(discord.ui.DesignerModal):
         if (
             var_name := models.TEMPLATE_MARKDOWN.search(plural_truth_bullet_finder)
         ) and var_name.group(2) != "bullet_name":
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 "Invalid variable name in Plural Truth Bullet Finder. Only"
                 " `{{bullet_name}}`, the Truth Bullet name, is allowed."
             )
@@ -129,7 +128,7 @@ class EditBulletFinderNamesModal(discord.ui.DesignerModal):
         if (
             var_name := models.TEMPLATE_MARKDOWN.search(best_bullet_finder)
         ) and var_name.group(2) != "bullet_finder":
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 "Invalid variable name in Best Truth Bullet Finder. Only"
                 " `{{bullet_finder}}`, the Truth Bullet Finder name, is allowed."
             )
@@ -351,7 +350,7 @@ class BulletConfigCMDs(utils.Cog):
         try:
             investigation_type = models.InvestigationType(mode)
         except ValueError:
-            raise commands.BadArgument("Invalid investigation mode.") from None
+            raise utils.BadArgument("Invalid investigation mode.") from None
 
         config = await ctx.fetch_config({"bullets": True})
         if typing.TYPE_CHECKING:
@@ -398,7 +397,7 @@ class BulletConfigCMDs(utils.Cog):
         try:
             thread_behavior = models.BulletThreadBehavior(behavior)
         except ValueError:
-            raise commands.BadArgument("Invalid thread behavior.") from None
+            raise utils.BadArgument("Invalid thread behavior.") from None
 
         config = await ctx.fetch_config({"bullets": True})
         if typing.TYPE_CHECKING:
@@ -476,7 +475,7 @@ class BulletConfigCMDs(utils.Cog):
         ),
     ) -> None:
         if to_change not in {"bullet_names", "bullet_finders"}:
-            raise commands.BadArgument("Invalid change requested!")
+            raise utils.BadArgument("Invalid change requested!")
 
         config = await ctx.fetch_config({"names": True})
         if typing.TYPE_CHECKING:

@@ -314,6 +314,9 @@ class ReplaceSmartPuncConverter(commands.Converter):
         return replace_smart_punc(argument)
 
 
+BadArgument = commands.BadArgument
+
+
 class CustomCheckFailure(discord.CheckFailure):
     # custom classs for custom prerequisite failures outside of normal command checks
     pass

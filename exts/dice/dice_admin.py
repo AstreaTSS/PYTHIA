@@ -15,7 +15,6 @@ import d20
 import discord
 import ragwort
 import typing_extensions as typing
-from discord.ext import commands
 
 import common.classes as classes
 import common.fuzzy as fuzzy
@@ -143,20 +142,18 @@ class DiceManagement(utils.Cog):
             guild_id=ctx.guild_id, user_id=user.id, name=name
         )
         if not entry:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 "No registered dice found with that name for that user."
             )
 
         try:
             result = d20_roll(entry.value)
         except d20.errors.RollSyntaxError as e:
-            raise commands.BadArgument(f"Invalid dice roll syntax.\n{e!s}") from None
+            raise utils.BadArgument(f"Invalid dice roll syntax.\n{e!s}") from None
         except d20.errors.TooManyRolls:
-            raise commands.BadArgument(
-                "Too many dice rolls in the expression."
-            ) from None
+            raise utils.BadArgument("Too many dice rolls in the expression.") from None
         except d20.errors.RollValueError:
-            raise commands.BadArgument("Invalid dice roll value.") from None
+            raise utils.BadArgument("Invalid dice roll value.") from None
 
         await ctx.respond(
             view=utils.make_view(result.result), ephemeral=hidden == "yes"
@@ -195,7 +192,7 @@ class DiceManagement(utils.Cog):
             if await models.DiceEntry.exists(
                 guild_id=ctx.guild_id, user_id=user.id, name__iexact=name
             ):
-                raise commands.BadArgument(
+                raise utils.BadArgument(
                     "A dice with that name already exists for that user."
                 )
 
@@ -204,15 +201,13 @@ class DiceManagement(utils.Cog):
             try:
                 d20_roll(dice)
             except d20.errors.RollSyntaxError as e:
-                raise commands.BadArgument(
-                    f"Invalid dice roll syntax.\n{e!s}"
-                ) from None
+                raise utils.BadArgument(f"Invalid dice roll syntax.\n{e!s}") from None
             except d20.errors.TooManyRolls:
-                raise commands.BadArgument(
+                raise utils.BadArgument(
                     "Too many dice rolls in the expression."
                 ) from None
             except d20.errors.RollValueError:
-                raise commands.BadArgument("Invalid dice roll value.") from None
+                raise utils.BadArgument("Invalid dice roll value.") from None
 
             await models.DiceEntry.create(
                 guild_id=ctx.guild_id,
@@ -236,7 +231,7 @@ class DiceManagement(utils.Cog):
     ) -> None:
         entries = await models.DiceEntry.filter(guild_id=ctx.guild_id, user_id=user.id)
         if not entries:
-            raise commands.BadArgument("No registered dice found for that user.")
+            raise utils.BadArgument("No registered dice found for that user.")
 
         str_builder = [f"- **{e.name}**: {e.value}" for e in entries]
 
@@ -278,7 +273,7 @@ class DiceManagement(utils.Cog):
             ).delete()
             < 1
         ):
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 "No registered dice found for that user with that name."
             )
 
@@ -302,7 +297,7 @@ class DiceManagement(utils.Cog):
             ).delete()
             < 1
         ):
-            raise commands.BadArgument("No registered dice found for that user.")
+            raise utils.BadArgument("No registered dice found for that user.")
 
         await ctx.respond(view=utils.make_view(f"Cleared all dice for {user.mention}."))
 
@@ -318,7 +313,7 @@ class DiceManagement(utils.Cog):
         ),
     ) -> None:
         if not confirm:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 "Confirm option not set to true. Please set the option `confirm` to"
                 " true to continue."
             )
@@ -329,7 +324,7 @@ class DiceManagement(utils.Cog):
             ).delete()
             < 1
         ):
-            raise commands.BadArgument("No registered dice found for this server.")
+            raise utils.BadArgument("No registered dice found for this server.")
 
         await ctx.respond(view=utils.make_view("Cleared all dice for this server."))
 

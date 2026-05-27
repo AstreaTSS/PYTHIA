@@ -13,7 +13,6 @@ import importlib
 import discord
 import ragwort
 import typing_extensions as typing
-from discord.ext import commands
 
 import common.classes as classes
 import common.fuzzy as fuzzy
@@ -79,7 +78,7 @@ class ItemsCommands(utils.Cog):
             relations__object_id=int(ctx.channel_id),
         ).first()
         if not item:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 f"Item `{discord.utils.escape_markdown(name)}` does not exist in this"
                 " channel."
             )
@@ -144,7 +143,7 @@ class ItemsCommands(utils.Cog):
             item__name=name,
         ).prefetch_related("item")
         if not item_relations:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 f"Item `{discord.utils.escape_markdown(name)}` does not exist in this"
                 " channel."
             )
@@ -154,7 +153,7 @@ class ItemsCommands(utils.Cog):
             assert item is not None
 
         if not item.takeable:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 f"Item `{discord.utils.escape_markdown(name)}` cannot be taken."
             )
 
@@ -208,7 +207,7 @@ class ItemsCommands(utils.Cog):
         ),
     ) -> None:
         if mode not in ("cozy", "compact"):
-            raise commands.BadArgument("Invalid mode.")
+            raise utils.BadArgument("Invalid mode.")
 
         user_items = await models.ItemRelation.filter(
             guild_id=ctx.guild_id,
@@ -283,7 +282,7 @@ class ItemsCommands(utils.Cog):
             relations__object_id=ctx.author.id,
         ).first()
         if not item:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 f"Item `{discord.utils.escape_markdown(name)}` is not in your"
                 " inventory."
             )
@@ -318,7 +317,7 @@ class ItemsCommands(utils.Cog):
             name=name,
         )
         if not item:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 f"Item `{discord.utils.escape_markdown(name)}` does not exist in this"
                 " server."
             )

@@ -14,7 +14,6 @@ import typing
 
 import discord
 import ragwort
-from discord.ext import commands
 
 import common.classes as classes
 import common.fuzzy as fuzzy
@@ -108,7 +107,7 @@ class AddTruthBulletModal(discord.ui.DesignerModal):
             if await models.TruthBullet.validate(
                 self.channel.id, responses["truth_bullet_trigger"]
             ):
-                raise commands.BadArgument(
+                raise utils.BadArgument(
                     f"A Truth Bullet in {self.channel.mention} already has the trigger"
                     f" `{responses['truth_bullet_trigger']}` or has an"
                     " alias named that!"
@@ -119,8 +118,8 @@ class AddTruthBulletModal(discord.ui.DesignerModal):
                     hidden = utils.convert_to_bool(responses["truth_bullet_hidden"][0])
                 else:
                     hidden = utils.convert_to_bool(responses["truth_bullet_hidden"])
-            except commands.BadArgument:
-                raise commands.BadArgument(
+            except utils.BadArgument:
+                raise utils.BadArgument(
                     "Invalid value for hiding the Truth Bullet! Giving a simple"
                     " 'yes' or 'no' will work."
                 ) from None
@@ -131,7 +130,7 @@ class AddTruthBulletModal(discord.ui.DesignerModal):
                 else None
             )
             if image and not utils.HTTP_URL_REGEX.fullmatch(image):
-                raise commands.BadArgument("The image given must be a valid URL.")
+                raise utils.BadArgument("The image given must be a valid URL.")
 
             await models.TruthBullet.create(
                 trigger=utils.replace_smart_punc(responses["truth_bullet_trigger"]),
@@ -233,7 +232,7 @@ class EditTruthBulletModal(discord.ui.DesignerModal):
             bullet.trigger.lower() != trigger.lower()
             and await models.TruthBullet.validate(self.channel.id, trigger)
         ):
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 f"A Truth Bullet in {self.channel.mention} already has the trigger"
                 f" `{trigger}` or has an alias named that."
             )
@@ -243,8 +242,8 @@ class EditTruthBulletModal(discord.ui.DesignerModal):
                 hidden = utils.convert_to_bool(responses["truth_bullet_hidden"][0])
             else:
                 hidden = utils.convert_to_bool(responses["truth_bullet_hidden"])
-        except commands.BadArgument:
-            raise commands.BadArgument(
+        except utils.BadArgument:
+            raise utils.BadArgument(
                 "Invalid value for hiding the Truth Bullet. Giving a simple 'yes'"
                 " or 'no' will work."
             ) from None
@@ -255,7 +254,7 @@ class EditTruthBulletModal(discord.ui.DesignerModal):
             else None
         )
         if image and not utils.HTTP_URL_REGEX.fullmatch(image):
-            raise commands.BadArgument("The image given must be a valid URL.")
+            raise utils.BadArgument("The image given must be a valid URL.")
 
         bullet.trigger = trigger
         bullet.description = responses["truth_bullet_desc"]
@@ -465,7 +464,7 @@ class BulletManagement(utils.Cog):
                 )
             )
         else:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 f"Truth Bullet with trigger `{trigger}` does not exists!"
             )
 
@@ -487,7 +486,7 @@ class BulletManagement(utils.Cog):
         ),
     ) -> None:
         if not confirm:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 "Confirm option not set to true. Please set the option `confirm` to"
                 " true to continue."
             )
@@ -577,7 +576,7 @@ class BulletManagement(utils.Cog):
     ) -> None:
         bullet = await models.TruthBullet.find_via_trigger(channel.id, trigger)
         if not bullet:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 f"Truth Bullet with trigger `{trigger}` does not exist in"
                 f" {channel.mention}!"
             )
@@ -638,7 +637,7 @@ class BulletManagement(utils.Cog):
 
         bullet = await models.TruthBullet.find_via_trigger(channel.id, trigger)
         if not bullet:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 f"Truth Bullet with trigger `{trigger}` does not exist!"
             )
 
@@ -670,11 +669,11 @@ class BulletManagement(utils.Cog):
         possible_bullet = await models.TruthBullet.find_via_trigger(channel.id, trigger)
 
         if not possible_bullet:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 f"Truth Bullet with trigger `{trigger}` does not exist!"
             )
         if not possible_bullet.found:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 f"Truth Bullet with trigger `{trigger}` has not been found!"
             )
 
@@ -715,7 +714,7 @@ class BulletManagement(utils.Cog):
     ) -> None:
         possible_bullet = await models.TruthBullet.find_via_trigger(channel.id, trigger)
         if not possible_bullet:
-            raise commands.BadArgument(f"Truth Bullet with `{trigger}` does not exist!")
+            raise utils.BadArgument(f"Truth Bullet with `{trigger}` does not exist!")
 
         possible_bullet.found = True
         possible_bullet.finder = user.id
@@ -748,7 +747,7 @@ class BulletManagement(utils.Cog):
         ),
     ) -> None:
         if len(alias) > 40:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 "The name is too large for me to use! "
                 + "Please use something at or under 40 characters."
             )
@@ -757,14 +756,14 @@ class BulletManagement(utils.Cog):
             channel_id=channel.id,
             trigger__iexact=alias,
         ):
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 f"Alias `{alias}` is used as a trigger for another Truth Bullet for"
                 " this channel!"
             )
 
         possible_bullet = await models.TruthBullet.find_via_trigger(channel.id, trigger)
         if not possible_bullet:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 f"Truth Bullet with trigger `{trigger}` does not exist!"
             )
 
@@ -777,7 +776,7 @@ class BulletManagement(utils.Cog):
             )
 
         if alias in possible_bullet.aliases:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 f"Alias `{alias}` already exists for this Truth Bullet!"
             )
 
@@ -817,7 +816,7 @@ class BulletManagement(utils.Cog):
     ) -> None:
         possible_bullet = await models.TruthBullet.find_via_trigger(channel.id, trigger)
         if not possible_bullet:
-            raise commands.BadArgument(f"Truth Bullet with `{trigger}` does not exist!")
+            raise utils.BadArgument(f"Truth Bullet with `{trigger}` does not exist!")
 
         if possible_bullet.aliases is None:
             possible_bullet.aliases = []
@@ -825,7 +824,7 @@ class BulletManagement(utils.Cog):
         try:
             possible_bullet.aliases.remove(alias)
         except KeyError:
-            raise commands.BadArgument(
+            raise utils.BadArgument(
                 f"Alias `{alias}` does not exists for this Truth Bullet!"
             ) from None
 
