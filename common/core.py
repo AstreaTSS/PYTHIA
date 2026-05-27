@@ -62,6 +62,10 @@ class THIAContextMixin:
 class THIABridgeApplicationContext(THIAContextMixin, bridge.BridgeApplicationContext):
     channel_id: int
 
+    if typing.TYPE_CHECKING:
+        # very funny way to make sure not to use the send method
+        async def send(self) -> None: ...
+
 
 THIASlashContext = THIABridgeApplicationContext
 

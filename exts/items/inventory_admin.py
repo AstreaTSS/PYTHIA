@@ -83,19 +83,8 @@ class InventoryManagement(utils.Cog):
 
         limit = 15 if mode == "cozy" else 30
 
-        if len(str_builder) > limit:
-            chunks = [
-                str_builder[x : x + limit] for x in range(0, len(str_builder), limit)
-            ]
-            items = [[discord.ui.TextDisplay("\n".join(entry))] for entry in chunks]
-        else:
-            await ctx.respond(
-                view=utils.make_view(
-                    title=f"{user.display_name}'s Inventory",
-                    description="\n".join(str_builder),
-                )
-            )
-            return
+        chunks = [str_builder[x : x + limit] for x in range(0, len(str_builder), limit)]
+        items = [[discord.ui.TextDisplay("\n".join(entry))] for entry in chunks]
 
         pag = classes.ContainerPaginator(
             *items, title=f"{user.display_name}'s Inventory", author_id=ctx.author.id

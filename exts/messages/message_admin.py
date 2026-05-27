@@ -238,22 +238,15 @@ class MessageManagement(utils.Cog):
             )
 
         links_list = [f"<@{link.user_id}> -> <#{link.channel_id}>" for link in links]
-        if len(links_list) > 30:
-            chunks = [links_list[x : x + 30] for x in range(0, len(links_list), 30)]
-            items = [[discord.ui.TextDisplay("\n".join(chunk))] for chunk in chunks]
-            pag = classes.ContainerPaginator(
-                *items,
-                title="Messaging Links",
-                author_id=ctx.author.id,
-            )
-            await ctx.respond(view=pag)
-        else:
-            await ctx.respond(
-                view=utils.make_view(
-                    "\n".join(links_list),
-                    title="Items",
-                )
-            )
+        chunks = [links_list[x : x + 30] for x in range(0, len(links_list), 30)]
+        items = [[discord.ui.TextDisplay("\n".join(chunk))] for chunk in chunks]
+
+        pag = classes.ContainerPaginator(
+            *items,
+            title="Messaging Links",
+            author_id=ctx.author.id,
+        )
+        await ctx.respond(view=pag)
 
     @manage.command(
         name="remove-link", description="Removes a messaging link for a user."

@@ -457,23 +457,11 @@ class ItemsManagement(utils.Cog):
         ]
         limit = 15 if mode == "cozy" else 30
 
-        if len(items_list) > limit:
-            chunks = [
-                items_list[x : x + limit] for x in range(0, len(items_list), limit)
-            ]
-            items = [[discord.ui.TextDisplay("\n".join(chunk))] for chunk in chunks]
+        chunks = [items_list[x : x + limit] for x in range(0, len(items_list), limit)]
+        items = [[discord.ui.TextDisplay("\n".join(chunk))] for chunk in chunks]
 
-            pag = classes.ContainerPaginator(
-                *items, title="Items", author_id=ctx.author.id
-            )
-            await ctx.respond(view=pag)
-        else:
-            await ctx.respond(
-                view=utils.make_view(
-                    "\n".join(items_list),
-                    title="Items",
-                )
-            )
+        pag = classes.ContainerPaginator(*items, title="Items", author_id=ctx.author.id)
+        await ctx.respond(view=pag)
 
     @manage.command(
         name="list-placed-items",
@@ -513,13 +501,6 @@ class ItemsManagement(utils.Cog):
         pag = classes.ContainerPaginator.create_from_list(
             str_builder, title="Placed Items", author_id=ctx.author.id
         )
-        if len(pag.pages) == 1:
-            test_display: discord.ui.TextDisplay = pag.pages[0][0]  # type: ignore
-            await ctx.respond(
-                view=utils.make_view(test_display.content, title="Placed Items")
-            )
-            return
-
         await ctx.respond(view=pag)
 
     @manage.command(
@@ -576,23 +557,13 @@ class ItemsManagement(utils.Cog):
 
         limit = 15 if mode == "cozy" else 30
 
-        if len(str_builder) > limit:
-            chunks = [
-                str_builder[x : x + limit] for x in range(0, len(str_builder), limit)
-            ]
-            items = [[discord.ui.TextDisplay("\n".join(chunk))] for chunk in chunks]
+        chunks = [str_builder[x : x + limit] for x in range(0, len(str_builder), limit)]
+        items = [[discord.ui.TextDisplay("\n".join(chunk))] for chunk in chunks]
 
-            pag = classes.ContainerPaginator(
-                *items, title=f"Items in #{channel.name}", author_id=ctx.author.id
-            )
-            await ctx.respond(view=pag)
-        else:
-            await ctx.respond(
-                view=utils.make_view(
-                    "\n".join(str_builder),
-                    title=f"Items in #{channel.name}",
-                )
-            )
+        pag = classes.ContainerPaginator(
+            *items, title=f"Items in #{channel.name}", author_id=ctx.author.id
+        )
+        await ctx.respond(view=pag)
 
     @manage.command(
         name="place-item-in-channel",

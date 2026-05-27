@@ -7,7 +7,6 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """
 
-import os
 import random
 from collections import Counter
 from decimal import Decimal
@@ -164,36 +163,45 @@ class GachaItem(Model):
     class Meta:
         table = "thiagachaitems"
 
-    def embed(
+    def container(
         self,
         names: "Names",
         rarities: "GachaRarities",
         *,
         show_rarity: bool = True,
         show_amount: bool = False,
-    ) -> discord.Embed:
-        embed = discord.Embed(
-            title=self.name,
-            description=self.description,
-            color=rarities.color(self.rarity),
-            timestamp=discord.utils.utcnow(),
-        )
-        if self.image:
-            embed.set_thumbnail(url=self.image)
+    ) -> discord.ui.Container:
+        container = discord.ui.Container(color=rarities.color(self.rarity))
 
+        str_builder: list[str] = [f"# {self.name}"]
         if show_rarity:
-            embed.add_field(
-                name="Rarity", value=names.rarity_name(self.rarity), inline=True
+            str_builder.append(f"## Rarity: {names.rarity_name(self.rarity)}")
+        str_builder.append(self.description)
+
+        if self.image:
+            container.add_section(
+                discord.ui.TextDisplay("\n".join(str_builder)),
+                accessory=discord.ui.Thumbnail(url=self.image),
             )
+        else:
+            container.add_text("\n".join(str_builder))
 
         if show_amount:
-            embed.add_field(
-                name="Quantity",
-                value=self.amount if self.amount != -1 else "Unlimited",
-                inline=True,
+            container.add_separator(
+                divider=True, spacing=discord.SeparatorSpacingSize.large
+            )
+            container.add_row(
+                discord.ui.Button(
+                    style=discord.ButtonStyle.gray,
+                    label=(
+                        "Quantity Remaining:"
+                        f" {self.amount if self.amount != -1 else 'Unlimited'}"
+                    ),
+                    disabled=True,
+                )
             )
 
-        return embed
+        return container
 
     @classmethod
     async def roll(cls, guild_id: int, rarity: Rarity) -> list[typing.Self] | None:
@@ -266,43 +274,13 @@ class GachaPlayer(Model):
             key=lambda x: x[0].item.name.lower(),
         )
 
-    def _embedize_str_builder(
-        self, str_builder: list[str], user_display_name: str, *, limit: int
-    ) -> list[discord.Embed]:
-        if len(str_builder) <= limit:
-            return [
-                discord.Embed(
-                    title=f"{user_display_name}'s Gacha Profile",
-                    description="\n".join(str_builder),
-                    color=discord.Color(int(os.environ["BOT_COLOR"])),
-                    timestamp=discord.utils.utcnow(),
-                )
-            ]
-        chunks = [str_builder[x : x + limit] for x in range(0, len(str_builder), limit)]
-        return [
-            discord.Embed(
-                title=f"{user_display_name}'s Gacha Profile",
-                description="\n".join(chunk),
-                color=discord.Color(int(os.environ["BOT_COLOR"])),
-                timestamp=discord.utils.utcnow(),
-            )
-            for chunk in chunks
-        ]
-
     def create_profile_compact(
         self,
-        user_display_name: str,
         names: "Names",
         *,
         sort_by: typing.Literal["name", "rarity", "time_gotten"],
-    ) -> list[discord.Embed]:
-        str_builder = [
-            (
-                "Balance:"
-                f" {self.currency_amount} {names.currency_name(self.currency_amount)}"
-            ),
-            "\n**Items:**",
-        ]
+    ) -> list[list[discord.ui.ViewItem]]:
+        str_builder: list[str] = []
 
         if (
             self.items._fetched
@@ -318,39 +296,22 @@ class GachaPlayer(Model):
         else:
             str_builder.append("*No items.*")
 
-        return self._embedize_str_builder(str_builder, user_display_name, limit=30)
+        chunks = [str_builder[x : x + 30] for x in range(0, len(str_builder), 30)]
+        components: list[list[discord.ui.ViewItem]] = []
 
-    def create_profile_cozy(
-        self,
-        user_display_name: str,
-        names: "Names",
-        *,
-        sort_by: typing.Literal["name", "rarity", "time_gotten"],
-    ) -> list[discord.Embed]:
-        str_builder = [
-            (
-                "Balance:"
-                f" {self.currency_amount} {names.currency_name(self.currency_amount)}"
+        for chunk in chunks:
+            components.append([discord.ui.TextDisplay("\n".join(chunk))])
+
+        components[0].insert(0, discord.ui.Separator(divider=True))
+        components[0].insert(
+            0,
+            discord.ui.TextDisplay(
+                f"Balance: {self.currency_amount}"
+                f" {names.currency_name(self.currency_amount)}"
             ),
-            "## Items",
-        ]
+        )
 
-        if (
-            self.items._fetched
-            and self.items
-            and all(isinstance(entry.item, GachaItem) for entry in self.items)
-        ):
-            counter_data = self._organize_gacha_items(sort_by)
-            str_builder.extend(
-                f"**{discord.utils.escape_markdown(entry.item.name)}**{f' (x{count})' if count > 1 else ''}\n-#"
-                f" {names.rarity_name(entry.item.rarity)} ●"
-                f" {short_desc(entry.item.description, length=50)}"
-                for entry, count in counter_data
-            )
-        else:
-            str_builder.append("*No items.*")
-
-        return self._embedize_str_builder(str_builder, user_display_name, limit=15)
+        return components
 
     def create_profile_modern(
         self,

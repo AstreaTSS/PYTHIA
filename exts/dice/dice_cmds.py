@@ -237,18 +237,9 @@ class DiceCMDs(utils.Cog):
             raise utils.BadArgument(f"No registered dice{extra} found.")
 
         str_builder = [f"- **{e.name}**: {e.value}" for e in entries]
-
-        if len(str_builder) <= 15:
-            await ctx.respond(
-                view=utils.make_view(
-                    "\n".join(str_builder), title=f"Registered dice{extra}:"
-                ),
-                ephemeral=True,
-            )
-            return
-
         chunks = [str_builder[x : x + 15] for x in range(0, len(str_builder), 15)]
         pages = [[discord.ui.TextDisplay("\n".join(chunk))] for chunk in chunks]
+
         pag = classes.ContainerPaginator(
             *pages, title=f"Registered dice{extra}:", author_id=ctx.author.id
         )

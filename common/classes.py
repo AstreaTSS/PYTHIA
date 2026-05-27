@@ -30,6 +30,11 @@ class ContainerPaginator(discord.ui.DesignerView):
         self.author_id = author_id
         self.page_index = 0
 
+        if len(self.pages) == 1:
+            self.timeout = None
+            self.disable_on_timeout = False
+            self._store = False
+
         self.update_items()
 
     @classmethod
@@ -105,7 +110,7 @@ class ContainerPaginator(discord.ui.DesignerView):
         for entry in self.pages[self.page_index]:
             container.add_item(entry)
 
-        if not disable:
+        if not disable and len(self.pages) > 1:
             container.add_separator(divider=True)
             container.add_row(
                 discord.ui.Button(

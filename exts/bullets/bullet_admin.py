@@ -540,13 +540,6 @@ class BulletManagement(utils.Cog):
         pag = classes.ContainerPaginator.create_from_list(
             str_builder, title="Truth Bullets in this server", author_id=ctx.author.id
         )
-        if len(pag.pages) == 1:
-            item: discord.ui.TextDisplay = pag.pages[0][0]  # type: ignore
-            await ctx.respond(
-                view=utils.make_view(item.content, title="Truth Bullets in this server")
-            )
-            return
-
         await ctx.respond(view=pag)
 
     list_bullets_full = utils.alias(
