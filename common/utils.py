@@ -126,21 +126,7 @@ def get_all_extensions(str_path: str, folder: str = "exts") -> list[str]:
 def quick_view(
     *items: discord.ui.ViewItem,
 ) -> discord.ui.DesignerView:
-    class CustomDesignerView(discord.ui.DesignerView):
-        pass
-
-    return CustomDesignerView(*items, store=False)
-
-
-def quick_model(
-    *items: discord.ui.ModalItem,
-    title: str,
-    custom_id: str,
-) -> discord.ui.DesignerModal:
-    class CustomModal(discord.ui.DesignerModal):
-        pass
-
-    return CustomModal(*items, title=title, custom_id=custom_id, store=False)
+    return discord.ui.DesignerView(*items, store=False)
 
 
 def make_container(
