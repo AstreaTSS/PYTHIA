@@ -351,21 +351,44 @@ class TruthBullet(Model):
     def chan_mention(self) -> str:
         return f"<#{self.channel_id}>"
 
-    def found_embed(self, user_mention: str, singular_bullet: str) -> discord.Embed:
-        embed = discord.Embed(
-            title=f"{singular_bullet} Discovered",
-            color=int(os.environ["BOT_COLOR"]),
-        )
-        embed.description = (
+    def found_view(
+        self,
+        user_mention: str,
+        *,
+        singular_bullet: str | None = None,
+        context_url: str | None = None,
+    ) -> discord.ui.DesignerView:
+        text = discord.ui.TextDisplay(
             f"# `{discord.utils.escape_markdown(self.trigger)}` -"
             f" {self.chan_mention}\n-# Discovered at:"
             f" {discord.utils.format_dt(discord.utils.utcnow())}\n-# Found by:"
             f" {user_mention}\n\n{self.description}"
         )
-        if self.image:
-            embed.set_image(url=self.image)
 
-        return embed
+        container = discord.ui.Container(
+            color=discord.Color(int(os.environ["BOT_COLOR"]))
+        )
+
+        if singular_bullet:
+            container.add_text(f"## {singular_bullet} Discovered")
+            container.add_separator(divider=False)
+
+        container.add_item(text)
+
+        if self.image:
+            container.add_gallery(discord.MediaGalleryItem(self.image))
+
+        if context_url:
+            container.add_separator(divider=False)
+            container.add_row(
+                discord.ui.Button(
+                    style=discord.ButtonStyle.link,
+                    label="Context",
+                    url=context_url,
+                )
+            )
+
+        return discord.ui.DesignerView(container, store=False)
 
     @classmethod
     async def find(

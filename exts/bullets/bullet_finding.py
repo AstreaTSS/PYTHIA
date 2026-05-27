@@ -97,9 +97,6 @@ class BulletFinding(utils.Cog):
         bullet_found.finder = message.author.id
 
         bullet_chan: discord.TextChannel | discord.Thread | None = None
-        embed = bullet_found.found_embed(
-            message.author.mention, config.names.singular_bullet
-        )
 
         if not bullet_found.hidden:
             bullet_chan = await self.bot.getch_channel(config.bullets.bullet_chan_id)
@@ -112,35 +109,27 @@ class BulletFinding(utils.Cog):
 
             try:
                 new_msg = await message.channel.send(
-                    embed=embed,
+                    view=bullet_found.found_view(
+                        message.author.mention,
+                        singular_bullet=config.names.singular_bullet,
+                    ),
                     reference=message.to_reference(fail_if_not_exists=False),
                     allowed_mentions=discord.AllowedMentions(replied_user=True),
                 )
-                embed.title = None
                 await bullet_chan.send(
-                    embed=embed,
-                    view=discord.ui.View(
-                        discord.ui.Button(
-                            style=discord.ButtonStyle.link,
-                            label="Context",
-                            url=new_msg.jump_url,
-                        ),
-                        store=False,
-                    ),
+                    view=bullet_found.found_view(
+                        message.author.mention, context_url=new_msg.jump_url
+                    )
                 )
             except discord.HTTPException:
                 return  # can't do anything here, unforunately
         else:
             try:
                 await message.author.send(
-                    embed=embed,
-                    view=discord.ui.View(
-                        discord.ui.Button(
-                            style=discord.ButtonStyle.link,
-                            label="Context",
-                            url=message.jump_url,
-                        ),
-                        store=False,
+                    view=bullet_found.found_view(
+                        message.author.mention,
+                        singular_bullet=config.names.singular_bullet,
+                        context_url=message.jump_url,
                     ),
                 )
             except discord.HTTPException:

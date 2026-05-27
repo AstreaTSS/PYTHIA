@@ -80,35 +80,37 @@ async def check_for_finish(
         "{{bullet_finder}}", truth_bullet_finder
     )
 
-    content: str | None = None
-
     if config.bullets.show_best_finders:
         str_builder: list[str] = [f"## {best_bullet_finder}"]
         str_builder.extend(f"- <@{person_id}>" for person_id in most_found_people)
-        content = " ".join(f"<@{person_id}>" for person_id in most_found_people)
+        str_builder.append(f"-# Found {most_found_num} {bullet_name}.")
 
-        embed = discord.Embed(
-            description=f"# All {config.names.plural_bullet} have been found.\n"
-            + "\n".join(str_builder),
-            color=discord.Color.green(),
+        view = utils.quick_view(
+            discord.ui.Container(
+                discord.ui.TextDisplay(
+                    f"# All {config.names.plural_bullet} have been found.\n"
+                    + "\n".join(str_builder)
+                ),
+                color=discord.Color.green(),
+            )
         )
-        embed.set_footer(text=f"Found {most_found_num} {bullet_name}")
     else:
-        embed = discord.Embed(
-            description=f"# All {config.names.plural_bullet} have been found.",
-            color=discord.Color.green(),
+        view = utils.quick_view(
+            discord.ui.Container(
+                discord.ui.TextDisplay(
+                    f"# All {config.names.plural_bullet} have been found."
+                ),
+                color=discord.Color.green(),
+            )
         )
 
     try:
         await bullet_chan.send(
-            content,
-            embed=embed,
+            view=view,
             allowed_mentions=(
                 discord.AllowedMentions(
                     users=[discord.Object(person_id) for person_id in most_found_people]
                 )
-                if content
-                else discord.AllowedMentions.none()
             ),
         )
     except discord.HTTPException:
@@ -177,9 +179,12 @@ async def command_investigate(
     truth_bullet.finder = finder.id
 
     bullet_chan: discord.TextChannel | discord.Thread | None = None
-    embed = truth_bullet.found_embed(finder.mention, config.names.singular_bullet)
 
-    message = await ctx.respond(embed=embed, ephemeral=truth_bullet.hidden)
+    message = await ctx.respond(
+        view=truth_bullet.found_view(
+            finder.mention, singular_bullet=config.names.singular_bullet
+        ),
+    )
 
     if not truth_bullet.hidden and (
         config.bullets.bullet_chan_id or not kwargs.get("manual_trigger")
@@ -192,22 +197,15 @@ async def command_investigate(
             await config.bullets.save()
             return
 
-        embed.title = None
-
         try:
             await bullet_chan.send(
-                embed=embed,
-                view=discord.ui.View(
-                    discord.ui.Button(
-                        style=discord.ButtonStyle.link,
-                        label="Context",
-                        url=(
-                            message.message.jump_url
-                            if isinstance(message, discord.Interaction)
-                            else message.jump_url
-                        ),
+                view=truth_bullet.found_view(
+                    finder.mention,
+                    context_url=(
+                        message.message.jump_url
+                        if isinstance(message, discord.Interaction)
+                        else message.jump_url
                     ),
-                    store=False,
                 ),
             )
         except discord.HTTPException:
