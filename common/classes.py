@@ -182,6 +182,7 @@ class ContainerPaginator(discord.ui.DesignerView):
             if (
                 not isinstance(item, (discord.ui.Button, discord.ui.Select))
                 or not item.custom_id
+                or not item.custom_id.startswith(f"{self.id}|")
             ):
                 return
 

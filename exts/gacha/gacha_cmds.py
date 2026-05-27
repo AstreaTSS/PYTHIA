@@ -153,56 +153,10 @@ async def gacha_roll_actual(
             )
 
 
-class GachaRollButtonView(discord.ui.View):
-    def __init__(self, name_for_action: str) -> None:
-        super().__init__(timeout=None)
-        self.name_for_action = name_for_action
-        self.add_item(
-            discord.ui.Button(
-                style=discord.ButtonStyle.blurple,
-                label=f"{name_for_action.capitalize()} Again",
-                custom_id=f"gacha-roll-{name_for_action}",
-            )
-        )
-
-    async def interaction_check(self, inter: utils.Interaction) -> bool:
-        if (
-            inter.message
-            and inter.message.interaction_metadata
-            and int(inter.user.id) != int(inter.message.interaction_metadata.user.id)
-        ):
-            raise utils.CustomCheckFailure(
-                "You cannot use this button as you did not initiate the"
-                f" {self.name_for_action}."
-            )
-
-        return True
-
-    async def on_error(
-        self, error: Exception, item: discord.ui.ViewItem, inter: utils.Interaction
-    ) -> None:
-        if isinstance(error, utils.CustomCheckFailure):
-            await inter.response.send_message(
-                view=utils.error_view(str(error)),
-                ephemeral=True,
-            )
-        else:
-            await super().on_error(error, item, inter)
-
-    async def callback(self, inter: utils.Interaction) -> None:
-        await gacha_roll_actual(
-            inter, name_for_action=self.name_for_action, button_press=True
-        )
-
-
 class GachaCommands(utils.Cog):
     def __init__(self, bot: utils.THIABase) -> None:
         self.bot = bot
         self.__cog_name__ = "Gacha"
-
-        self.bot.add_view(GachaRollButtonView("roll"))
-        self.bot.add_view(GachaRollButtonView("pull"))
-        self.bot.add_view(GachaRollButtonView("draw"))
 
     gacha = ragwort.SlashCommandGroup(
         name="gacha",
@@ -227,6 +181,28 @@ class GachaCommands(utils.Cog):
         name="draw",
         description="Draws for an item in the gacha. Alias of /gacha draw.",
     )
+
+    @utils.button_handler(custom_id_prefix="gacha-roll-")
+    async def gacha_roll_button(self, inter: utils.Interaction, custom_id: str) -> None:
+        action = custom_id.removeprefix("gacha-roll-")
+        if action not in ("roll", "pull", "draw"):
+            raise utils.CustomCheckFailure("Invalid button.")
+
+        if (
+            inter.message
+            and inter.message.interaction_metadata
+            and int(inter.user.id) != int(inter.message.interaction_metadata.user.id)
+        ):
+            # we specifically want it ephemeral
+            await inter.respond(
+                view=utils.error_view(
+                    f"You cannot use this button as you did not initiate the {action}."
+                ),
+                ephemeral=True,
+            )
+            return
+
+        await gacha_roll_actual(inter, name_for_action=action, button_press=True)
 
     @gacha.command(
         name="profile",

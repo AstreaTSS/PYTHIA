@@ -861,7 +861,9 @@ class GachaManagement(utils.Cog):
             raise utils.BadArgument("The user has no data for gacha.")
 
         if mode == "spacious":
-            chunks = player.create_profile_spacious(config.names, sort_by=sort_by)
+            chunks = player.create_profile_spacious(
+                config.names, sort_by=sort_by, admin=True
+            )
         elif mode == "modern":
             chunks = player.create_profile_modern(config.names, sort_by=sort_by)
         else:

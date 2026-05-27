@@ -269,7 +269,7 @@ def button_handler(
             if inter.type != discord.InteractionType.component or not inter.data:
                 return
 
-            if inter.data["component_type"] != discord.ComponentType.button:
+            if inter.data["component_type"] != discord.ComponentType.button.value:
                 return
 
             if custom_id and inter.data["custom_id"] != custom_id:
