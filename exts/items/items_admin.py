@@ -561,7 +561,7 @@ class ItemsManagement(utils.Cog):
         items = [[discord.ui.TextDisplay("\n".join(chunk))] for chunk in chunks]
 
         pag = classes.ContainerPaginator(
-            *items, title=f"Items in #{channel.name}", author_id=ctx.author.id
+            *items, title=f"Items in {channel.mention}", author_id=ctx.author.id
         )
         await ctx.respond(view=pag)
 
