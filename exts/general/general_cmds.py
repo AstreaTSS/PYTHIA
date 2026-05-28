@@ -244,7 +244,13 @@ class GeneralCMDs(utils.Cog):
         )
 
         commit_hash = await self.get_commit_hash()
-        command_num = len(self.bot.all_commands)  # TODO: how accurate is this?
+        command_num = len(
+            tuple(
+                c
+                for c in self.bot.walk_application_commands()
+                if not isinstance(c, discord.SlashCommandGroup)
+            )
+        )
 
         num_shards = len(self.bot.shards)
         shards_str = f"{num_shards} shards" if num_shards != 1 else "1 shard"
