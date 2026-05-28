@@ -58,7 +58,7 @@ class DiceManagement(utils.Cog):
         await ctx.respond(
             view=utils.make_view(
                 f"Dice visibility: {visibility}",
-                title=f"Dice config for {ctx.guild.name}",
+                title="Dice Configuration",
             )
         )
 

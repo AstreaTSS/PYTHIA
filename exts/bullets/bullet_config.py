@@ -209,8 +209,7 @@ class BulletConfigCMDs(utils.Cog):
         ]
 
         embed = discord.Embed(
-            description=f"# BDA investigation config for {ctx.guild.name}\n"
-            + "\n".join(str_builder),
+            description="# BDA Investigation Configuration\n" + "\n".join(str_builder),
             color=utils.BOT_COLOR,
         )
 

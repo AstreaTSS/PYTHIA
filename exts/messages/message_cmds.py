@@ -119,7 +119,7 @@ class MessageCMDs(utils.Cog):
                 "Message sent, but could not send receipt to your channel."
             ) from None
 
-        await ctx.respond("Sent!", ephemeral=True)
+        await ctx.respond(view=utils.make_view("Sent!"), ephemeral=True)
 
     @message.command(
         name="anon",
@@ -208,7 +208,7 @@ class MessageCMDs(utils.Cog):
                 "Message sent, but could not send receipt to your channel."
             ) from None
 
-        await ctx.respond("Sent!", ephemeral=True)
+        await ctx.respond(view=utils.make_view("Sent!"), ephemeral=True)
 
 
 def setup(bot: utils.THIABase) -> None:

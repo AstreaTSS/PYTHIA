@@ -195,7 +195,7 @@ class ItemsSystemItem(Model):
 
         embed = discord.Embed(
             description=(
-                f"# {self.name}{f' (x{count})' if count else ''}]\n{self.description}"
+                f"# {self.name}{f' (x{count})' if count else ''}\n{self.description}"
             ),
             color=discord.Color(int(os.environ["BOT_COLOR"])),
         )

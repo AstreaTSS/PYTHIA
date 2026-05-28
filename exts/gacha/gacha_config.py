@@ -413,8 +413,8 @@ class GachaConfig(utils.Cog):
         ]
 
         embed = discord.Embed(
-            description=f"# Gacha config for {ctx.guild.name}\n"
-            + "\n".join(str_builder),
+            description="# Gacha Configuration\n" + "\n".join(str_builder),
+            color=self.bot.color,
         )
 
         names_str_builder = [

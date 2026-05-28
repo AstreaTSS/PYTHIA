@@ -53,9 +53,7 @@ class MessageManagement(utils.Cog):
             "-# Links can be found at `/message-manage list-links`.",
         ]
         await ctx.respond(
-            view=utils.make_view(
-                "\n".join(str_builder), title=f"Message config for {ctx.guild.name}"
-            )
+            view=utils.make_view("\n".join(str_builder), title="Message Configuration")
         )
 
     @config.command(

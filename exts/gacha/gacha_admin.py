@@ -189,7 +189,7 @@ class GachaManagement(utils.Cog):
     ) -> None:
         if mode not in ("cozy", "compact", "modern", "spacious"):
             raise utils.BadArgument("Invalid mode.")
-        if sort_by not in ("name", "rarity", "time_gotten"):
+        if sort_by not in ("name", "rarity", "time_created"):
             raise utils.BadArgument("Invalid option for sorting.")
 
         if mode == "cozy":  # basically the same thing
@@ -874,7 +874,7 @@ class GachaManagement(utils.Cog):
             title=f"{ctx.author.display_name}'s Gacha Profile",
             author_id=ctx.author.id,
         )
-        await ctx.respond(view=pag, ephemeral=True)
+        await ctx.respond(view=pag)
 
     gacha_inventory = utils.alias(
         gacha_view,
