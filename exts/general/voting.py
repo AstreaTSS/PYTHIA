@@ -92,6 +92,11 @@ class Voting(utils.Cog):
             discord.IntegrationType.guild_install,
             discord.IntegrationType.user_install,
         },
+        contexts={
+            discord.InteractionContextType.guild,
+            discord.InteractionContextType.bot_dm,
+            discord.InteractionContextType.private_channel,
+        },
     )
     async def vote(self, ctx: utils.THIASlashContext) -> None:
         website_votes: list[str] = [
