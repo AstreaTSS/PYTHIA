@@ -216,14 +216,31 @@ async def error_handle(
         if SENTRY_ENABLED:
             scope = sentry_sdk.Scope.get_current_scope()
             if ctx:
-                scope.set_context(
-                    type(ctx).__name__,
-                    {
-                        "args": ctx.args,  # type: ignore
-                        "kwargs": ctx.kwargs,  # type: ignore
-                        "message": ctx.message,
-                    },
-                )
+                if isinstance(ctx, THIABridgeApplicationContext):
+                    scope.set_context(
+                        type(ctx).__name__,
+                        {
+                            "options": ctx.options,
+                            "message": ctx.message,
+                        },
+                    )
+                elif isinstance(ctx, THIABridgeExtContext):
+                    scope.set_context(
+                        type(ctx).__name__,
+                        {
+                            "args": ctx.args,
+                            "kwargs": ctx.kwargs,
+                            "message": ctx.message,
+                        },
+                    )
+                elif isinstance(ctx, discord.Interaction):
+                    scope.set_context(
+                        type(ctx).__name__,
+                        {
+                            "data": ctx.data,
+                            "type": ctx.type,
+                        },
+                    )
             sentry_sdk.capture_exception(error)
         else:
             traceback.print_exception(error)
