@@ -538,7 +538,7 @@ class BulletManagement(utils.Cog):
             str_builder.append("")
 
         pag = classes.ContainerPaginator.create_from_list(
-            str_builder, title="Truth Bullets in this server", author_id=ctx.author.id
+            str_builder, title="Truth Bullets In This Server", author_id=ctx.author.id
         )
         await ctx.respond(view=pag)
 
