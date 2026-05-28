@@ -12,21 +12,276 @@ import collections
 import importlib
 import typing
 
-import interactions as ipy
-import modal_backport as modalb
-import tansy
+import discord
+import ragwort
 
+import common.classes as classes
 import common.fuzzy as fuzzy
-import common.help_tools as help_tools
 import common.models as models
-import common.text_utils as text_utils
 import common.utils as utils
 
+from . import bullet_common
 
-class BulletManagement(utils.Extension):
+
+class AddTruthBulletModal(discord.ui.DesignerModal):
+    def __init__(
+        self,
+        channel: discord.TextChannel | discord.Thread,
+        bullet_creation_locks: collections.defaultdict[str, asyncio.Lock],
+    ) -> None:
+        self.bullet_creation_locks = bullet_creation_locks
+        self.channel = channel
+
+        super().__init__(
+            discord.ui.Label(
+                label="Truth Bullet Trigger",
+                item=discord.ui.InputText(
+                    style=discord.InputTextStyle.short,
+                    custom_id="truth_bullet_trigger",
+                    max_length=60,
+                ),
+            ),
+            discord.ui.Label(
+                label="Truth Bullet Description",
+                item=discord.ui.InputText(
+                    style=discord.InputTextStyle.paragraph,
+                    custom_id="truth_bullet_desc",
+                    max_length=3800,
+                ),
+            ),
+            discord.ui.Label(
+                label="Truth Bullet Image",
+                description="The image URL of the Truth Bullet.",
+                item=discord.ui.InputText(
+                    style=discord.InputTextStyle.short,
+                    custom_id="truth_bullet_image",
+                    max_length=1000,
+                    required=False,
+                ),
+            ),
+            discord.ui.Label(
+                label="Show this Truth Bullet only to the finder?",
+                description=(
+                    "If enabled, only the person who finds the Truth Bullet will be"
+                    " able to see it."
+                ),
+                item=discord.ui.RadioGroup(
+                    options=[
+                        discord.RadioGroupOption(label="Yes", value="yes"),
+                        discord.RadioGroupOption(label="No", value="no", default=True),
+                    ],
+                    custom_id="truth_bullet_hidden",
+                    required=True,
+                ),
+            ),
+            title=(
+                "Add Truth Bullets for"
+                f" #{utils.short_string(channel.name or 'this-channel', length=16)}"
+            ),
+            custom_id=f"ui-modal:add_bullets-{channel.id}",
+        )
+
+    async def callback(self, inter: utils.Interaction) -> None:
+        await inter.response.defer()
+
+        responses = utils.parse_modal_responses(self)
+
+        config = await models.GuildConfig.fetch_create(
+            inter.guild_id, {"bullets": True}
+        )
+        if typing.TYPE_CHECKING:
+            assert config.bullets and isinstance(config.bullets, models.BulletConfig)
+
+        if (
+            config.bullets.thread_behavior == models.BulletThreadBehavior.PARENT
+            and isinstance(self.channel, discord.Thread)
+        ):
+            raise utils.CustomCheckFailure(
+                "Cannot add Truth Bullets to a thread while thread behavior is set"
+                " to follow the parent channel."
+            )
+
+        async with self.bullet_creation_locks[
+            f"{self.channel.id}-{responses['truth_bullet_trigger'].lower()}"
+        ]:
+            if await models.TruthBullet.validate(
+                self.channel.id, responses["truth_bullet_trigger"]
+            ):
+                raise utils.BadArgument(
+                    f"A Truth Bullet in {self.channel.mention} already has the trigger"
+                    f" `{responses['truth_bullet_trigger']}` or has an"
+                    " alias named that!"
+                )
+
+            try:
+                if isinstance(responses["truth_bullet_hidden"], list):
+                    hidden = utils.convert_to_bool(responses["truth_bullet_hidden"][0])
+                else:
+                    hidden = utils.convert_to_bool(responses["truth_bullet_hidden"])
+            except utils.BadArgument:
+                raise utils.BadArgument(
+                    "Invalid value for hiding the Truth Bullet! Giving a simple"
+                    " 'yes' or 'no' will work."
+                ) from None
+
+            image: str | None = (
+                responses["truth_bullet_image"].strip()
+                if responses.get("truth_bullet_image")
+                else None
+            )
+            if image and not utils.HTTP_URL_REGEX.fullmatch(image):
+                raise utils.BadArgument("The image given must be a valid URL.")
+
+            await models.TruthBullet.create(
+                trigger=utils.replace_smart_punc(responses["truth_bullet_trigger"]),
+                aliases=[],
+                description=responses["truth_bullet_desc"],
+                channel_id=self.channel.id,
+                guild_id=inter.guild_id,
+                found=False,
+                finder=None,
+                hidden=hidden,
+                image=image,
+            )
+
+        await inter.respond(
+            view=utils.make_view(
+                "Added Truth Bullet with trigger"
+                f" `{responses['truth_bullet_trigger']}` to {self.channel.mention}!"
+            ),
+        )
+
+
+class EditTruthBulletModal(discord.ui.DesignerModal):
+    def __init__(
+        self, bullet: models.TruthBullet, channel: discord.TextChannel | discord.Thread
+    ) -> None:
+        self.channel = channel
+        self.bullet = bullet
+
+        super().__init__(
+            discord.ui.Label(
+                label="Truth Bullet Trigger",
+                item=discord.ui.InputText(
+                    style=discord.InputTextStyle.short,
+                    custom_id="truth_bullet_trigger",
+                    max_length=60,
+                    value=bullet.trigger,
+                ),
+            ),
+            discord.ui.Label(
+                label="Truth Bullet Description",
+                item=discord.ui.InputText(
+                    style=discord.InputTextStyle.paragraph,
+                    custom_id="truth_bullet_desc",
+                    max_length=3800,
+                    value=bullet.description,
+                ),
+            ),
+            discord.ui.Label(
+                label="Truth Bullet Image",
+                description="The image URL of the Truth Bullet.",
+                item=discord.ui.InputText(
+                    style=discord.InputTextStyle.short,
+                    custom_id="truth_bullet_image",
+                    max_length=1000,
+                    required=False,
+                    value=bullet.image,
+                ),
+            ),
+            discord.ui.Label(
+                label="Show this Truth Bullet only to the finder?",
+                description=(
+                    "If enabled, only the person who finds the Truth Bullet will be"
+                    " able to see it."
+                ),
+                item=discord.ui.RadioGroup(
+                    options=[
+                        discord.RadioGroupOption(
+                            label=v,
+                            value=v.lower(),
+                            default=v.lower()
+                            == utils.yesno_friendly_str(bullet.hidden),
+                        )
+                        for v in ("Yes", "No")
+                    ],
+                    custom_id="truth_bullet_hidden",
+                    required=True,
+                ),
+            ),
+            title=(
+                f"Edit {utils.short_string(bullet.trigger, 10)} for"
+                f" #{utils.short_string(channel.name, 14)}"
+            ),
+            custom_id=f"ui:edit-bullet-{channel.id}|{bullet.trigger}",
+        )
+
+    async def callback(self, inter: utils.Interaction) -> None:
+        await inter.response.defer()
+
+        responses = utils.parse_modal_responses(self)
+
+        # quick re-verify
+        bullet = await models.TruthBullet.get_or_none(id=self.bullet.id)
+        if bullet is None:
+            raise utils.CustomCheckFailure("This Truth Bullet no longer exists.")
+
+        trigger = utils.replace_smart_punc(responses["truth_bullet_trigger"])
+
+        if (
+            bullet.trigger.lower() != trigger.lower()
+            and await models.TruthBullet.validate(self.channel.id, trigger)
+        ):
+            raise utils.BadArgument(
+                f"A Truth Bullet in {self.channel.mention} already has the trigger"
+                f" `{trigger}` or has an alias named that."
+            )
+
+        try:
+            if isinstance(responses["truth_bullet_hidden"], list):
+                hidden = utils.convert_to_bool(responses["truth_bullet_hidden"][0])
+            else:
+                hidden = utils.convert_to_bool(responses["truth_bullet_hidden"])
+        except utils.BadArgument:
+            raise utils.BadArgument(
+                "Invalid value for hiding the Truth Bullet. Giving a simple 'yes'"
+                " or 'no' will work."
+            ) from None
+
+        image: str | None = (
+            responses["truth_bullet_image"].strip()
+            if responses.get("truth_bullet_image")
+            else None
+        )
+        if image and not utils.HTTP_URL_REGEX.fullmatch(image):
+            raise utils.BadArgument("The image given must be a valid URL.")
+
+        bullet.trigger = trigger
+        bullet.description = responses["truth_bullet_desc"]
+        bullet.hidden = hidden
+        bullet.image = image
+        await bullet.save(force_update=True)
+
+        if bullet.trigger != trigger:
+            await inter.respond(
+                view=utils.make_view(
+                    f"Edited Truth Bullet `{trigger}` (renamed to"
+                    f" `{bullet.trigger}`) in {self.channel.mention}."
+                )
+            )
+        else:
+            await inter.respond(
+                view=utils.make_view(
+                    f"Edited Truth Bullet `{trigger}` in {self.channel.mention}."
+                )
+            )
+
+
+class BulletManagement(utils.Cog):
     """Commands for using and modifying Truth Bullets."""
 
-    def __init__(self, _: utils.THIABase) -> None:
+    def __init__(self, bot: utils.THIABase) -> None:
+        self.bot = bot
         self.name = "Bullet"
 
         # i sure do love weird edge cases with race conditions!
@@ -34,85 +289,52 @@ class BulletManagement(utils.Extension):
             collections.defaultdict(asyncio.Lock)
         )
 
-    manage = tansy.SlashCommand(
+    manage = ragwort.SlashCommandGroup(
         name="bullet-manage",
         description="Handles management of Truth Bullets.",
-        default_member_permissions=ipy.Permissions.MANAGE_GUILD,
-        dm_permission=False,
+        default_member_permissions=discord.Permissions(manage_guild=True),
+        contexts={
+            discord.InteractionContextType.guild,
+        },
     )
 
-    @staticmethod
-    def add_truth_bullets_modal(
-        channel: ipy.GuildText | ipy.GuildPublicThread,
-    ) -> modalb.Modal:
-        return modalb.Modal(
-            ipy.InputText(
-                label="Truth Bullet Trigger",
-                style=ipy.TextStyles.SHORT,
-                custom_id="truth_bullet_trigger",
-                max_length=60,
-            ),
-            ipy.InputText(
-                label="Truth Bullet Description",
-                style=ipy.TextStyles.PARAGRAPH,
-                custom_id="truth_bullet_desc",
-                max_length=3800,
-            ),
-            modalb.LabelComponent(
-                label="Truth Bullet Image",
-                description="The image URL of the Truth Bullet.",
-                component=modalb.InputText(
-                    style=ipy.TextStyles.SHORT,
-                    custom_id="truth_bullet_image",
-                    max_length=1000,
-                    required=False,
-                ),
-            ),
-            modalb.LabelComponent(
-                label="Hide this Truth Bullet only to the finder?",
-                component=modalb.StringSelectMenu(
-                    ipy.StringSelectOption(label="Yes", value="yes"),
-                    ipy.StringSelectOption(label="No", value="no", default=True),
-                    custom_id="truth_bullet_hidden",
-                    required=True,
-                ),
-            ),
-            title=(
-                "Add Truth Bullets for"
-                f" #{text_utils.name_shorten(channel.name or 'this-channel')}"
-            ),
-            custom_id=f"ui-modal:add_bullets-{channel.id}",
-        )
-
-    @manage.subcommand(
-        sub_cmd_name="add",
-        sub_cmd_description="Adds a Truth Bullet to a channel.",
+    @manage.command(
+        name="add",
+        description="Adds a Truth Bullet to a channel.",
     )
-    @ipy.auto_defer(enabled=False)
+    @ragwort.auto_defer(enabled=False)
     async def add_bullets(
         self,
         ctx: utils.THIASlashContext,
-        channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
+        channel: discord.TextChannel | discord.Thread = ragwort.Option(
             "The channel for the Truth Bullets to be added.",
-            converter=utils.ValidChannelConverter,
+            channel_types=[
+                discord.ChannelType.text,
+                discord.ChannelType.public_thread,
+                discord.ChannelType.private_thread,
+            ],
         ),
-        _send_button: str = tansy.Option(
+        _send_button: str = ragwort.Option(
             "Should a button be sent that allows for repeatedly adding Truth Bullets?",
             name="send_button",
             choices=[
-                ipy.SlashCommandChoice("yes", "yes"),
-                ipy.SlashCommandChoice("no", "no"),
+                discord.OptionChoice("yes", "yes"),
+                discord.OptionChoice("no", "no"),
             ],
             default="yes",
         ),
     ) -> None:
+        channel = utils.valid_channel_check(
+            channel, channel.permissions_for(ctx.guild.me)
+        )
+
         config = await ctx.fetch_config({"bullets": True})
         if typing.TYPE_CHECKING:
             assert config.bullets and isinstance(config.bullets, models.BulletConfig)
 
         if (
             config.bullets.thread_behavior == models.BulletThreadBehavior.PARENT
-            and isinstance(channel, ipy.ThreadChannel)
+            and isinstance(channel, discord.Thread)
         ):
             raise utils.CustomCheckFailure(
                 "Cannot add Truth Bullets to a thread while thread behavior is set to"
@@ -130,7 +352,7 @@ class BulletManagement(utils.Extension):
         if send_button:
             await ctx.defer()
 
-            containers: list[ipy.ContainerComponent] = []
+            containers: list[discord.ui.Container] = []
             if (
                 count > 0
                 and await models.TruthBullet.filter(
@@ -138,177 +360,95 @@ class BulletManagement(utils.Extension):
                 ).exists()
             ):
                 containers.append(
-                    ipy.ContainerComponent(
-                        ipy.TextDisplayComponent("# Warning"),
-                        ipy.TextDisplayComponent(
+                    discord.ui.Container(
+                        discord.ui.TextDisplay("# Warning"),
+                        discord.ui.TextDisplay(
                             "This server has Truth Bullets that all have been"
                             " found, likely from a previous investigation. If you"
                             " want to start fresh with completely new Truth"
                             " Bullets, you can clear the current ones with"
-                            f" {self.bot.mention_command('bullet-manage clear')}.",
+                            " `/bullet-manage clear`.",
                         ),
-                        accent_color=ipy.RoleColors.YELLOW,
-                    )
+                        color=discord.Color.gold(),
+                    ),
                 )
 
             containers.append(
-                ipy.ContainerComponent(
-                    ipy.SectionComponent(
-                        components=ipy.TextDisplayComponent(
+                discord.ui.Container(
+                    discord.ui.Section(
+                        discord.ui.TextDisplay(
                             f"Add Truth Bullets for {channel.mention} with this button!"
                         ),
-                        accessory=ipy.Button(
-                            style=ipy.ButtonStyle.GREEN,
+                        accessory=discord.ui.Button(
+                            style=discord.ButtonStyle.green,
                             label="Add Truth Bullet",
                             custom_id=f"thia:add-bullets|{channel.id}",
                         ),
                     ),
-                    accent_color=self.bot.color,
+                    color=self.bot.color,
                 )
             )
 
-            await ctx.send(components=containers)
+            await ctx.respond(view=utils.quick_view(*containers))
         else:
-            await ctx.send_modal(self.add_truth_bullets_modal(channel))
+            await ctx.send_modal(
+                AddTruthBulletModal(channel, self.bullet_creation_locks)
+            )
 
     add_bullet_full = utils.alias(
         add_bullets,
-        "bullet-manage add-bullet",
-        "Adds a Truth Bullet to a channel. Alias to /bullet-manage add.",
+        name="add-bullet",
+        description="Adds a Truth Bullet to a channel. Alias to /bullet-manage add.",
     )
 
-    @ipy.listen("component")
-    async def on_add_bullets_button(self, event: ipy.events.Component) -> None:
-        ctx = event.ctx
+    @utils.button_handler(custom_id_prefix="thia:add-bullets|")
+    async def on_add_bullets_button(
+        self, inter: utils.Interaction, custom_id: str
+    ) -> None:
+        channel_id = int(custom_id.removeprefix("thia:add-bullets|"))
+        channel = await self.bot.getch_channel(channel_id)
 
-        if ctx.custom_id.startswith("ui-button:add_bullets-"):
-            channel_id = int(ctx.custom_id.removeprefix("ui-button:add_bullets-"))
-            channel = await self.bot.fetch_channel(channel_id)
-
-            if not channel:
-                raise utils.CustomCheckFailure(
-                    "Could not find the channel this was associated to. Was it deleted?"
-                )
-
-            await ctx.send_modal(self.add_truth_bullets_modal(channel))
-        elif ctx.custom_id.startswith("thia:add-bullets|"):
-            channel_id = int(ctx.custom_id.removeprefix("thia:add-bullets|"))
-            channel = await self.bot.fetch_channel(channel_id)
-
-            if not channel:
-                raise utils.CustomCheckFailure(
-                    "Could not find the channel this was associated to. Was it deleted?"
-                )
-
-            await ctx.send_modal(self.add_truth_bullets_modal(channel))
-
-    @ipy.listen("modal_completion")
-    @utils.modal_event_error_handler
-    async def on_modal_add_bullet(self, event: ipy.events.ModalCompletion) -> None:
-        ctx = event.ctx
-
-        if ctx.custom_id.startswith("ui-modal:add_bullets-"):
-            await ctx.defer()
-
-            config = await models.GuildConfig.fetch_create(
-                ctx.guild_id, {"bullets": True}
+        if not channel:
+            raise utils.CustomCheckFailure(
+                "Could not find the channel this was associated to. Was it deleted?"
             )
-            if typing.TYPE_CHECKING:
-                assert config.bullets and isinstance(
-                    config.bullets, models.BulletConfig
-                )
+        await inter.response.send_modal(
+            AddTruthBulletModal(channel, self.bullet_creation_locks)
+        )
 
-            channel_id = int(ctx.custom_id.removeprefix("ui-modal:add_bullets-"))
-            channel = await self.bot.fetch_channel(channel_id)
+    @utils.button_handler(custom_id_prefix="ui-button:add_bullets-")
+    async def on_add_bullets_button_old(
+        self, inter: utils.Interaction, custom_id: str
+    ) -> None:
+        channel_id = int(custom_id.removeprefix("ui-button:add_bullets-"))
+        channel = await self.bot.getch_channel(channel_id)
 
-            if not channel:
-                raise utils.CustomCheckFailure(
-                    "Could not find the channel this was associated to. Was it deleted?"
-                )
-
-            if (
-                config.bullets.thread_behavior == models.BulletThreadBehavior.PARENT
-                and isinstance(channel, ipy.ThreadChannel)
-            ):
-                raise utils.CustomCheckFailure(
-                    "Cannot add Truth Bullets to a thread while thread behavior is set"
-                    " to follow the parent channel."
-                )
-
-            async with self.bullet_creation_locks[
-                f"{channel_id}-{ctx.responses['truth_bullet_trigger'].lower()}"
-            ]:
-                if await models.TruthBullet.validate(
-                    channel_id, ctx.responses["truth_bullet_trigger"]
-                ):
-                    await ctx.send(
-                        embed=utils.error_embed_generate(
-                            f"A Truth Bullet in <#{channel_id}> already has the trigger"
-                            f" `{ctx.responses['truth_bullet_trigger']}` or has an"
-                            " alias named that!"
-                        )
-                    )
-                    return
-
-                try:
-                    if isinstance(ctx.responses["truth_bullet_hidden"], list):
-                        hidden = utils.convert_to_bool(
-                            ctx.responses["truth_bullet_hidden"][0]
-                        )
-                    else:
-                        hidden = utils.convert_to_bool(
-                            ctx.responses["truth_bullet_hidden"]
-                        )
-                except ipy.errors.BadArgument:
-                    await ctx.send(
-                        embed=utils.error_embed_generate(
-                            "Invalid value for hiding the Truth Bullet! Giving a simple"
-                            " 'yes' or 'no' will work."
-                        )
-                    )
-                    return
-
-                image: str | None = (
-                    ctx.kwargs.get("truth_bullet_image", "").strip() or None
-                )
-                if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):
-                    raise ipy.errors.BadArgument("The image given must be a valid URL.")
-
-                await models.TruthBullet.create(
-                    trigger=text_utils.replace_smart_punc(
-                        ctx.responses["truth_bullet_trigger"]
-                    ),
-                    aliases=[],
-                    description=ctx.responses["truth_bullet_desc"],
-                    channel_id=channel_id,
-                    guild_id=ctx.guild_id,
-                    found=False,
-                    finder=None,
-                    hidden=hidden,
-                    image=image,
-                )
-
-            await ctx.send(
-                embed=utils.make_embed(
-                    "Added Truth Bullet with trigger"
-                    f" `{ctx.responses['truth_bullet_trigger']}` to <#{channel_id}>!"
-                ),
+        if not channel:
+            raise utils.CustomCheckFailure(
+                "Could not find the channel this was associated to. Was it deleted?"
             )
+        await inter.response.send_modal(
+            AddTruthBulletModal(channel, self.bullet_creation_locks)
+        )
 
-    @manage.subcommand(
-        "remove",
-        sub_cmd_description="Removes a Truth Bullet.",
+    @manage.command(
+        name="remove",
+        description="Removes a Truth Bullet.",
     )
     async def remove_bullet(
         self,
         ctx: utils.THIASlashContext,
-        channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
-            "The channel for the Truth Bullet to be removed."
+        channel: discord.TextChannel | discord.Thread = ragwort.Option(
+            "The channel for the Truth Bullet to be removed.",
+            channel_types=[
+                discord.ChannelType.text,
+                discord.ChannelType.public_thread,
+                discord.ChannelType.private_thread,
+            ],
         ),
-        trigger: str = tansy.Option(
+        trigger: str = ragwort.Option(
             "The trigger of the Truth Bullet to be removed.",
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
+            input_type=utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
         num_deleted = await models.TruthBullet.filter(
@@ -317,44 +457,44 @@ class BulletManagement(utils.Extension):
         ).delete()
 
         if num_deleted > 0:
-            await ctx.send(
-                embed=utils.make_embed(
+            await ctx.respond(
+                view=utils.make_view(
                     f"Truth Bullet with trigger `{trigger}` removed from"
                     f" {channel.mention}!"
                 )
             )
         else:
-            raise ipy.errors.BadArgument(
+            raise utils.BadArgument(
                 f"Truth Bullet with trigger `{trigger}` does not exists!"
             )
 
     delete_bullet = utils.alias(
         remove_bullet,
-        "bullet-manage delete-bullet",
-        "Deletes a Truth Bullet. Alias to /bullet-manage remove.",
+        name="delete-bullet",
+        description="Deletes a Truth Bullet. Alias to /bullet-manage remove.",
     )
 
-    @manage.subcommand(
-        "clear",
-        sub_cmd_description="Removes all Truth Bullets. This action is irreversible.",
+    @manage.command(
+        name="clear",
+        description="Removes all Truth Bullets. This action is irreversible.",
     )
     async def clear_bullets(
         self,
         ctx: utils.THIASlashContext,
-        confirm: bool = tansy.Option(
+        confirm: bool = ragwort.Option(
             "Actually clear? Set this to true if you're sure.", default=False
         ),
     ) -> None:
         if not confirm:
-            raise ipy.errors.BadArgument(
+            raise utils.BadArgument(
                 "Confirm option not set to true. Please set the option `confirm` to"
                 " true to continue."
             )
 
         num_deleted = await models.TruthBullet.filter(guild_id=ctx.guild_id).delete()
         if num_deleted > 0:
-            await ctx.send(
-                embed=utils.make_embed("Cleared all Truth Bullets for this server!")
+            await ctx.respond(
+                view=utils.make_view("Cleared all Truth Bullets for this server!")
             )
         else:
             raise utils.CustomCheckFailure(
@@ -363,13 +503,13 @@ class BulletManagement(utils.Extension):
 
     clear_bullets_full = utils.alias(
         clear_bullets,
-        "bullet-manage clear-bullets",
-        "Clears all Truth Bullets. Alias to /bullet-manage clear.",
+        name="clear-bullets",
+        description="Clears all Truth Bullets. Alias to /bullet-manage clear.",
     )
 
-    @manage.subcommand(
-        "list",
-        sub_cmd_description="Lists all Truth Bullets in the server.",
+    @manage.command(
+        name="list",
+        description="Lists all Truth Bullets in the server.",
     )
     async def list_bullets(self, ctx: utils.THIASlashContext) -> None:
         guild_bullets = await models.TruthBullet.filter(
@@ -392,248 +532,141 @@ class BulletManagement(utils.Extension):
                 bullet_dict[channel_id], key=lambda x: x.trigger.lower()
             ):
                 str_builder.append(
-                    f"- `{text_utils.escape_markdown(bullet.trigger)}`{' (found)' if bullet.found else ''}"
+                    f"- `{discord.utils.escape_markdown(bullet.trigger)}`{' (found)' if bullet.found else ''}"
                 )
 
             str_builder.append("")
 
-        pag = help_tools.HelpPaginator.create_from_list(
-            ctx.bot, list(str_builder), timeout=120
+        pag = classes.ContainerPaginator.create_from_list(
+            str_builder, title="Truth Bullets In This Server", author_id=ctx.author.id
         )
-        if len(pag.pages) == 1:
-            embed = pag.pages[0].to_embed()  # type: ignore
-            embed.timestamp = ipy.Timestamp.utcnow()
-            embed.color = ctx.bot.color
-            embed.title = None
-            await ctx.send(embeds=embed)
-            return
-
-        pag.show_callback_button = False
-        pag.show_select_menu = False
-        pag.default_color = ctx.bot.color
-        await pag.send(ctx)
+        await ctx.respond(view=pag)
 
     list_bullets_full = utils.alias(
         list_bullets,
-        "bullet-manage list-bullets",
-        "Lists all Truth Bullets. Alias to /bullet-manage list.",
+        name="list-bullets",
+        description="Lists all Truth Bullets. Alias to /bullet-manage list.",
     )
 
-    @manage.subcommand(
-        "info", sub_cmd_description="Displays information about a Truth Bullet."
+    @manage.command(
+        name="info", description="Displays information about a Truth Bullet."
     )
     async def bullet_info(
         self,
         ctx: utils.THIASlashContext,
-        channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
-            "The channel the Truth Bullet is in."
+        channel: discord.TextChannel | discord.Thread = ragwort.Option(
+            "The channel the Truth Bullet is in.",
+            channel_types=[
+                discord.ChannelType.text,
+                discord.ChannelType.public_thread,
+                discord.ChannelType.private_thread,
+            ],
         ),
-        trigger: str = tansy.Option(
+        trigger: str = ragwort.Option(
             "The trigger of the Truth Bullet.",
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
+            input_type=utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
         bullet = await models.TruthBullet.find_via_trigger(channel.id, trigger)
         if not bullet:
-            raise ipy.errors.BadArgument(
+            raise utils.BadArgument(
                 f"Truth Bullet with trigger `{trigger}` does not exist in"
                 f" {channel.mention}!"
             )
 
         aliases = (
             "\n-# Aliases:"
-            f" {', '.join(f'`{text_utils.escape_markdown(a)}`' for a in bullet.aliases)}"
+            f" {', '.join(f'`{discord.utils.escape_markdown(a)}`' for a in bullet.aliases)}"
             if bullet.aliases
             else ""
         )
-        embed = utils.make_embed(
+        embed = discord.Embed(
             description=(
-                f"# `{text_utils.escape_markdown(bullet.trigger)}` -"
+                f"# `{discord.utils.escape_markdown(bullet.trigger)}` -"
                 f" {bullet.chan_mention}{aliases}\n{bullet.description}"
             ),
+            color=self.bot.color,
         )
         embed.add_field(
-            "Hidden", utils.yesno_friendly_str(bullet.hidden).title(), inline=True
+            name="Hidden",
+            value=utils.yesno_friendly_str(bullet.hidden).title(),
+            inline=True,
         )
         embed.add_field(
-            "Finder", f"<@{bullet.finder}>" if bullet.finder else "N/A", inline=True
+            name="Finder",
+            value=f"<@{bullet.finder}>" if bullet.finder else "N/A",
+            inline=True,
         )
         if bullet.image:
-            embed.add_image(bullet.image)
+            embed.set_image(url=bullet.image)
 
-        await ctx.send(embeds=embed)
+        await ctx.respond(embed=embed)
 
     view_bullet = utils.alias(
         bullet_info,
-        "bullet-manage view-bullet",
-        "Views a Truth Bullet. Alias to /bullet-manage info.",
+        name="view-bullet",
+        description="Views a Truth Bullet. Alias to /bullet-manage info.",
     )
 
-    @manage.subcommand("edit", sub_cmd_description="Edits a Truth Bullet.")
-    @ipy.auto_defer(enabled=False)
+    @manage.command(name="edit", description="Edits a Truth Bullet.")
+    @ragwort.auto_defer(enabled=False)
     async def edit_bullet(
         self,
         ctx: utils.THIASlashContext,
-        channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
-            "The channel the Truth Bullet is in."
+        channel: discord.TextChannel | discord.Thread = ragwort.Option(
+            "The channel the Truth Bullet is in.",
+            channel_types=[
+                discord.ChannelType.text,
+                discord.ChannelType.public_thread,
+                discord.ChannelType.private_thread,
+            ],
         ),
-        trigger: str = tansy.Option(
+        trigger: str = ragwort.Option(
             "The trigger of the Truth Bullet to edit.",
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
+            input_type=utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
         await ctx.fetch_config()
 
         bullet = await models.TruthBullet.find_via_trigger(channel.id, trigger)
         if not bullet:
-            raise ipy.errors.BadArgument(
+            raise utils.BadArgument(
                 f"Truth Bullet with trigger `{trigger}` does not exist!"
             )
 
-        modal = modalb.Modal(
-            ipy.InputText(
-                label="Truth Bullet Trigger",
-                style=ipy.TextStyles.SHORT,
-                custom_id="truth_bullet_trigger",
-                value=bullet.trigger,
-                max_length=60,
-            ),
-            ipy.InputText(
-                label="Truth Bullet Description",
-                style=ipy.TextStyles.PARAGRAPH,
-                custom_id="truth_bullet_desc",
-                value=bullet.description,
-                max_length=3800,
-            ),
-            modalb.LabelComponent(
-                label="Truth Bullet Image",
-                description="The image URL of the Truth Bullet.",
-                component=modalb.InputText(
-                    style=ipy.TextStyles.SHORT,
-                    custom_id="truth_bullet_image",
-                    value=bullet.image or ipy.MISSING,
-                    max_length=1000,
-                    required=False,
-                ),
-            ),
-            modalb.LabelComponent(
-                label="Hide this Truth Bullet only to the finder?",
-                component=modalb.StringSelectMenu(
-                    *(
-                        ipy.StringSelectOption(
-                            label=v,
-                            value=v.lower(),
-                            default=v.lower()
-                            == utils.yesno_friendly_str(bullet.hidden),
-                        )
-                        for v in ("Yes", "No")
-                    ),
-                    custom_id="truth_bullet_hidden",
-                    required=True,
-                ),
-            ),
-            title=(
-                f"Edit {text_utils.name_shorten(bullet.trigger, 10)} for"
-                f" #{text_utils.name_shorten(channel.name, 14)}"
-            ),
-            custom_id=f"ui:edit-bullet-{channel.id}|{trigger}",
-        )
-        await ctx.send_modal(modal)
+        await ctx.send_modal(EditTruthBulletModal(bullet, channel))
 
     edit_bullet_full = utils.alias(
         edit_bullet,
-        "bullet-manage edit-bullet",
-        "Edits a Truth Bullet. Alias to /bullet-manage edit.",
+        name="edit-bullet",
+        description="Edits a Truth Bullet. Alias to /bullet-manage edit.",
     )
 
-    @ipy.listen("modal_completion")
-    @utils.modal_event_error_handler
-    async def on_modal_edit_bullet(self, event: ipy.events.ModalCompletion) -> None:
-        ctx = event.ctx
-
-        if ctx.custom_id.startswith("ui:edit-bullet-"):
-            channel_id, trigger = ctx.custom_id.removeprefix("ui:edit-bullet-").split(
-                "|", maxsplit=1
-            )
-            channel_id = int(channel_id)
-
-            bullet = await models.TruthBullet.find_via_trigger(channel_id, trigger)
-            if bullet is None:
-                raise utils.CustomCheckFailure("This Truth Bullet no longer exists.")
-
-            trigger = text_utils.replace_smart_punc(
-                ctx.responses["truth_bullet_trigger"]
-            )
-
-            if (
-                bullet.trigger.lower() != trigger.lower()
-                and await models.TruthBullet.validate(channel_id, trigger)
-            ):
-                raise ipy.errors.BadArgument(
-                    f"A Truth Bullet in <#{channel_id}> already has the trigger"
-                    f" `{trigger}` or has an alias named that."
-                )
-
-            try:
-                if isinstance(ctx.responses["truth_bullet_hidden"], list):
-                    hidden = utils.convert_to_bool(
-                        ctx.responses["truth_bullet_hidden"][0]
-                    )
-                else:
-                    hidden = utils.convert_to_bool(ctx.responses["truth_bullet_hidden"])
-            except ipy.errors.BadArgument:
-                raise ipy.errors.BadArgument(
-                    "Invalid value for hiding the Truth Bullet. Giving a simple 'yes'"
-                    " or 'no' will work."
-                ) from None
-
-            image: str | None = ctx.kwargs.get("truth_bullet_image", "").strip() or None
-            if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):
-                raise ipy.errors.BadArgument("The image given must be a valid URL.")
-
-            bullet.trigger = trigger
-            bullet.description = ctx.responses["truth_bullet_desc"]
-            bullet.hidden = hidden
-            bullet.image = image
-            await bullet.save(force_update=True)
-
-            if bullet.trigger != trigger:
-                await ctx.send(
-                    embed=utils.make_embed(
-                        f"Edited Truth Bullet `{trigger}` (renamed to"
-                        f" `{bullet.trigger}`) in <#{channel_id}>."
-                    )
-                )
-            else:
-                await ctx.send(
-                    embed=utils.make_embed(
-                        f"Edited Truth Bullet `{trigger}` in <#{channel_id}>."
-                    )
-                )
-
-    @manage.subcommand("unfind", sub_cmd_description="Un-finds a Truth Bullet.")
+    @manage.command(name="unfind", description="Un-finds a Truth Bullet.")
     async def unfind_bullet(
         self,
         ctx: utils.THIASlashContext,
-        channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
-            "The channel the Truth Bullet is in."
+        channel: discord.TextChannel | discord.Thread = ragwort.Option(
+            "The channel the Truth Bullet is in.",
+            channel_types=[
+                discord.ChannelType.text,
+                discord.ChannelType.public_thread,
+                discord.ChannelType.private_thread,
+            ],
         ),
-        trigger: str = tansy.Option(
+        trigger: str = ragwort.Option(
             "The trigger of the Truth Bullet to unfind.",
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
+            input_type=utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
         possible_bullet = await models.TruthBullet.find_via_trigger(channel.id, trigger)
 
         if not possible_bullet:
-            raise ipy.errors.BadArgument(
+            raise utils.BadArgument(
                 f"Truth Bullet with trigger `{trigger}` does not exist!"
             )
         if not possible_bullet.found:
-            raise ipy.errors.BadArgument(
+            raise utils.BadArgument(
                 f"Truth Bullet with trigger `{trigger}` has not been found!"
             )
 
@@ -641,67 +674,73 @@ class BulletManagement(utils.Extension):
         possible_bullet.finder = None
         await possible_bullet.save(force_update=True)
 
-        await ctx.send(embed=utils.make_embed("Truth Bullet un-found!"))
+        await ctx.respond(view=utils.make_view("Truth Bullet un-found!"))
 
     unfind_bullet_full = utils.alias(
         unfind_bullet,
-        "bullet-manage unfind-bullet",
-        "Un-finds a Truth Bullet. Alias to /bullet-manage unfind.",
+        name="unfind-bullet",
+        description="Un-finds a Truth Bullet. Alias to /bullet-manage unfind.",
     )
 
-    @manage.subcommand(
-        "override-finder",
-        sub_cmd_description=(
-            "Overrides who found a Truth Bullet with the person specified."
-        ),
+    @manage.command(
+        name="override-finder",
+        description="Overrides who found a Truth Bullet with the person specified.",
     )
     async def override_bullet(
         self,
         ctx: utils.THIASlashContext,
-        channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
-            "The channel the Truth Bullet is in."
+        channel: discord.TextChannel | discord.Thread = ragwort.Option(
+            "The channel the Truth Bullet is in.",
+            channel_types=[
+                discord.ChannelType.text,
+                discord.ChannelType.public_thread,
+                discord.ChannelType.private_thread,
+            ],
         ),
-        trigger: str = tansy.Option(
+        trigger: str = ragwort.Option(
             "The trigger of the Truth Bullet to find.",
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
+            input_type=utils.ReplaceSmartPuncConverter,
         ),
-        user: ipy.Member = tansy.Option("The user who will find the Truth Bullet."),
+        user: discord.Member = ragwort.Option(
+            "The user who will find the Truth Bullet."
+        ),
     ) -> None:
         possible_bullet = await models.TruthBullet.find_via_trigger(channel.id, trigger)
         if not possible_bullet:
-            raise ipy.errors.BadArgument(
-                f"Truth Bullet with `{trigger}` does not exist!"
-            )
+            raise utils.BadArgument(f"Truth Bullet with `{trigger}` does not exist!")
 
         possible_bullet.found = True
         possible_bullet.finder = user.id
         await possible_bullet.save(force_update=True)
 
-        await ctx.send(embed=utils.make_embed("Truth Bullet overrided and found!"))
+        await ctx.respond(view=utils.make_view("Truth Bullet overrided and found!"))
 
-    @manage.subcommand(
-        "add-alias", sub_cmd_description="Adds an alias to the Truth Bullet specified."
+    @manage.command(
+        name="add-alias", description="Adds an alias to the Truth Bullet specified."
     )
     async def add_alias(
         self,
         ctx: utils.THIASlashContext,
-        channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
-            "The channel the Truth Bullet is in."
+        channel: discord.TextChannel | discord.Thread = ragwort.Option(
+            "The channel the Truth Bullet is in.",
+            channel_types=[
+                discord.ChannelType.text,
+                discord.ChannelType.public_thread,
+                discord.ChannelType.private_thread,
+            ],
         ),
-        trigger: str = tansy.Option(
+        trigger: str = ragwort.Option(
             "The trigger of the Truth Bullet to add an alias to.",
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
+            input_type=utils.ReplaceSmartPuncConverter,
         ),
-        alias: str = tansy.Option(
+        alias: str = ragwort.Option(
             "The alias to add. Cannot be over 40 characters.",
+            input_type=utils.ReplaceSmartPuncConverter,
             max_length=40,
-            converter=text_utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
         if len(alias) > 40:
-            raise ipy.errors.BadArgument(
+            raise utils.BadArgument(
                 "The name is too large for me to use! "
                 + "Please use something at or under 40 characters."
             )
@@ -710,14 +749,14 @@ class BulletManagement(utils.Extension):
             channel_id=channel.id,
             trigger__iexact=alias,
         ):
-            raise ipy.errors.BadArgument(
+            raise utils.BadArgument(
                 f"Alias `{alias}` is used as a trigger for another Truth Bullet for"
                 " this channel!"
             )
 
         possible_bullet = await models.TruthBullet.find_via_trigger(channel.id, trigger)
         if not possible_bullet:
-            raise ipy.errors.BadArgument(
+            raise utils.BadArgument(
                 f"Truth Bullet with trigger `{trigger}` does not exist!"
             )
 
@@ -730,46 +769,47 @@ class BulletManagement(utils.Extension):
             )
 
         if alias in possible_bullet.aliases:
-            raise ipy.errors.BadArgument(
+            raise utils.BadArgument(
                 f"Alias `{alias}` already exists for this Truth Bullet!"
             )
 
         possible_bullet.aliases.append(alias)
         await possible_bullet.save(force_update=True)
 
-        await ctx.send(
-            embed=utils.make_embed(
+        await ctx.respond(
+            view=utils.make_view(
                 f"Alias `{alias}` added to Truth Bullet with trigger `{trigger}` in"
                 f" {channel.mention}!"
             )
         )
 
-    @manage.subcommand(
-        "remove-alias",
-        sub_cmd_description="Removes an alias from the Truth Bullet specified.",
+    @manage.command(
+        name="remove-alias",
+        description="Removes an alias from the Truth Bullet specified.",
     )
     async def remove_alias(
         self,
         ctx: utils.THIASlashContext,
-        channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
-            "The channel the Truth Bullet is in."
+        channel: discord.TextChannel | discord.Thread = ragwort.Option(
+            "The channel the Truth Bullet is in.",
+            channel_types=[
+                discord.ChannelType.text,
+                discord.ChannelType.public_thread,
+                discord.ChannelType.private_thread,
+            ],
         ),
-        trigger: str = tansy.Option(
-            "The trigger of the Truth Bullet to remove an alias to.",
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
+        trigger: str = ragwort.Option(
+            "The trigger of the Truth Bullet to remove an alias from.",
+            input_type=utils.ReplaceSmartPuncConverter,
         ),
-        alias: str = tansy.Option(
+        alias: str = ragwort.Option(
             "The alias to remove.",
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
+            input_type=utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
         possible_bullet = await models.TruthBullet.find_via_trigger(channel.id, trigger)
         if not possible_bullet:
-            raise ipy.errors.BadArgument(
-                f"Truth Bullet with `{trigger}` does not exist!"
-            )
+            raise utils.BadArgument(f"Truth Bullet with `{trigger}` does not exist!")
 
         if possible_bullet.aliases is None:
             possible_bullet.aliases = []
@@ -777,40 +817,90 @@ class BulletManagement(utils.Extension):
         try:
             possible_bullet.aliases.remove(alias)
         except KeyError:
-            raise ipy.errors.BadArgument(
+            raise utils.BadArgument(
                 f"Alias `{alias}` does not exists for this Truth Bullet!"
             ) from None
 
         await possible_bullet.save(force_update=True)
 
-        await ctx.send(
-            embed=utils.make_embed(
+        await ctx.respond(
+            view=utils.make_view(
                 f"Alias `{alias}` removed from Truth Bullet with trigger `{trigger}` in"
                 f" {channel.mention}!"
             )
         )
 
+    @manage.command(
+        name="manual-trigger",
+        description="Manually trigger a Truth Bullet in the current channel.",
+    )
+    @ragwort.auto_defer(enabled=False)
+    async def manual_trigger(
+        self,
+        ctx: utils.THIASlashContext,
+        trigger: str = ragwort.Option(
+            "The trigger of the Truth Bullet to manually trigger.",
+            input_type=utils.ReplaceSmartPuncConverter,
+        ),
+        finder: discord.Member | None = ragwort.Option(
+            "The person who will find the Truth Bullet.", default=None
+        ),
+    ) -> None:
+        await bullet_common.command_investigate(
+            ctx, trigger, manual_trigger=True, finder=finder
+        )
+
     @remove_bullet.autocomplete("trigger")
+    @delete_bullet.autocomplete("trigger")
     @bullet_info.autocomplete("trigger")
+    @view_bullet.autocomplete("trigger")
     @edit_bullet.autocomplete("trigger")
+    @edit_bullet_full.autocomplete("trigger")
     @unfind_bullet.autocomplete("trigger")
+    @unfind_bullet_full.autocomplete("trigger")
     @override_bullet.autocomplete("trigger")
     @add_alias.autocomplete("trigger")
     @remove_alias.autocomplete("trigger")
-    async def _bullet_trigger_autocomplete(self, ctx: ipy.AutocompleteContext) -> None:
-        return await fuzzy.autocomplete_bullets(ctx, **ctx.kwargs)
+    async def _bullet_trigger_autocomplete(
+        self, ctx: discord.AutocompleteContext
+    ) -> list[discord.OptionChoice]:
+        return await fuzzy.autocomplete_bullets(**ctx.options)
 
     @remove_alias.autocomplete("alias")
     async def _remove_alias_alias_autocomplete(
         self,
-        ctx: ipy.AutocompleteContext,
-    ) -> None:
-        return await fuzzy.autocomplete_aliases(ctx, **ctx.kwargs)
+        ctx: discord.AutocompleteContext,
+    ) -> list[discord.OptionChoice]:
+        return await fuzzy.autocomplete_aliases(**ctx.options)
+
+    @manual_trigger.autocomplete("trigger")
+    async def _manual_trigger_autocomplete(
+        self, ctx: discord.AutocompleteContext
+    ) -> list[discord.OptionChoice]:
+        if not ctx.interaction.guild_id:
+            return []
+
+        config = await models.BulletConfig.get_or_none(
+            guild_id=ctx.interaction.guild_id
+        )
+
+        if (
+            config
+            and config.thread_behavior == models.BulletThreadBehavior.PARENT
+            and isinstance(ctx.interaction.channel, discord.Thread)
+        ):
+            channel_id = ctx.interaction.channel.parent_id
+        else:
+            channel_id = ctx.interaction.channel_id
+
+        return await fuzzy.autocomplete_bullets(
+            ctx.options["trigger"], channel=str(channel_id), only_not_found=True
+        )
 
 
 def setup(bot: utils.THIABase) -> None:
     importlib.reload(utils)
     importlib.reload(fuzzy)
-    importlib.reload(help_tools)
-    importlib.reload(text_utils)
-    BulletManagement(bot)
+    importlib.reload(classes)
+    importlib.reload(bullet_common)
+    bot.add_cog(BulletManagement(bot))

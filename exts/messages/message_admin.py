@@ -10,28 +10,29 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 import importlib
 import typing
 
-import interactions as ipy
-import tansy
+import discord
+import ragwort
 
-import common.help_tools as help_tools
+import common.classes as classes
 import common.models as models
 import common.utils as utils
 
 
-class MessageManagement(utils.Extension):
-    def __init__(self, _: utils.THIABase) -> None:
-        self.name = "Messaging Management"
+class MessageManagement(utils.Cog):
+    def __init__(self, bot: utils.THIABase) -> None:
+        self.bot = bot
+        self.__cog_name__ = "Messaging Management"
 
-    config = tansy.SlashCommand(
+    config = ragwort.SlashCommandGroup(
         name="message-config",
         description="Handles configuration of the messaging system.",
-        default_member_permissions=ipy.Permissions.MANAGE_GUILD,
-        dm_permission=False,
+        default_member_permissions=discord.Permissions(manage_guild=True),
+        contexts={discord.InteractionContextType.guild},
     )
 
-    @config.subcommand(
-        "info",
-        sub_cmd_description="Lists out the messaging system settings for the server.",
+    @config.command(
+        name="info",
+        description="Lists out the messaging system settings for the server.",
     )
     async def messages_info(self, ctx: utils.THIASlashContext) -> None:
         config = await ctx.fetch_config({"messages": True})
@@ -49,27 +50,24 @@ class MessageManagement(utils.Extension):
                 f" {utils.toggle_friendly_str(config.messages.ping_for_message)}"
             ),
             "",
-            f"-# Links can be found at {self.message_view_links.mention()}.",
+            "-# Links can be found at `/message-manage list-links`.",
         ]
-
-        embed = utils.make_embed(
-            "\n".join(str_builder),
-            title=f"Message config for {ctx.guild.name}",
+        await ctx.respond(
+            view=utils.make_view("\n".join(str_builder), title="Message Configuration")
         )
-        await ctx.send(embed=embed)
 
-    @config.subcommand(
-        "toggle", sub_cmd_description="Enables or disables the messaging system."
+    @config.command(
+        name="toggle", description="Enables or disables the messaging system."
     )
     async def message_toggle(
         self,
         ctx: utils.THIASlashContext,
-        _toggle: str = tansy.Option(
+        _toggle: str = ragwort.Option(
             "Should the messaging system be turned on or off?",
             name="toggle",
             choices=[
-                ipy.SlashCommandChoice("on", "on"),
-                ipy.SlashCommandChoice("off", "off"),
+                discord.OptionChoice("on", "on"),
+                discord.OptionChoice("off", "off"),
             ],
         ),
     ) -> None:
@@ -78,25 +76,25 @@ class MessageManagement(utils.Extension):
 
         await models.MessageConfig.filter(guild_id=ctx.guild_id).update(enabled=toggle)
 
-        await ctx.send(
-            embed=utils.make_embed(
+        await ctx.respond(
+            view=utils.make_view(
                 f"Messaging system turned {utils.toggle_friendly_str(toggle)}!"
             )
         )
 
-    @config.subcommand(
-        "anonymous-messaging",
-        sub_cmd_description="Enables or disables anonymous messaging.",
+    @config.command(
+        name="anonymous-messaging",
+        description="Enables or disables anonymous messaging.",
     )
     async def message_anon_toggle(
         self,
         ctx: utils.THIASlashContext,
-        _toggle: str = tansy.Option(
+        _toggle: str = ragwort.Option(
             "Should anonymous messaging be turned on or off?",
             name="toggle",
             choices=[
-                ipy.SlashCommandChoice("on", "on"),
-                ipy.SlashCommandChoice("off", "off"),
+                discord.OptionChoice("on", "on"),
+                discord.OptionChoice("off", "off"),
             ],
         ),
     ) -> None:
@@ -107,25 +105,25 @@ class MessageManagement(utils.Extension):
             anon_enabled=toggle
         )
 
-        await ctx.send(
-            embed=utils.make_embed(
+        await ctx.respond(
+            view=utils.make_view(
                 f"Anonymous messaging turned {utils.toggle_friendly_str(toggle)}!"
             )
         )
 
-    @config.subcommand(
-        "ping-on-message",
-        sub_cmd_description="Enables or disables pinging on messages.",
+    @config.command(
+        name="ping-on-message",
+        description="Enables or disables pinging on messages.",
     )
     async def message_ping_toggle(
         self,
         ctx: utils.THIASlashContext,
-        _toggle: str = tansy.Option(
+        _toggle: str = ragwort.Option(
             "Should pinging on messages be turned on or off?",
             name="toggle",
             choices=[
-                ipy.SlashCommandChoice("on", "on"),
-                ipy.SlashCommandChoice("off", "off"),
+                discord.OptionChoice("on", "on"),
+                discord.OptionChoice("off", "off"),
             ],
         ),
     ) -> None:
@@ -136,48 +134,58 @@ class MessageManagement(utils.Extension):
             ping_for_message=toggle
         )
 
-        await ctx.send(
-            embed=utils.make_embed(
+        await ctx.respond(
+            view=utils.make_view(
                 f"Pinging on messages turned {utils.toggle_friendly_str(toggle)}!"
             )
         )
 
-    @config.subcommand(
-        "help", sub_cmd_description="Tells you how to set up the messaging system."
+    @config.command(
+        name="help", description="Tells you how to set up the messaging system."
     )
     async def message_help(self, ctx: utils.THIASlashContext) -> None:
-        embed = utils.make_embed(
+        container = utils.make_container(
             "To set up the messaging system, follow the messaging setup guide below.",
-            title="Setup Bot",
+            title="Setup Messaging System",
         )
-        button = ipy.Button(
-            style=ipy.ButtonStyle.LINK,
-            label="Messaging Setup Guide",
-            url="https://pythia.astrea.cc/setup/messaging_setup",
+        container.add_separator(divider=False)
+        container.add_row(
+            discord.ui.Button(
+                style=discord.ButtonStyle.link,
+                label="Messaging Setup Guide",
+                url="https://pythia.astrea.cc/setup/messaging_setup",
+            ),
         )
-        await ctx.send(embeds=embed, components=button)
+        await ctx.respond(view=utils.quick_view(container))
 
-    manage = tansy.SlashCommand(
+    manage = ragwort.SlashCommandGroup(
         name="message-manage",
         description="Handles management of the messaging system.",
-        default_member_permissions=ipy.Permissions.MANAGE_GUILD,
-        dm_permission=False,
+        default_member_permissions=discord.Permissions(manage_guild=True),
+        contexts={discord.InteractionContextType.guild},
     )
 
-    @manage.subcommand(
-        "link",
-        sub_cmd_description=(
-            "Creates/updates a messaging link between a user and a channel."
-        ),
+    @manage.command(
+        name="link",
+        description="Creates/updates a messaging link between a user and a channel.",
     )
     async def message_link(
         self,
         ctx: utils.THIASlashContext,
-        user: ipy.Member = tansy.Option("The user to link."),
-        channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
-            "The channel to link for this user.", converter=utils.ValidChannelConverter
+        user: discord.Member = ragwort.Option("The user to link."),
+        channel: discord.TextChannel | discord.Thread = ragwort.Option(
+            "The channel to link for this user.",
+            channel_types=[
+                discord.ChannelType.text,
+                discord.ChannelType.public_thread,
+                discord.ChannelType.private_thread,
+            ],
         ),
     ) -> None:
+        channel = utils.valid_channel_check(
+            channel, channel.permissions_for(ctx.guild.me)
+        )
+
         await ctx.fetch_config({"messages": True})
         if await models.MessageLink.filter(guild_id=ctx.guild_id).count() >= 200:
             raise utils.CustomCheckFailure("Cannot add more than 200 messaging links.")
@@ -193,14 +201,32 @@ class MessageManagement(utils.Extension):
                 channel_id=channel.id,
             )
 
-        await ctx.send(
-            embed=utils.make_embed(
+        await ctx.respond(
+            view=utils.make_view(
                 f"Created/updated link: {user.mention} -> {channel.mention}"
             )
         )
 
-    @manage.subcommand(
-        "list-links", sub_cmd_description="Lists all messaging links for this server."
+    message_add_link = utils.alias(
+        message_link,
+        name="add-link",
+        description=(
+            "Creates/updates a messaging link between a user and a channel. Alias for"
+            " /message-manage link."
+        ),
+    )
+
+    message_update_link = utils.alias(
+        message_link,
+        name="update-link",
+        description=(
+            "Creates/updates a messaging link between a user and a channel. Alias for"
+            " /message-manage link."
+        ),
+    )
+
+    @manage.command(
+        name="list-links", description="Lists all messaging links for this server."
     )
     async def message_view_links(self, ctx: utils.THIASlashContext) -> None:
         links = await models.MessageLink.filter(guild_id=ctx.guild_id)
@@ -210,36 +236,23 @@ class MessageManagement(utils.Extension):
             )
 
         links_list = [f"<@{link.user_id}> -> <#{link.channel_id}>" for link in links]
-        if len(links_list) > 30:
-            chunks = [links_list[x : x + 30] for x in range(0, len(links_list), 30)]
-            embeds = [
-                utils.make_embed(
-                    "\n".join(chunk),
-                    title="Messaging Links",
-                )
-                for chunk in chunks
-            ]
+        chunks = [links_list[x : x + 30] for x in range(0, len(links_list), 30)]
+        items = [[discord.ui.TextDisplay("\n".join(chunk))] for chunk in chunks]
 
-            pag = help_tools.HelpPaginator.create_from_embeds(
-                self.bot, *embeds, timeout=120
-            )
-            pag.show_callback_button = False
-            await pag.send(ctx)
-        else:
-            await ctx.send(
-                embed=utils.make_embed(
-                    "\n".join(links_list),
-                    title="Items",
-                )
-            )
+        pag = classes.ContainerPaginator(
+            *items,
+            title="Messaging Links",
+            author_id=ctx.author.id,
+        )
+        await ctx.respond(view=pag)
 
-    @manage.subcommand(
-        "remove-link", sub_cmd_description="Removes a messaging link for a user."
+    @manage.command(
+        name="remove-link", description="Removes a messaging link for a user."
     )
     async def message_remove_link(
         self,
         ctx: utils.THIASlashContext,
-        user: ipy.Member = tansy.Option("The user to remove the link from."),
+        user: discord.Member = ragwort.Option("The user to remove the link from."),
     ) -> None:
         num_deleted = await models.MessageLink.filter(
             guild_id=ctx.guild_id, user_id=user.id
@@ -247,24 +260,22 @@ class MessageManagement(utils.Extension):
         if num_deleted < 1:
             raise utils.CustomCheckFailure("There's no messaging link to remove!")
 
-        await ctx.send(
-            embed=utils.make_embed(
-                f"The messaging link for {user.id} has been removed."
-            )
+        await ctx.respond(
+            view=utils.make_view(f"The messaging link for {user.id} has been removed.")
         )
 
-    @manage.subcommand(
-        "clear-links", sub_cmd_description="Removes all messaging links for the server."
+    @manage.command(
+        name="clear-links", description="Removes all messaging links for the server."
     )
     async def message_clear_links(
         self,
         ctx: utils.THIASlashContext,
-        confirm: bool = tansy.Option(
+        confirm: bool = ragwort.Option(
             "Actually clear? Set this to true if you're sure.", default=False
         ),
     ) -> None:
         if not confirm:
-            raise ipy.errors.BadArgument(
+            raise utils.BadArgument(
                 "Confirm option not set to true. Please set the option `confirm` to"
                 " true to continue."
             )
@@ -273,8 +284,8 @@ class MessageManagement(utils.Extension):
         if num_deleted < 1:
             raise utils.CustomCheckFailure("There's no messaging links to clear!")
 
-        await ctx.send(
-            embed=utils.make_embed(
+        await ctx.respond(
+            view=utils.make_view(
                 "All messaging links for this server have been cleared."
             )
         )
@@ -282,5 +293,5 @@ class MessageManagement(utils.Extension):
 
 def setup(bot: utils.THIABase) -> None:
     importlib.reload(utils)
-    importlib.reload(help_tools)
-    MessageManagement(bot)
+    importlib.reload(classes)
+    bot.add_cog(MessageManagement(bot))

@@ -12,22 +12,22 @@ import importlib
 from collections import defaultdict
 
 import d20
-import interactions as ipy
-import tansy
+import discord
+import ragwort
 import typing_extensions as typing
 
+import common.classes as classes
 import common.fuzzy as fuzzy
-import common.help_tools as help_tools
 import common.models as models
-import common.text_utils as text_utils
 import common.utils as utils
 
 d20_roll = d20.Roller(d20.RollContext(100)).roll
 
 
-class DiceManagement(utils.Extension):
-    def __init__(self, _: utils.THIABase) -> None:
-        self.name = "Dice Management"
+class DiceManagement(utils.Cog):
+    def __init__(self, bot: utils.THIABase) -> None:
+        self.bot = bot
+        self.__cog_name__ = "Dice Management"
 
         # i sure do love weird edge cases with race conditions!
         # TODO: locks should be shared with dice_cmds cmds to prevent race conditions
@@ -35,16 +35,18 @@ class DiceManagement(utils.Extension):
             asyncio.Lock
         )
 
-    config = tansy.SlashCommand(
+    config = ragwort.SlashCommandGroup(
         name="dice-config",
         description="Handles configuration of dice mechanics.",
-        default_member_permissions=ipy.Permissions.MANAGE_GUILD,
-        dm_permission=False,
+        default_member_permissions=discord.Permissions(manage_guild=True),
+        contexts={
+            discord.InteractionContextType.guild,
+        },
     )
 
-    @config.subcommand(
-        "info",
-        sub_cmd_description="Lists out the dice configuration settings for the server.",
+    @config.command(
+        name="info",
+        description="Lists out the dice configuration settings for the server.",
     )
     async def dice_info(self, ctx: utils.THIASlashContext) -> None:
         config = await ctx.fetch_config({"dice": True})
@@ -53,24 +55,22 @@ class DiceManagement(utils.Extension):
 
         visibility = "public" if config.dice.visible else "hidden"
 
-        await ctx.send(
-            embed=utils.make_embed(
+        await ctx.respond(
+            view=utils.make_view(
                 f"Dice visibility: {visibility}",
-                title=f"Dice config for {ctx.guild.name}",
+                title="Dice Configuration",
             )
         )
 
-    @config.subcommand(
-        "visibility", sub_cmd_description="Sets the visibility of dice rolls."
-    )
+    @config.command(name="visibility", description="Sets the visibility of dice rolls.")
     async def dice_visibility(
         self,
         ctx: utils.THIASlashContext,
-        visibility: str = tansy.Option(
+        visibility: str = ragwort.Option(
             "The visibility of dice rolls.",
             choices=[
-                ipy.SlashCommandChoice("Public", "public"),
-                ipy.SlashCommandChoice("Hidden", "hidden"),
+                discord.OptionChoice("Public", "public"),
+                discord.OptionChoice("Hidden", "hidden"),
             ],
         ),
     ) -> None:
@@ -87,51 +87,53 @@ class DiceManagement(utils.Extension):
         config.dice.visible = visibility == "public"
         await config.dice.save()
 
-        await ctx.send(
-            embed=utils.make_embed(f"Dice visibility has been set to {visibility}.")
+        await ctx.respond(
+            view=utils.make_view(f"Dice visibility has been set to {visibility}.")
         )
 
-    @config.subcommand(
-        "help", sub_cmd_description="Tells you how the dice system works."
-    )
+    @config.command(name="help", description="Tells you how the dice system works.")
     async def dice_help(self, ctx: utils.THIASlashContext) -> None:
-        embed = utils.make_embed(
+        container = utils.make_container(
             "To see how the dice system works, follow the dice management guide below.",
             title="Setup Bot",
         )
-        button = ipy.Button(
-            style=ipy.ButtonStyle.LINK,
-            label="Dice Management Guide",
-            url="https://pythia.astrea.cc/setup/dice_management",
+        container.add_separator(divider=False)
+        container.add_row(
+            discord.ui.Button(
+                style=discord.ButtonStyle.link,
+                label="Dice Management Guide",
+                url="https://pythia.astrea.cc/setup/dice_management",
+            )
         )
-        await ctx.send(embeds=embed, components=button)
+        await ctx.respond(view=utils.quick_view(container))
 
-    manage = tansy.SlashCommand(
+    manage = ragwort.SlashCommandGroup(
         name="dice-manage",
         description="Handles management of dice mechanics.",
-        default_member_permissions=ipy.Permissions.MANAGE_GUILD,
-        dm_permission=False,
+        default_member_permissions=discord.Permissions(manage_guild=True),
+        contexts={
+            discord.InteractionContextType.guild,
+        },
     )
 
-    @manage.subcommand(
-        "roll-registered-for",
-        sub_cmd_description="Rolls a user's registered dice.",
+    @manage.command(
+        name="roll-registered-for",
+        description="Rolls a user's registered dice.",
     )
     async def dice_roll_registered_for(
         self,
         ctx: utils.THIASlashContext,
-        user: ipy.Member = tansy.Option("The user who registered the dice."),
-        name: str = tansy.Option(
+        user: discord.Member = ragwort.Option("The user who registered the dice."),
+        name: str = ragwort.Option(
             "The name of the dice to roll.",
+            input_type=utils.ReplaceSmartPuncConverter,
             max_length=100,
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
         ),
-        hidden: bool = tansy.Option(
+        hidden: str = ragwort.Option(
             "Should the result be shown only to you? Defaults to no.",
             choices=[
-                ipy.SlashCommandChoice("yes", "yes"),
-                ipy.SlashCommandChoice("no", "no"),
+                discord.OptionChoice("yes", "yes"),
+                discord.OptionChoice("no", "no"),
             ],
             default="no",
         ),
@@ -140,37 +142,37 @@ class DiceManagement(utils.Extension):
             guild_id=ctx.guild_id, user_id=user.id, name=name
         )
         if not entry:
-            raise ipy.errors.BadArgument(
+            raise utils.BadArgument(
                 "No registered dice found with that name for that user."
             )
 
         try:
             result = d20_roll(entry.value)
         except d20.errors.RollSyntaxError as e:
-            raise ipy.errors.BadArgument(f"Invalid dice roll syntax.\n{e!s}") from None
+            raise utils.BadArgument(f"Invalid dice roll syntax.\n{e!s}") from None
         except d20.errors.TooManyRolls:
-            raise ipy.errors.BadArgument(
-                "Too many dice rolls in the expression."
-            ) from None
+            raise utils.BadArgument("Too many dice rolls in the expression.") from None
         except d20.errors.RollValueError:
-            raise ipy.errors.BadArgument("Invalid dice roll value.") from None
+            raise utils.BadArgument("Invalid dice roll value.") from None
 
-        await ctx.send(embed=utils.make_embed(result.result), ephemeral=hidden == "yes")
+        await ctx.respond(
+            view=utils.make_view(result.result), ephemeral=hidden == "yes"
+        )
 
-    @manage.subcommand(
-        "register-for",
-        sub_cmd_description="Registers a dice for a user.",
+    @manage.command(
+        name="register-for",
+        description="Registers a dice for a user.",
     )
     async def dice_register_for(
         self,
         ctx: utils.THIASlashContext,
-        user: ipy.Member = tansy.Option("The user to register a dice for."),
-        name: str = tansy.Option(
+        user: discord.Member = ragwort.Option("The user to register a dice for."),
+        name: str = ragwort.Option(
             "The name of the dice. 100 characters max.",
+            input_type=utils.ReplaceSmartPuncConverter,
             max_length=100,
-            converter=text_utils.ReplaceSmartPuncConverter,
         ),
-        dice: str = tansy.Option(
+        dice: str = ragwort.Option(
             "The dice roll to register in d20 notation. 100 characters max.",
             max_length=100,
         ),
@@ -190,7 +192,7 @@ class DiceManagement(utils.Extension):
             if await models.DiceEntry.exists(
                 guild_id=ctx.guild_id, user_id=user.id, name__iexact=name
             ):
-                raise ipy.errors.BadArgument(
+                raise utils.BadArgument(
                     "A dice with that name already exists for that user."
                 )
 
@@ -199,15 +201,13 @@ class DiceManagement(utils.Extension):
             try:
                 d20_roll(dice)
             except d20.errors.RollSyntaxError as e:
-                raise ipy.errors.BadArgument(
-                    f"Invalid dice roll syntax.\n{e!s}"
-                ) from None
+                raise utils.BadArgument(f"Invalid dice roll syntax.\n{e!s}") from None
             except d20.errors.TooManyRolls:
-                raise ipy.errors.BadArgument(
+                raise utils.BadArgument(
                     "Too many dice rolls in the expression."
                 ) from None
             except d20.errors.RollValueError:
-                raise ipy.errors.BadArgument("Invalid dice roll value.") from None
+                raise utils.BadArgument("Invalid dice roll value.") from None
 
             await models.DiceEntry.create(
                 guild_id=ctx.guild_id,
@@ -216,60 +216,46 @@ class DiceManagement(utils.Extension):
                 value=dice,
             )
 
-        await ctx.send(
-            embed=utils.make_embed(f"Registered dice {name} for {user.mention}.")
+        await ctx.respond(
+            view=utils.make_view(f"Registered dice {name} for {user.mention}.")
         )
 
-    @manage.subcommand(
-        "list-for",
-        sub_cmd_description="Lists dice registered for a user.",
+    @manage.command(
+        name="list-for",
+        description="Lists dice registered for a user.",
     )
     async def dice_list_for(
         self,
         ctx: utils.THIASlashContext,
-        user: ipy.Member = tansy.Option("The user to list dice for."),
+        user: discord.Member = ragwort.Option("The user to list dice for."),
     ) -> None:
         entries = await models.DiceEntry.filter(guild_id=ctx.guild_id, user_id=user.id)
         if not entries:
-            raise ipy.errors.BadArgument("No registered dice found for that user.")
+            raise utils.BadArgument("No registered dice found for that user.")
 
-        str_builder = [f"**{e.name}**: {e.value}" for e in entries]
-
-        if len(str_builder) <= 15:
-            await ctx.send(
-                embed=utils.make_embed(
-                    "\n".join(str_builder),
-                    title=f"Registered dice for {user.display_name}",
-                )
-            )
-            return
-
+        str_builder = [f"- **{e.name}**: {e.value}" for e in entries]
         chunks = [str_builder[x : x + 15] for x in range(0, len(str_builder), 15)]
-        embeds = [
-            utils.make_embed(
-                "\n".join(chunk), title=f"Registered for {user.display_name}"
-            )
-            for chunk in chunks
-        ]
-        pag = help_tools.HelpPaginator.create_from_embeds(
-            self.bot, *embeds, timeout=120
-        )
-        pag.show_callback_button = False
-        await pag.send(ctx)
+        pages = [[discord.ui.TextDisplay("\n".join(chunk))] for chunk in chunks]
 
-    @manage.subcommand(
-        "remove-from",
-        sub_cmd_description="Removes a dice registered from a user.",
+        pag = classes.ContainerPaginator(
+            *pages,
+            title=f"Registered dice for {user.display_name}",
+            author_id=ctx.author.id,
+        )
+        await ctx.respond(view=pag)
+
+    @manage.command(
+        name="remove-from",
+        description="Removes a dice registered from a user.",
     )
     async def dice_remove_from(
         self,
         ctx: utils.THIASlashContext,
-        user: ipy.Member = tansy.Option("The user to delete a dice from."),
-        name: str = tansy.Option(
+        user: discord.Member = ragwort.Option("The user to delete a dice from."),
+        name: str = ragwort.Option(
             "The name of the dice to remove.",
+            input_type=utils.ReplaceSmartPuncConverter,
             max_length=100,
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
         if (
@@ -278,21 +264,22 @@ class DiceManagement(utils.Extension):
             ).delete()
             < 1
         ):
-            raise ipy.errors.BadArgument(
+            raise utils.BadArgument(
                 "No registered dice found for that user with that name."
             )
-        await ctx.send(
-            embed=utils.make_embed(f"Removed dice {name} from {user.mention}.")
+
+        await ctx.respond(
+            view=utils.make_view(f"Removed dice {name} from {user.mention}.")
         )
 
-    @manage.subcommand(
-        "clear-for",
-        sub_cmd_description="Clears all dice registered for a user.",
+    @manage.command(
+        name="clear-for",
+        description="Clears all dice registered for a user.",
     )
     async def dice_clear_for(
         self,
         ctx: utils.THIASlashContext,
-        user: ipy.Member = tansy.Option("The user to clear dice for."),
+        user: discord.Member = ragwort.Option("The user to clear dice for."),
     ) -> None:
         if (
             await models.DiceEntry.filter(
@@ -301,22 +288,23 @@ class DiceManagement(utils.Extension):
             ).delete()
             < 1
         ):
-            raise ipy.errors.BadArgument("No registered dice found for that user.")
-        await ctx.send(embed=utils.make_embed(f"Cleared all dice for {user.mention}."))
+            raise utils.BadArgument("No registered dice found for that user.")
 
-    @manage.subcommand(
-        "clear-everyone",
-        sub_cmd_description="Clears all dice registered for everyone.",
+        await ctx.respond(view=utils.make_view(f"Cleared all dice for {user.mention}."))
+
+    @manage.command(
+        name="clear-everyone",
+        description="Clears all dice registered for everyone.",
     )
     async def dice_clear_everyone(
         self,
         ctx: utils.THIASlashContext,
-        confirm: bool = tansy.Option(
+        confirm: bool = ragwort.Option(
             "Actually clear? Set this to true if you're sure.", default=False
         ),
     ) -> None:
         if not confirm:
-            raise ipy.errors.BadArgument(
+            raise utils.BadArgument(
                 "Confirm option not set to true. Please set the option `confirm` to"
                 " true to continue."
             )
@@ -327,22 +315,21 @@ class DiceManagement(utils.Extension):
             ).delete()
             < 1
         ):
-            raise ipy.errors.BadArgument("No registered dice found for this server.")
+            raise utils.BadArgument("No registered dice found for this server.")
 
-        await ctx.send(embed=utils.make_embed("Cleared all dice for this server."))
+        await ctx.respond(view=utils.make_view("Cleared all dice for this server."))
 
     @dice_remove_from.autocomplete("name")
     @dice_roll_registered_for.autocomplete("name")
     async def dice_name_autocomplete(
         self,
-        ctx: ipy.AutocompleteContext,
-    ) -> None:
-        return await fuzzy.autocomplete_dice_entries_admin(ctx, **ctx.kwargs)
+        ctx: discord.AutocompleteContext,
+    ) -> list[discord.OptionChoice]:
+        return await fuzzy.autocomplete_dice_entries_admin(ctx, **ctx.options)
 
 
 def setup(bot: utils.THIABase) -> None:
     importlib.reload(utils)
     importlib.reload(fuzzy)
-    importlib.reload(help_tools)
-    importlib.reload(text_utils)
-    DiceManagement(bot)
+    importlib.reload(classes)
+    bot.add_cog(DiceManagement(bot))

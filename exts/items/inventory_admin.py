@@ -10,48 +10,50 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 import collections
 import importlib
 
-import interactions as ipy
-import tansy
+import discord
+import ragwort
 
+import common.classes as classes
 import common.fuzzy as fuzzy
-import common.help_tools as help_tools
 import common.models as models
-import common.text_utils as text_utils
 import common.utils as utils
 
 
-class InventoryManagement(utils.Extension):
-    def __init__(self, _: utils.THIABase) -> None:
-        self.name = "Inventory Management"
+class InventoryManagement(utils.Cog):
+    def __init__(self, bot: utils.THIABase) -> None:
+        self.bot = bot
+        self.__cog_name__ = "Inventory Management"
 
-    manage = tansy.SlashCommand(
+    manage = ragwort.SlashCommandGroup(
         name="inventory-manage",
         description="Handles management of inventories.",
-        default_member_permissions=ipy.Permissions.MANAGE_GUILD,
-        dm_permission=False,
+        default_member_permissions=discord.Permissions(manage_guild=True),
+        contexts={
+            discord.InteractionContextType.guild,
+        },
     )
 
-    @manage.subcommand(
-        "user-inventory",
-        sub_cmd_description="Views a user's inventory.",
+    @manage.command(
+        name="user-inventory",
+        description="Views a user's inventory.",
     )
     async def user_inventory(
         self,
         ctx: utils.THIASlashContext,
-        user: ipy.Member = tansy.Option(
+        user: discord.Member = ragwort.Option(
             "The user to view the inventory of.",
         ),
-        mode: str = tansy.Option(
+        mode: str = ragwort.Option(
             "The mode to show the inventory in.",
             choices=[
-                ipy.SlashCommandChoice("Cozy", "cozy"),
-                ipy.SlashCommandChoice("Compact", "compact"),
+                discord.OptionChoice("Cozy", "cozy"),
+                discord.OptionChoice("Compact", "compact"),
             ],
             default="cozy",
         ),
     ) -> None:
         if mode not in ("cozy", "compact"):
-            raise ipy.errors.BadArgument("Invalid mode.")
+            raise utils.BadArgument("Invalid mode.")
 
         user_items = await models.ItemRelation.filter(
             guild_id=ctx.guild_id,
@@ -70,60 +72,40 @@ class InventoryManagement(utils.Extension):
         for k, v in sorted(items_counter.items(), key=lambda i: i[0].item.name.lower()):
             if mode == "compact":
                 str_builder.append(
-                    f"**{text_utils.escape_markdown(k.item.name)}**{f' (x{v})' if v > 1 else ''}:"
+                    f"**{discord.utils.escape_markdown(k.item.name)}**{f' (x{v})' if v > 1 else ''}:"
                     f" {models.short_desc(k.item.description)}"
                 )
             else:
                 str_builder.append(
-                    f"**{text_utils.escape_markdown(k.item.name)}**{f' (x{v})' if v > 1 else ''}\n-#"
+                    f"**{discord.utils.escape_markdown(k.item.name)}**{f' (x{v})' if v > 1 else ''}\n-#"
                     f" {models.short_desc(k.item.description, 70)}"
                 )
 
         limit = 15 if mode == "cozy" else 30
 
-        if len(str_builder) > limit:
-            chunks = [
-                str_builder[x : x + limit] for x in range(0, len(str_builder), limit)
-            ]
-            embeds = [
-                utils.make_embed(
-                    title=f"{user.display_name}'s Inventory",
-                    description="\n".join(entry),
-                )
-                for entry in chunks
-            ]
-        else:
-            await ctx.send(
-                embeds=utils.make_embed(
-                    title=f"{user.display_name}'s Inventory",
-                    description="\n".join(str_builder),
-                ),
-            )
-            return
+        chunks = [str_builder[x : x + limit] for x in range(0, len(str_builder), limit)]
+        items = [[discord.ui.TextDisplay("\n".join(entry))] for entry in chunks]
 
-        pag = help_tools.HelpPaginator.create_from_embeds(
-            self.bot, *embeds, timeout=120
+        pag = classes.ContainerPaginator(
+            *items, title=f"{user.display_name}'s Inventory", author_id=ctx.author.id
         )
-        pag.show_callback_button = False
-        pag.default_color = ctx.bot.color
-        await pag.send(ctx)
+        await ctx.respond(view=pag)
 
-    @manage.subcommand(
-        "put-in-inventory",
-        sub_cmd_description="Places an item in a user's inventory.",
+    @manage.command(
+        name="put-in-inventory",
+        description="Places an item in a user's inventory.",
     )
     async def put_in_inventory(
         self,
         ctx: utils.THIASlashContext,
-        user: ipy.Member = tansy.Option(
+        user: discord.Member = ragwort.Option(
             "The user to place the item in the inventory of.",
         ),
-        name: str = tansy.Option(
+        name: str = ragwort.Option(
             "The name of the item to place.",
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
+            input_type=utils.ReplaceSmartPuncConverter,
         ),
-        amount: int = tansy.Option(
+        amount: int = ragwort.Option(
             "The amount of the item to place. Defaults to 1.",
             min_value=1,
             max_value=50,
@@ -134,8 +116,8 @@ class InventoryManagement(utils.Extension):
             guild_id=ctx.guild_id, name=name
         )
         if not item:
-            raise ipy.errors.BadArgument(
-                f"Item `{text_utils.escape_markdown(name)}` does not exist in this"
+            raise utils.BadArgument(
+                f"Item `{discord.utils.escape_markdown(name)}` does not exist in this"
                 " server."
             )
 
@@ -162,29 +144,28 @@ class InventoryManagement(utils.Extension):
             for _ in range(amount)
         )
 
-        await ctx.send(
-            embed=utils.make_embed(
-                f"Placed {amount} of item `{text_utils.escape_markdown(name)}` in"
+        await ctx.respond(
+            view=utils.make_view(
+                f"Placed {amount} of item `{discord.utils.escape_markdown(name)}` in"
                 f" {user.mention}'s inventory."
             )
         )
 
-    @manage.subcommand(
-        "remove-from-inventory",
-        sub_cmd_description="Removes an item from a player's inventory.",
+    @manage.command(
+        name="remove-from-inventory",
+        description="Removes an item from a player's inventory.",
     )
     async def remove_from_inventory(
         self,
         ctx: utils.THIASlashContext,
-        user: ipy.Member = tansy.Option(
+        user: discord.Member = ragwort.Option(
             "The user to remove the item from.",
         ),
-        name: str = tansy.Option(
+        name: str = ragwort.Option(
             "The name of the item to remove.",
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
+            input_type=utils.ReplaceSmartPuncConverter,
         ),
-        amount: int = tansy.Option(
+        amount: int = ragwort.Option(
             "The amount of the item to remove. Defaults to 1.",
             min_value=1,
             default=1,
@@ -194,8 +175,8 @@ class InventoryManagement(utils.Extension):
             guild_id=ctx.guild_id, name=name
         )
         if not item:
-            raise ipy.errors.BadArgument(
-                f"Item `{text_utils.escape_markdown(name)}` does not exist in this"
+            raise utils.BadArgument(
+                f"Item `{discord.utils.escape_markdown(name)}` does not exist in this"
                 " server."
             )
 
@@ -220,36 +201,39 @@ class InventoryManagement(utils.Extension):
             )
             await models.ItemRelation.filter(id__in=to_delete).delete()
 
-        await ctx.send(
-            embed=utils.make_embed(
-                f"Removed {amount} of item `{text_utils.escape_markdown(name)}` from"
+        await ctx.respond(
+            view=utils.make_view(
+                f"Removed {amount} of item `{discord.utils.escape_markdown(name)}` from"
                 f" {user.mention}'s inventory."
             )
         )
 
-    @manage.subcommand(
-        "drop-from-inventory",
-        sub_cmd_description=(
-            "Drops items from a player's inventory into a specified channel."
-        ),
+    @manage.command(
+        name="drop-from-inventory",
+        description="Drops items from a player's inventory into a specified channel.",
     )
     async def drop_from_inventory(
         self,
         ctx: utils.THIASlashContext,
-        user: ipy.Member = tansy.Option(
+        user: discord.Member = ragwort.Option(
             "The user to drop the item from.",
         ),
-        name: str = tansy.Option(
+        name: str = ragwort.Option(
             "The name of the item to drop.",
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
+            input_type=utils.ReplaceSmartPuncConverter,
         ),
-        channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
+        channel: discord.TextChannel | discord.Thread = ragwort.Option(
             "The channel to drop the items in.",
+            channel_types=[
+                discord.ChannelType.text,
+                discord.ChannelType.public_thread,
+                discord.ChannelType.private_thread,
+            ],
         ),
-        amount: int = tansy.Option(
+        amount: int = ragwort.Option(
             "The amount of the item to drop. Defaults to 1.",
             min_value=1,
+            max_value=50,
             default=1,
         ),
     ) -> None:
@@ -257,8 +241,8 @@ class InventoryManagement(utils.Extension):
             guild_id=ctx.guild_id, name=name
         )
         if not item:
-            raise ipy.errors.BadArgument(
-                f"Item `{text_utils.escape_markdown(name)}` does not exist in this"
+            raise utils.BadArgument(
+                f"Item `{discord.utils.escape_markdown(name)}` does not exist in this"
                 " server."
             )
 
@@ -287,21 +271,21 @@ class InventoryManagement(utils.Extension):
                 object_type=models.ItemsRelationType.CHANNEL,
             )
 
-        await ctx.send(
-            embed=utils.make_embed(
-                f"Dropped {amount} of item `{text_utils.escape_markdown(name)}` from"
+        await ctx.respond(
+            view=utils.make_view(
+                f"Dropped {amount} of item `{discord.utils.escape_markdown(name)}` from"
                 f" {user.mention}'s inventory into {channel.mention}."
             )
         )
 
-    @manage.subcommand(
-        "clear-inventory",
-        sub_cmd_description="Clears a user's inventory.",
+    @manage.command(
+        name="clear-inventory",
+        description="Clears a user's inventory.",
     )
     async def clear_inventory(
         self,
         ctx: utils.THIASlashContext,
-        user: ipy.Member = tansy.Option(
+        user: discord.Member = ragwort.Option(
             "The user to clear the inventory of.",
         ),
     ) -> None:
@@ -312,32 +296,32 @@ class InventoryManagement(utils.Extension):
         if count == 0:
             raise utils.CustomCheckFailure("There are no items to clear for this user.")
 
-        await ctx.send(
-            embed=utils.make_embed(f"Cleared the inventory of {user.mention}.")
+        await ctx.respond(
+            view=utils.make_view(f"Cleared the inventory of {user.mention}.")
         )
 
     @put_in_inventory.autocomplete("name")
-    async def _item_name_autocomplete(self, ctx: ipy.AutocompleteContext) -> None:
+    async def _item_name_autocomplete(
+        self, ctx: discord.AutocompleteContext
+    ) -> list[discord.OptionChoice]:
         return await fuzzy.autocomplete_item(
             ctx,
-            **ctx.kwargs,
+            **ctx.options,
         )
 
     @remove_from_inventory.autocomplete("name")
     @drop_from_inventory.autocomplete("name")
     async def _user_item_name_autocomplete(
-        self,
-        ctx: ipy.AutocompleteContext,
-    ) -> None:
-        await fuzzy.autocomplete_item_user(
+        self, ctx: discord.AutocompleteContext
+    ) -> list[discord.OptionChoice]:
+        return await fuzzy.autocomplete_item_user(
             ctx,
-            **ctx.kwargs,
+            **ctx.options,
         )
 
 
 def setup(bot: utils.THIABase) -> None:
     importlib.reload(utils)
-    importlib.reload(text_utils)
-    importlib.reload(help_tools)
+    importlib.reload(classes)
     importlib.reload(fuzzy)
-    InventoryManagement(bot)
+    bot.add_cog(InventoryManagement(bot))

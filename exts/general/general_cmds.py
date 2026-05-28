@@ -10,26 +10,18 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 import asyncio
 import importlib
 import os
-import platform
 import subprocess
 import time
-from importlib.metadata import version as _v
 
-import interactions as ipy
-import tansy
+import discord
 
 import common.utils as utils
 
-IPY_VERSION = _v("discord-py-interactions")
-PYTHON_VERSION = platform.python_version_tuple()
-PYTHON_IMPLEMENTATION = platform.python_implementation()
 
-
-class OtherCMDs(ipy.Extension):
-    bot: "utils.THIABase"
-
-    def __init__(self, _: utils.THIABase) -> None:
-        self.name = "General"
+class GeneralCMDs(utils.Cog):
+    def __init__(self, bot: utils.THIABase) -> None:
+        self.bot = bot
+        self.__cog_name__ = "General"
 
         self.invite_link = ""
         self.bot.create_task(self.when_ready())
@@ -56,101 +48,170 @@ class OtherCMDs(ipy.Extension):
     async def get_commit_hash(self) -> str | None:
         return await asyncio.to_thread(self._get_commit_hash)
 
-    @tansy.slash_command(
-        "ping",
+    @discord.slash_command(
+        name="ping",
         description=(
             "Pings the bot. Great way of finding out if the bot's working correctly,"
             " but has no real use."
         ),
-        integration_types=[
-            ipy.IntegrationType.GUILD_INSTALL,
-            ipy.IntegrationType.USER_INSTALL,
-        ],
+        integration_types={
+            discord.IntegrationType.guild_install,
+            discord.IntegrationType.user_install,
+        },
+        contexts={
+            discord.InteractionContextType.guild,
+            discord.InteractionContextType.bot_dm,
+            discord.InteractionContextType.private_channel,
+        },
     )
     async def ping(self, ctx: utils.THIASlashContext) -> None:
         start_time = time.perf_counter()
         average_ping = round((self.bot.latency * 1000), 2)
         shard_id = self.bot.get_shard_id(ctx.guild_id) if ctx.guild_id else 0
-        shard_ping = round((self.bot.latencies[shard_id] * 1000), 2)
+        shard_ping = round((self.bot.get_shard(shard_id).latency * 1000), 2)
 
-        embed = ipy.Embed(
-            "Pong!", color=self.bot.color, timestamp=ipy.Timestamp.utcnow()
+        await ctx.respond(
+            view=utils.make_view(
+                title="Pong!",
+                description=(
+                    f"Average Ping: `{average_ping}` ms\nShard Ping: `{shard_ping}`"
+                    f" ms\nCalculating RTT...\n-# Shard ID: {shard_id}"
+                ),
+            )
         )
-        embed.set_footer(f"Shard ID: {shard_id}")
-        embed.description = (
-            f"Average Ping: `{average_ping}` ms\nShard Ping: `{shard_ping}`"
-            " ms\nCalculating RTT..."
-        )
 
-        await ctx.send(embed=embed)
-
-        end_time = time.perf_counter()
         # not really rtt ping but shh
+        end_time = time.perf_counter()
         rtt_ping = round(((end_time - start_time) * 1000), 2)
-        embed.description = (
-            f"Average Ping: `{average_ping}` ms\nShard Ping: `{shard_ping}` ms\nRTT"
-            f" Ping: `{rtt_ping}` ms"
+
+        await ctx.edit(
+            view=utils.make_view(
+                title="Pong!",
+                description=(
+                    f"Average Ping: `{average_ping}` ms\nShard Ping: `{shard_ping}`"
+                    f" ms\nRTT Ping: `{rtt_ping}` ms\n-# Shard ID: {shard_id}"
+                ),
+            )
         )
 
-        await ctx.edit(embed=embed)
-
-    @ipy.slash_command(
+    @discord.slash_command(
         name="invite",
         description="Sends instructions on how to set up and invite the bot.",
-        integration_types=[
-            ipy.IntegrationType.GUILD_INSTALL,
-            ipy.IntegrationType.USER_INSTALL,
-        ],
+        integration_types={
+            discord.IntegrationType.guild_install,
+            discord.IntegrationType.user_install,
+        },
+        contexts={
+            discord.InteractionContextType.guild,
+            discord.InteractionContextType.bot_dm,
+            discord.InteractionContextType.private_channel,
+        },
     )
     async def invite(self, ctx: utils.THIASlashContext) -> None:
-        embed = utils.make_embed(
-            "If you want to invite me to your server, it's a good idea to use the"
-            " Server Setup Guide. However, if you know what you're doing, you can"
-            " use the Invite Link instead.",
+        container = utils.make_container(
             title="Invite Bot",
-        )
-        components = [
-            ipy.Button(
-                style=ipy.ButtonStyle.URL,
-                label="Server Setup Guide",
-                url="https://pythia.astrea.cc/server_setup.html",
+            description=(
+                "If you want to invite me to your server, it's a good idea to use the"
+                " Server Setup Guides. However, if you know what you're doing, you can"
+                " use the Invite Link instead."
             ),
-            ipy.Button(
-                style=ipy.ButtonStyle.URL,
+        )
+        container.add_separator(divider=False)
+        container.add_row(
+            discord.ui.Button(
+                style=discord.ButtonStyle.url,
+                label="Server Setup Guides",
+                url="https://pythia.astrea.cc/setup",
+            ),
+            discord.ui.Button(
+                style=discord.ButtonStyle.url,
                 label="Invite Link",
                 url=self.invite_link,
             ),
-        ]
-        await ctx.send(embeds=embed, components=components)
+        )
+        await ctx.respond(view=utils.quick_view(container))
 
-    @ipy.slash_command(
-        "support",
+    @discord.slash_command(
+        name="support",
         description="Gives an invite link to the support server.",
-        integration_types=[
-            ipy.IntegrationType.GUILD_INSTALL,
-            ipy.IntegrationType.USER_INSTALL,
-        ],
+        integration_types={
+            discord.IntegrationType.guild_install,
+            discord.IntegrationType.user_install,
+        },
+        contexts={
+            discord.InteractionContextType.guild,
+            discord.InteractionContextType.bot_dm,
+            discord.InteractionContextType.private_channel,
+        },
     )
     async def support(self, ctx: utils.THIASlashContext) -> None:
-        embed = utils.make_embed(
-            "If you need help with the bot, or just want to hang out, join the"
-            " support server!",
+        container = utils.make_container(
             title="Support Server",
+            description=(
+                "If you need help with the bot, or just want to hang out, join the"
+                " support server!"
+            ),
         )
-        button = ipy.Button(
-            style=ipy.ButtonStyle.URL,
-            label="Join Support Server",
-            url="https://discord.gg/NSdetwGjpK",
+        container.add_separator(divider=False)
+        container.add_row(
+            discord.ui.Button(
+                style=discord.ButtonStyle.url,
+                label="Join Support Server",
+                url="https://discord.gg/NSdetwGjpK",
+            )
         )
-        await ctx.send(embeds=embed, components=button)
+        await ctx.respond(view=utils.quick_view(container))
 
-    @tansy.slash_command(
-        "about",
+    @discord.slash_command(
+        name="help",
+        description="Sends instructions on how to use the bot.",
+        integration_types={
+            discord.IntegrationType.guild_install,
+            discord.IntegrationType.user_install,
+        },
+        contexts={
+            discord.InteractionContextType.guild,
+            discord.InteractionContextType.bot_dm,
+            discord.InteractionContextType.private_channel,
+        },
+    )
+    async def help(self, ctx: utils.THIASlashContext) -> None:
+        container = utils.make_container(
+            title="Help",
+            description=(
+                "For regular users, the best way to learn how to use the bot and its"
+                " features is to check out the Usage Guides. For server owners and"
+                " moderators, the Server Setup Guides provides instructions on how to"
+                " configure the bot."
+            ),
+        )
+        container.add_separator(divider=False)
+        container.add_row(
+            discord.ui.Button(
+                style=discord.ButtonStyle.url,
+                label="Usage Guides",
+                url="https://pythia.astrea.cc/usage",
+            ),
+            discord.ui.Button(
+                style=discord.ButtonStyle.url,
+                label="Server Setup Guides",
+                url="https://pythia.astrea.cc/setup",
+            ),
+        )
+        await ctx.respond(view=utils.quick_view(container))
+
+    @discord.slash_command(
+        name="about",
         description="Gives information about the bot.",
-        integration_types=[
-            ipy.IntegrationType.GUILD_INSTALL,
-            ipy.IntegrationType.USER_INSTALL,
-        ],
+        integration_types={
+            discord.IntegrationType.guild_install,
+            discord.IntegrationType.user_install,
+        },
+        contexts={
+            discord.InteractionContextType.guild,
+            discord.InteractionContextType.bot_dm,
+            discord.InteractionContextType.private_channel,
+        },
     )
     async def about(self, ctx: utils.THIASlashContext) -> None:
         msg_list: list[str] = [
@@ -170,21 +231,20 @@ class OtherCMDs(ipy.Extension):
             ),
         ]
 
-        about_embed = ipy.Embed(
-            title="About",
+        about_embed = discord.Embed(
             color=self.bot.color,
-            description="\n\n".join(msg_list),
+            description="# About\n" + "\n\n".join(msg_list),
         )
         about_embed.set_thumbnail(
-            ctx.guild.me.display_avatar.url
-            if ctx.guild
-            else self.bot.user.display_avatar.url
+            url=(
+                ctx.guild.me.display_avatar.url
+                if ctx.guild
+                else self.bot.user.display_avatar.url
+            )
         )
 
         commit_hash = await self.get_commit_hash()
-        command_num = len(self.bot.application_commands) + len(
-            self.bot.prefixed.commands
-        )
+        command_num = len(self.bot.all_commands)  # TODO: how accurate is this?
 
         num_shards = len(self.bot.shards)
         shards_str = f"{num_shards} shards" if num_shards != 1 else "1 shard"
@@ -197,7 +257,7 @@ class OtherCMDs(ipy.Extension):
                     f"Commands: {command_num} ",
                     (
                         "Startup Time:"
-                        f" {ipy.Timestamp.fromdatetime(self.bot.start_time).format(ipy.TimestampStyles.RelativeTime)}"
+                        f" {discord.utils.format_dt(self.bot.start_time, style='R')}"
                     ),
                     (
                         "Commit Hash:"
@@ -206,12 +266,12 @@ class OtherCMDs(ipy.Extension):
                         else "Commit Hash: N/A"
                     ),
                     (
-                        "Interactions.py Version:"
-                        f" [{IPY_VERSION}](https://github.com/interactions-py/interactions.py/tree/{IPY_VERSION})"
+                        "Pycord Version:"
+                        f" [{discord.__version__}](https://github.com/Pycord-Development/pycord/tree/v{discord.__version__})"
                     ),
                     (
-                        f"Python Version: {PYTHON_IMPLEMENTATION}"
-                        f" {PYTHON_VERSION[0]}.{PYTHON_VERSION[1]}"
+                        f"Python Version: {utils.PYTHON_IMPLEMENTATION}"
+                        f" {utils.PYTHON_VERSION[0]}.{utils.PYTHON_VERSION[1]}"
                     ),
                     "Made By: [AstreaTSS](https://astrea.cc)",
                 )
@@ -244,14 +304,14 @@ class OtherCMDs(ipy.Extension):
             value="\n".join(links),
             inline=True,
         )
-        about_embed.timestamp = ipy.Timestamp.utcnow()
+        about_embed.timestamp = discord.utils.utcnow()
 
         shard_id = self.bot.get_shard_id(ctx.guild_id) if ctx.guild_id else 0
-        about_embed.set_footer(f"Shard ID: {shard_id}")
+        about_embed.set_footer(text=f"Shard ID: {shard_id}")
 
-        await ctx.send(embed=about_embed)
+        await ctx.respond(embed=about_embed)
 
 
 def setup(bot: utils.THIABase) -> None:
     importlib.reload(utils)
-    OtherCMDs(bot)
+    bot.add_cog(GeneralCMDs(bot))

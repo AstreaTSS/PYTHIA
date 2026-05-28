@@ -14,26 +14,28 @@ from collections import defaultdict
 
 import aiohttp
 import d20
-import interactions as ipy
+import discord
 import msgspec
 import orjson
-import tansy
+import ragwort
 import typing_extensions as typing
+from discord.ext import commands
 from tortoise.transactions import in_transaction
 
+import common.classes as classes
 import common.exports as exports
 import common.fuzzy as fuzzy
-import common.help_tools as help_tools
 import common.models as models
-import common.text_utils as text_utils
 import common.utils as utils
 
 d20_roll = d20.Roller(d20.RollContext(100)).roll
 
 
-class DiceCMDs(ipy.Extension):
-    def __init__(self, _: utils.THIABase) -> None:
-        self.name = "Dice Commands"
+@ragwort.cog_auto_defer(ephemeral=True)
+class DiceCMDs(utils.Cog):
+    def __init__(self, bot: utils.THIABase) -> None:
+        self.bot = bot
+        self.__cog_name__ = "Dice"
 
         # i sure do love weird edge cases with race conditions!
         # TODO: locks should be shared with dice_admin cmds to prevent race conditions
@@ -41,41 +43,37 @@ class DiceCMDs(ipy.Extension):
             asyncio.Lock
         )
 
-        self.add_ext_auto_defer(ephemeral=True)
-
-    dice = tansy.SlashCommand(
+    dice = ragwort.SlashCommandGroup(
         name="dice",
         description="Hosts public-facing dice commands.",
-        integration_types=[
-            ipy.IntegrationType.GUILD_INSTALL,
-            ipy.IntegrationType.USER_INSTALL,
-        ],
-        contexts=[
-            ipy.ContextType.GUILD,
-            ipy.ContextType.BOT_DM,
-            ipy.ContextType.PRIVATE_CHANNEL,
-        ],
+        integration_types={
+            discord.IntegrationType.guild_install,
+            discord.IntegrationType.user_install,
+        },
+        contexts={
+            discord.InteractionContextType.guild,
+            discord.InteractionContextType.bot_dm,
+            discord.InteractionContextType.private_channel,
+        },
     )
 
-    @dice.subcommand(
-        "roll",
-        sub_cmd_description="Rolls a dice in d20 notation.",
+    @dice.command(
+        name="roll",
+        description="Rolls a dice in d20 notation.",
     )
-    @ipy.auto_defer(enabled=False)
+    @ragwort.auto_defer(enabled=False)
     async def dice_roll(
         self,
         ctx: utils.THIASlashContext,
-        dice: str = tansy.Option(
+        dice: str = ragwort.Option(
             "The dice roll to perform in d20 notation. 100 characters max.",
             max_length=100,
         ),
     ) -> None:
         visible = True
         if (
-            ctx.authorizing_integration_owners.get(
-                ipy.IntegrationType.GUILD_INSTALL, ipy.MISSING
-            )
-            == ctx.guild_id
+            ctx.interaction.authorizing_integration_owners.guild_id
+            and ctx.interaction.authorizing_integration_owners.guild_id == ctx.guild_id
         ):
             config = await ctx.fetch_config({"dice": True})
             if typing.TYPE_CHECKING:
@@ -88,38 +86,33 @@ class DiceCMDs(ipy.Extension):
         try:
             result = d20_roll(dice)
         except d20.errors.RollSyntaxError as e:
-            raise ipy.errors.BadArgument(f"Invalid dice roll syntax.\n{e!s}") from None
+            raise utils.BadArgument(f"Invalid dice roll syntax.\n{e!s}") from None
         except d20.errors.TooManyRolls:
-            raise ipy.errors.BadArgument(
-                "Too many dice rolls in the expression."
-            ) from None
+            raise utils.BadArgument("Too many dice rolls in the expression.") from None
         except d20.errors.RollValueError:
-            raise ipy.errors.BadArgument("Invalid dice roll value.") from None
+            raise utils.BadArgument("Invalid dice roll value.") from None
 
-        await ctx.send(embed=utils.make_embed(result.result), ephemeral=not visible)
+        await ctx.respond(view=utils.make_view(result.result), ephemeral=not visible)
 
-    @dice.subcommand(
-        "roll-registered",
-        sub_cmd_description="Rolls a previously registered dice.",
+    @dice.command(
+        name="roll-registered",
+        description="Rolls a previously registered dice.",
     )
-    @ipy.auto_defer(enabled=False)
+    @ragwort.auto_defer(enabled=False)
     async def dice_roll_registered(
         self,
         ctx: utils.THIASlashContext,
-        name: str = tansy.Option(
+        name: str = ragwort.Option(
             "The name of the dice to roll.",
+            input_type=utils.ReplaceSmartPuncConverter,
             max_length=100,
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
         visible = True
         guild_id = 0
         if (
-            ctx.authorizing_integration_owners.get(
-                ipy.IntegrationType.GUILD_INSTALL, ipy.MISSING
-            )
-            == ctx.guild_id
+            ctx.interaction.authorizing_integration_owners.guild_id
+            and ctx.interaction.authorizing_integration_owners.guild_id == ctx.guild_id
         ):
             config = await ctx.fetch_config({"dice": True})
             if typing.TYPE_CHECKING:
@@ -134,50 +127,46 @@ class DiceCMDs(ipy.Extension):
             guild_id=guild_id, user_id=ctx.author.id, name=name
         )
         if not entry:
-            raise ipy.errors.BadArgument("No registered dice found with that name.")
+            raise utils.BadArgument("No registered dice found with that name.")
 
         try:
             result = d20_roll(entry.value)
         except d20.errors.RollSyntaxError as e:
-            raise ipy.errors.BadArgument(f"Invalid dice roll syntax.\n{e!s}") from None
+            raise utils.BadArgument(f"Invalid dice roll syntax.\n{e!s}") from None
         except d20.errors.TooManyRolls:
-            raise ipy.errors.BadArgument(
-                "Too many dice rolls in the expression."
-            ) from None
+            raise utils.BadArgument("Too many dice rolls in the expression.") from None
         except d20.errors.RollValueError:
-            raise ipy.errors.BadArgument("Invalid dice roll value.") from None
+            raise utils.BadArgument("Invalid dice roll value.") from None
 
-        await ctx.send(embed=utils.make_embed(result.result), ephemeral=not visible)
+        await ctx.respond(view=utils.make_view(result.result), ephemeral=not visible)
 
-    @dice.subcommand(
-        "register",
-        sub_cmd_description="Register a custom dice for you to use.",
+    @dice.command(
+        name="register",
+        description="Register a custom dice for you to use.",
     )
     async def dice_register(
         self,
         ctx: utils.THIASlashContext,
-        name: str = tansy.Option(
+        name: str = ragwort.Option(
             "The name of the dice. 100 characters max.",
+            input_type=utils.ReplaceSmartPuncConverter,
             max_length=100,
-            converter=text_utils.ReplaceSmartPuncConverter,
         ),
-        dice: str = tansy.Option(
+        dice: str = ragwort.Option(
             "The dice roll to register in d20 notation. 100 characters max.",
             max_length=100,
         ),
     ) -> None:
         guild_id = 0
         if (
-            ctx.authorizing_integration_owners.get(
-                ipy.IntegrationType.GUILD_INSTALL, ipy.MISSING
-            )
-            == ctx.guild_id
+            ctx.interaction.authorizing_integration_owners.guild_id
+            and ctx.interaction.authorizing_integration_owners.guild_id == ctx.guild_id
         ):
             guild_id = ctx.guild_id
 
         if (
             await models.DiceEntry.filter(
-                guild_id=guild_id, user_id=ctx.author_id
+                guild_id=guild_id, user_id=ctx.author.id
             ).count()
             >= utils.MAX_DICE_ENTRIES
         ):
@@ -193,42 +182,40 @@ class DiceCMDs(ipy.Extension):
                 )
 
         async with self.dice_creation_locks[
-            f"{guild_id}-{ctx.author_id}-{name.lower()}"
+            f"{guild_id}-{ctx.author.id}-{name.lower()}"
         ]:
             if await models.DiceEntry.exists(
-                guild_id=guild_id, user_id=ctx.author_id, name__iexact=name
+                guild_id=guild_id, user_id=ctx.author.id, name__iexact=name
             ):
-                raise ipy.errors.BadArgument("A dice with that name already exists.")
+                raise utils.BadArgument("A dice with that name already exists.")
 
-            await models.GuildConfig.fetch_create(guild_id, {"dice": True})
+            await models.GuildConfig.fetch_create(int(guild_id), {"dice": True})
 
             try:
                 d20_roll(dice)
             except d20.errors.RollSyntaxError as e:
-                raise ipy.errors.BadArgument(
-                    f"Invalid dice roll syntax.\n{e!s}"
-                ) from None
+                raise utils.BadArgument(f"Invalid dice roll syntax.\n{e!s}") from None
             except d20.errors.TooManyRolls:
-                raise ipy.errors.BadArgument(
+                raise utils.BadArgument(
                     "Too many dice rolls in the expression."
                 ) from None
             except d20.errors.RollValueError:
-                raise ipy.errors.BadArgument("Invalid dice roll value.") from None
+                raise utils.BadArgument("Invalid dice roll value.") from None
 
             await models.DiceEntry.create(
                 guild_id=guild_id,
-                user_id=ctx.author_id,
+                user_id=ctx.author.id,
                 name=name,
                 value=dice,
             )
 
-        await ctx.send(
-            embed=utils.make_embed(f"Registered dice {name}."), ephemeral=True
+        await ctx.respond(
+            view=utils.make_view(f"Registered dice {name}."), ephemeral=True
         )
 
-    @dice.subcommand(
-        "list",
-        sub_cmd_description="Lists your registered dice.",
+    @dice.command(
+        name="list",
+        description="Lists your registered dice.",
     )
     async def dice_list(
         self,
@@ -237,114 +224,96 @@ class DiceCMDs(ipy.Extension):
         guild_id = 0
         extra = ""
         if (
-            ctx.authorizing_integration_owners.get(
-                ipy.IntegrationType.GUILD_INSTALL, ipy.MISSING
-            )
-            == ctx.guild_id
+            ctx.interaction.authorizing_integration_owners.guild_id
+            and ctx.interaction.authorizing_integration_owners.guild_id == ctx.guild_id
         ):
             guild_id = ctx.guild_id
             extra = " for this server"
 
         entries = await models.DiceEntry.filter(
-            guild_id=guild_id, user_id=ctx.author_id
+            guild_id=guild_id, user_id=ctx.author.id
         )
         if not entries:
-            raise ipy.errors.BadArgument(f"No registered dice{extra} found.")
+            raise utils.BadArgument(f"No registered dice{extra} found.")
 
-        str_builder = [f"**{e.name}**: {e.value}" for e in entries]
-
-        if len(str_builder) <= 15:
-            await ctx.send(
-                embed=utils.make_embed(
-                    "\n".join(str_builder), title=f"Registered dice{extra}:"
-                ),
-                ephemeral=True,
-            )
-            return
-
+        str_builder = [f"- **{e.name}**: {e.value}" for e in entries]
         chunks = [str_builder[x : x + 15] for x in range(0, len(str_builder), 15)]
-        embeds = [
-            utils.make_embed("\n".join(chunk), title=f"Registered dice{extra}:")
-            for chunk in chunks
-        ]
-        pag = help_tools.HelpPaginator.create_from_embeds(
-            self.bot, *embeds, timeout=120
-        )
-        pag.show_callback_button = False
-        await pag.send(ctx, ephemeral=True)
+        pages = [[discord.ui.TextDisplay("\n".join(chunk))] for chunk in chunks]
 
-    @dice.subcommand(
-        "remove",
-        sub_cmd_description="Removes a registered dice.",
+        pag = classes.ContainerPaginator(
+            *pages, title=f"Registered dice{extra}:", author_id=ctx.author.id
+        )
+        await ctx.respond(view=pag, ephemeral=True)
+
+    @dice.command(
+        name="remove",
+        description="Removes a registered dice.",
     )
     async def dice_remove(
         self,
         ctx: utils.THIASlashContext,
-        name: str = tansy.Option(
+        name: str = ragwort.Option(
             "The name of the dice to removes.",
+            input_type=utils.ReplaceSmartPuncConverter,
             max_length=100,
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
         guild_id = 0
         if (
-            ctx.authorizing_integration_owners.get(
-                ipy.IntegrationType.GUILD_INSTALL, ipy.MISSING
-            )
-            == ctx.guild_id
+            ctx.interaction.authorizing_integration_owners.guild_id
+            and ctx.interaction.authorizing_integration_owners.guild_id == ctx.guild_id
         ):
             guild_id = ctx.guild_id
 
         if (
             await models.DiceEntry.filter(
-                guild_id=guild_id, user_id=ctx.author_id, name=name
+                guild_id=guild_id, user_id=ctx.author.id, name=name
             ).delete()
             < 1
         ):
-            raise ipy.errors.BadArgument("No registered dice found with that name.")
-        await ctx.send(embed=utils.make_embed(f"Removed dice {name}."), ephemeral=True)
+            raise utils.BadArgument("No registered dice found with that name.")
+        await ctx.respond(view=utils.make_view(f"Removed dice {name}."), ephemeral=True)
 
-    @dice.subcommand(
-        "clear",
-        sub_cmd_description="Clears all of your registered dice.",
+    @dice.command(
+        name="clear",
+        description="Clears all of your registered dice.",
     )
     async def dice_clear(
         self,
         ctx: utils.THIASlashContext,
-        confirm: bool = tansy.Option(
+        confirm: bool = ragwort.Option(
             "Actually clear? Set this to true if you're sure.", default=False
         ),
     ) -> None:
         if not confirm:
-            raise ipy.errors.BadArgument(
+            raise utils.BadArgument(
                 "Confirm option not set to true. Please set the option `confirm` to"
                 " true to continue."
             )
 
         guild_id = 0
         if (
-            ctx.authorizing_integration_owners.get(
-                ipy.IntegrationType.GUILD_INSTALL, ipy.MISSING
-            )
-            == ctx.guild_id
+            ctx.interaction.authorizing_integration_owners.guild_id
+            and ctx.interaction.authorizing_integration_owners.guild_id == ctx.guild_id
         ):
             guild_id = ctx.guild_id
 
         if (
             await models.DiceEntry.filter(
                 guild_id=guild_id,
-                user_id=ctx.author_id,
+                user_id=ctx.author.id,
             ).delete()
             < 1
         ):
-            raise ipy.errors.BadArgument("You have no registered dice to clear.")
-        await ctx.send(embed=utils.make_embed("Cleared all registered dice."))
+            raise utils.BadArgument("You have no registered dice to clear.")
+        await ctx.respond(
+            view=utils.make_view("Cleared all registered dice."), ephemeral=True
+        )
 
-    @dice.subcommand(
-        "export", sub_cmd_description="Exports all registered dice to a JSON file."
+    @dice.command(
+        name="export", description="Exports all registered dice to a JSON file."
     )
-    @ipy.cooldown(ipy.Buckets.GUILD, 1, 60)
+    @commands.cooldown(1, 60, commands.BucketType.user)
     async def dice_export(
         self,
         ctx: utils.THIASlashContext,
@@ -352,19 +321,17 @@ class DiceCMDs(ipy.Extension):
         guild_id = 0
         extra = ""
         if (
-            ctx.authorizing_integration_owners.get(
-                ipy.IntegrationType.GUILD_INSTALL, ipy.MISSING
-            )
-            == ctx.guild_id
+            ctx.interaction.authorizing_integration_owners.guild_id
+            and ctx.interaction.authorizing_integration_owners.guild_id == ctx.guild_id
         ):
             guild_id = ctx.guild_id
             extra = " for this server"
 
         entries = await models.DiceEntry.filter(
-            guild_id=guild_id, user_id=ctx.author_id
+            guild_id=guild_id, user_id=ctx.author.id
         )
         if not entries:
-            raise ipy.errors.BadArgument(f"No registered dice{extra} found.")
+            raise utils.BadArgument(f"No registered dice{extra} found.")
 
         entries_dict: list[exports.DiceEntryDict] = [
             {
@@ -385,32 +352,40 @@ class DiceCMDs(ipy.Extension):
             )
 
         entries_io = io.BytesIO(entries_json)
-        entries_file = ipy.File(
+        entries_file = discord.File(
             entries_io,
-            file_name=(
-                f"dice_{ctx.author.id}_{guild_id or 'account'}_{int(ctx.id.created_at.timestamp())}.json"
+            filename=(
+                f"dice_{ctx.author.id}_{guild_id or 'account'}_{int(ctx.interaction.created_at.timestamp())}.json"
             ),
         )
 
+        container = utils.make_container(
+            "Exported registered dice to JSON file.", title="Dice Export"
+        )
+        container.add_separator(divider=False)
+        container.add_file(url=f"attachment://{entries_file.filename}")
+
         try:
-            await ctx.send(
-                embed=utils.make_embed("Exported registered dice to JSON file."),
+            await ctx.respond(
+                view=utils.quick_view(container),
                 file=entries_file,
+                ephemeral=True,
             )
         finally:
             entries_io.close()
 
-    @dice.subcommand("import", sub_cmd_description="Imports dice from a JSON file.")
+    @dice.command(name="import", description="Imports dice from a JSON file.")
+    @commands.cooldown(1, 60, commands.BucketType.user)
     async def dice_import_items(
         self,
         ctx: utils.THIASlashContext,
-        json_file: ipy.Attachment = tansy.Option("The JSON file to import."),
-        _override: str = tansy.Option(
+        json_file: discord.Attachment = ragwort.Option("The JSON file to import."),
+        _override: str = ragwort.Option(
             "Should pre-existing registered dice with the same name be overriden?",
             name="override",
             choices=[
-                ipy.SlashCommandChoice("yes", "yes"),
-                ipy.SlashCommandChoice("no", "no"),
+                discord.OptionChoice("yes", "yes"),
+                discord.OptionChoice("no", "no"),
             ],
             default="no",
         ),
@@ -420,12 +395,12 @@ class DiceCMDs(ipy.Extension):
         if not json_file.content_type or not json_file.content_type.startswith(
             "application/json"
         ):
-            raise ipy.errors.BadArgument("The file must be a JSON file.")
+            raise utils.BadArgument("The file must be a JSON file.")
 
         async with aiohttp.ClientSession() as session:
             async with session.get(json_file.url) as response:
                 if response.status != 200:
-                    raise ipy.errors.BadArgument("Failed to fetch the file.")
+                    raise utils.BadArgument("Failed to fetch the file.")
 
                 try:
                     await response.content.readexactly(10485760 + 1)
@@ -439,42 +414,38 @@ class DiceCMDs(ipy.Extension):
             entries = exports.handle_dice_entry_data(items_json)
 
             for entry in entries:
-                entry.name = text_utils.replace_smart_punc(entry.name.strip())
+                entry.name = utils.replace_smart_punc(entry.name.strip())
                 entry.value = entry.value.strip()
 
                 if not entry.name:
-                    raise ipy.errors.BadArgument("Dice entry names cannot be empty.")
+                    raise utils.BadArgument("Dice entry names cannot be empty.")
                 if not entry.value:
-                    raise ipy.errors.BadArgument(
+                    raise utils.BadArgument(
                         f"Dice entry value for `{entry.name}` cannot be empty."
                     )
 
                 if len(entry.name) > 100:
-                    raise ipy.errors.BadArgument(
+                    raise utils.BadArgument(
                         f"Dice entry name `{entry.name}` is too long. Names must be 100"
                         " characters or fewer."
                     )
                 if len(entry.value) > 100:
-                    raise ipy.errors.BadArgument(
+                    raise utils.BadArgument(
                         f"Dice entry value for `{entry.name}` is too long. Values must"
                         " be 100 characters or fewer."
                     )
 
         except msgspec.DecodeError:
-            raise ipy.errors.BadArgument(
-                "The file is not in the correct format."
-            ) from None
+            raise utils.BadArgument("The file is not in the correct format.") from None
 
         guild_id = 0
         if (
-            ctx.authorizing_integration_owners.get(
-                ipy.IntegrationType.GUILD_INSTALL, ipy.MISSING
-            )
-            == ctx.guild_id
+            ctx.interaction.authorizing_integration_owners.guild_id
+            and ctx.interaction.authorizing_integration_owners.guild_id == ctx.guild_id
         ):
             guild_id = ctx.guild_id
 
-        await models.GuildConfig.fetch_create(guild_id, {"dice": True})
+        await models.GuildConfig.fetch_create(int(guild_id), {"dice": True})
 
         if override:
             if len(entries) > utils.MAX_DICE_ENTRIES:
@@ -517,7 +488,7 @@ class DiceCMDs(ipy.Extension):
                         name__in=[entry.name for entry in entries],
                     ).delete()
                 else:
-                    raise ipy.errors.BadArgument(
+                    raise utils.BadArgument(
                         "One or more die in the file shares a name with an existing"
                         " registered die."
                     )
@@ -528,19 +499,19 @@ class DiceCMDs(ipy.Extension):
                 try:
                     d20_roll(entry.value)
                 except d20.errors.RollSyntaxError as e:
-                    raise ipy.errors.BadArgument(
+                    raise utils.BadArgument(
                         "Invalid dice roll syntax for"
-                        f" `{text_utils.escape_markdown(entry.name)}`.\n{e!s}"
+                        f" `{discord.utils.escape_markdown(entry.name)}`.\n{e!s}"
                     ) from None
                 except d20.errors.TooManyRolls:
-                    raise ipy.errors.BadArgument(
+                    raise utils.BadArgument(
                         "Too many dice rolls in the expression for"
-                        f" `{text_utils.escape_markdown(entry.name)}`."
+                        f" `{discord.utils.escape_markdown(entry.name)}`."
                     ) from None
                 except d20.errors.RollValueError:
-                    raise ipy.errors.BadArgument(
+                    raise utils.BadArgument(
                         "Invalid dice roll value for"
-                        f" `{text_utils.escape_markdown(entry.name)}`."
+                        f" `{discord.utils.escape_markdown(entry.name)}`."
                     ) from None
 
                 to_create.append(
@@ -554,36 +525,42 @@ class DiceCMDs(ipy.Extension):
 
             await models.DiceEntry.bulk_create(to_create)
 
-        await ctx.send(embed=utils.make_embed("Imported dice from JSON file."))
+        await ctx.respond(
+            view=utils.make_view("Imported dice from JSON file.", title="Dice Import"),
+            ephemeral=True,
+        )
 
-    @dice.subcommand(
-        "help",
-        sub_cmd_description="Shows how to use the dice system.",
+    @dice.command(
+        name="help",
+        description="Shows how to use the dice system.",
     )
     async def dice_help(self, ctx: utils.THIASlashContext) -> None:
-        embed = utils.make_embed(
+        container = utils.make_container(
             "To see to use the dice system, follow the dice usage guide below.",
-            title="Setup Bot",
+            title="Set Up Dice System",
         )
-        button = ipy.Button(
-            style=ipy.ButtonStyle.LINK,
-            label="Dice Usage Guide",
-            url="https://pythia.astrea.cc/usage/dice",
+        container.add_separator(divider=False)
+        container.add_row(
+            discord.ui.Button(
+                style=discord.ButtonStyle.link,
+                label="Dice Usage Guide",
+                url="https://pythia.astrea.cc/usage/dice",
+            )
         )
-        await ctx.send(embeds=embed, components=button)
+        await ctx.respond(view=utils.quick_view(container), ephemeral=True)
 
     @dice_remove.autocomplete("name")
     @dice_roll_registered.autocomplete("name")
     async def dice_name_autocomplete(
         self,
-        ctx: ipy.AutocompleteContext,
-    ) -> None:
-        return await fuzzy.autocomplete_dice_entries_user(ctx, **ctx.kwargs)
+        ctx: discord.AutocompleteContext,
+    ) -> list[discord.OptionChoice]:
+        return await fuzzy.autocomplete_dice_entries_user(ctx, **ctx.options)
 
 
 def setup(bot: utils.THIABase) -> None:
     importlib.reload(utils)
     importlib.reload(fuzzy)
-    importlib.reload(help_tools)
+    importlib.reload(classes)
     importlib.reload(exports)
-    DiceCMDs(bot)
+    bot.add_cog(DiceCMDs(bot))

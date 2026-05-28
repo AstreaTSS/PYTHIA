@@ -7,24 +7,23 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """
 
-import interactions as ipy
+import discord
 import typing_extensions as typing
 from tortoise.connection import get_connection
 from tortoise.functions import Lower
 
 import common.models as models
-import common.text_utils as text_utils
+import common.utils as utils
 
 
 async def autocomplete_bullets(
-    ctx: ipy.AutocompleteContext,
     trigger: str,
     channel: str | None = None,
     only_not_found: bool = False,
-    **kwargs: typing.Any,  # noqa: ARG001
-) -> None:
+    **_: typing.Any,
+) -> list[discord.OptionChoice]:
     if not channel:
-        return await ctx.send([])
+        return []
 
     where: dict[str, typing.Any] = {"channel_id": int(channel)}
 
@@ -39,9 +38,9 @@ async def autocomplete_bullets(
             .limit(25)
             .values_list("trigger", flat=True)
         )
-        return await ctx.send(
-            [{"name": entry, "value": entry} for entry in channel_bullets]
-        )
+        return [
+            discord.OptionChoice(name=entry, value=entry) for entry in channel_bullets
+        ]
 
     conn = get_connection("default")
     data = await conn.execute_query_dict(
@@ -53,64 +52,60 @@ async def autocomplete_bullets(
             AND $2 <% trigger
         ORDER BY sml DESC LIMIT 25;
         """.strip(),  # noqa: S608
-        values=[int(channel), text_utils.replace_smart_punc(trigger)],
+        values=[int(channel), utils.replace_smart_punc(trigger)],
     )
-    return await ctx.send(
-        [{"name": entry["trigger"], "value": entry["trigger"]} for entry in data]
-    )
+    return [
+        discord.OptionChoice(name=entry["trigger"], value=entry["trigger"])
+        for entry in data
+    ]
 
 
 async def autocomplete_aliases(
-    ctx: ipy.AutocompleteContext,
     alias: str,
     channel: str | None = None,
     trigger: str | None = None,
-    **kwargs: typing.Any,  # noqa: ARG001,
-) -> None:
+    **_: typing.Any,
+) -> list[discord.OptionChoice]:
     if not channel or not trigger:
-        return await ctx.send([])
+        return []
 
-    trigger = text_utils.replace_smart_punc(trigger)
+    trigger = utils.replace_smart_punc(trigger)
 
     truth_bullet = await models.TruthBullet.find_via_trigger(channel, trigger)
     if not truth_bullet or not truth_bullet.aliases:
-        return await ctx.send([])
+        return []
 
     if not alias:
-        return await ctx.send(
-            [{"name": a, "value": a} for a in sorted(truth_bullet.aliases)]
-        )
+        return [
+            discord.OptionChoice(name=a, value=a) for a in sorted(truth_bullet.aliases)
+        ]
 
     # TODO: replace with proper fuzzy search in the future
-    alias = text_utils.replace_smart_punc(alias)
-    return await ctx.send(
-        [
-            {"name": entry, "value": entry}
-            for entry in truth_bullet.aliases
-            if alias.lower() in entry.lower()
-        ]
-    )
+    alias = utils.replace_smart_punc(alias)
+    return [
+        discord.OptionChoice(name=entry, value=entry)
+        for entry in truth_bullet.aliases
+        if alias.lower() in entry.lower()
+    ]
 
 
 async def autocomplete_gacha_item(
-    ctx: ipy.AutocompleteContext,
+    ctx: discord.AutocompleteContext,
     name: str,
-    **kwargs: typing.Any,  # noqa: ARG001
-) -> None:
-    if not ctx.guild_id:
-        return await ctx.send([])
+    **_: typing.Any,
+) -> list[discord.OptionChoice]:
+    if not ctx.interaction.guild_id:
+        return []
 
     if not name:
         gacha_items = (
             await models.GachaItem.annotate(name_lower=Lower("name"))
-            .filter(guild_id=ctx.guild_id)
+            .filter(guild_id=ctx.interaction.guild_id)
             .order_by("name_lower")
             .limit(25)
             .values_list("name", flat=True)
         )
-        return await ctx.send(
-            [{"name": entry, "value": entry} for entry in gacha_items]
-        )
+        return [discord.OptionChoice(name=entry, value=entry) for entry in gacha_items]
 
     conn = get_connection("default")
     data = await conn.execute_query_dict(
@@ -122,24 +117,24 @@ async def autocomplete_gacha_item(
             AND $2 <% name
         ORDER BY sml DESC LIMIT 25;
         """.strip(),
-        values=[int(ctx.guild_id), text_utils.replace_smart_punc(name)],
+        values=[int(ctx.interaction.guild_id), utils.replace_smart_punc(name)],
     )
-    return await ctx.send(
-        [{"name": entry["name"], "value": entry["name"]} for entry in data]
-    )
+    return [
+        discord.OptionChoice(name=entry["name"], value=entry["name"]) for entry in data
+    ]
 
 
 async def autocomplete_gacha_user_item(
-    ctx: ipy.AutocompleteContext,
+    ctx: discord.AutocompleteContext,
     name: str,
-    user: ipy.Snowflake_Type | None = None,
-    **kwargs: typing.Any,  # noqa: ARG001
-) -> None:
-    if not ctx.guild_id:
-        return await ctx.send([])
+    user: "discord.Snowflake | None" = None,
+    **_: typing.Any,
+) -> list[discord.OptionChoice]:
+    if not ctx.interaction.guild_id:
+        return []
 
     if not user:
-        user = int(ctx.author_id)
+        user = int(ctx.interaction.user.id)
 
     conn = get_connection("default")
 
@@ -157,7 +152,7 @@ async def autocomplete_gacha_user_item(
                 AND thiagachaplayers.user_id = $2
             ORDER BY LOWER(name) LIMIT 25;
             """.strip(),
-            values=[int(ctx.guild_id), int(user)],
+            values=[int(ctx.interaction.guild_id), int(user)],
         )
     else:
         data = await conn.execute_query_dict(
@@ -183,42 +178,45 @@ async def autocomplete_gacha_user_item(
                 )
             ORDER BY sml DESC;
             """.strip(),
-            values=[int(ctx.guild_id), int(user), text_utils.replace_smart_punc(name)],
+            values=[
+                int(ctx.interaction.guild_id),
+                int(user),
+                utils.replace_smart_punc(name),
+            ],
         )
-    return await ctx.send(
-        [{"name": entry["name"], "value": entry["name"]} for entry in data]
-    )
+    return [
+        discord.OptionChoice(name=entry["name"], value=entry["name"]) for entry in data
+    ]
 
 
 async def autocomplete_gacha_optional_user_item(
-    ctx: ipy.AutocompleteContext,
+    ctx: discord.AutocompleteContext,
     name: str,
-    user: ipy.Snowflake_Type | None = None,
-    **kwargs: typing.Any,
-) -> None:
+    user: "discord.Snowflake | None" = None,
+    **_: typing.Any,
+) -> list[discord.OptionChoice]:
     if not user:
-        return await ctx.send([])
+        return []
 
-    return await autocomplete_gacha_user_item(ctx, name, user, **kwargs)
+    return await autocomplete_gacha_user_item(ctx, name, user)
 
 
 async def autocomplete_dice_entries_user(
-    ctx: ipy.AutocompleteContext,
+    ctx: discord.AutocompleteContext,
     name: str,
-    user: ipy.Snowflake_Type | None = None,
-    **kwargs: typing.Any,  # noqa: ARG001
-) -> None:
+    user: "discord.Snowflake | None" = None,
+    **_: typing.Any,
+) -> list[discord.OptionChoice]:
     guild_id = 0
     if (
-        ctx.authorizing_integration_owners.get(
-            ipy.IntegrationType.GUILD_INSTALL, ipy.MISSING
-        )
-        == ctx.guild_id
+        ctx.interaction.authorizing_integration_owners.guild_id
+        and ctx.interaction.authorizing_integration_owners.guild_id
+        == ctx.interaction.guild_id
     ):
-        guild_id = ctx.guild_id
+        guild_id = ctx.interaction.guild_id
 
     if not user:
-        user = int(ctx.author_id)
+        user = int(ctx.interaction.user.id)
 
     if not name:
         dice_entries = (
@@ -228,9 +226,7 @@ async def autocomplete_dice_entries_user(
             .limit(25)
             .values_list("name", flat=True)
         )
-        return await ctx.send(
-            [{"name": entry, "value": entry} for entry in dice_entries]
-        )
+        return [discord.OptionChoice(name=entry, value=entry) for entry in dice_entries]
 
     conn = get_connection("default")
     data = await conn.execute_query_dict(
@@ -243,30 +239,34 @@ async def autocomplete_dice_entries_user(
             AND $3 <% name
         ORDER BY sml DESC LIMIT 25;
         """.strip(),
-        values=[int(ctx.guild_id), int(user), text_utils.replace_smart_punc(name)],
+        values=[
+            int(ctx.interaction.guild_id),
+            int(user),
+            utils.replace_smart_punc(name),
+        ],
     )
-    return await ctx.send(
-        [{"name": entry["name"], "value": entry["name"]} for entry in data]
-    )
+    return [
+        discord.OptionChoice(name=entry["name"], value=entry["name"]) for entry in data
+    ]
 
 
 async def autocomplete_dice_entries_admin(
-    ctx: ipy.AutocompleteContext,
-    user: ipy.Snowflake_Type | None,
+    ctx: discord.AutocompleteContext,
+    user: "discord.Snowflake | None",
     name: str,
-    **kwargs: typing.Any,
-) -> None:
+    **_: typing.Any,
+) -> list[discord.OptionChoice]:
     if not user:
-        return await ctx.send([])
+        return []
 
-    return await autocomplete_dice_entries_user(ctx, name, user, **kwargs)
+    return await autocomplete_dice_entries_user(ctx, name, user)
 
 
 async def autocomplete_item(
-    ctx: ipy.AutocompleteContext,
+    ctx: discord.AutocompleteContext,
     name: str,
     **_: typing.Any,
-) -> None:
+) -> list[discord.OptionChoice]:
     conn = get_connection("default")
 
     if not name:
@@ -278,7 +278,7 @@ async def autocomplete_item(
                 WHERE guild_id = $1
             ORDER BY LOWER(name) LIMIT 25;
             """.strip(),
-            values=[int(ctx.guild_id)],
+            values=[int(ctx.interaction.guild_id)],
         )
     else:
         data = await conn.execute_query_dict(
@@ -290,32 +290,32 @@ async def autocomplete_item(
                 AND $2 <% name
             ORDER BY sml DESC LIMIT 25;
             """.strip(),
-            values=[int(ctx.guild_id), text_utils.replace_smart_punc(name)],
+            values=[int(ctx.interaction.guild_id), utils.replace_smart_punc(name)],
         )
 
-    return await ctx.send(
-        [{"name": entry["name"], "value": entry["name"]} for entry in data]
-    )
+    return [
+        discord.OptionChoice(name=entry["name"], value=entry["name"]) for entry in data
+    ]
 
 
 async def autocomplete_item_channel(
-    ctx: ipy.AutocompleteContext,
+    ctx: discord.AutocompleteContext,
     name: str,
-    channel: str | None = None,
+    channel: "discord.Snowflake | None" = None,
     investigate_variant: bool = False,
     check_takeable: bool = False,
     **_: typing.Any,
-) -> None:
+) -> list[discord.OptionChoice]:
     if not channel:
-        return await ctx.send([])
+        return []
 
     if investigate_variant:
-        config = await models.ItemsConfig.get_or_none(guild_id=ctx.guild_id)
+        config = await models.ItemsConfig.get_or_none(guild_id=ctx.interaction.guild_id)
         if not config:
-            return await ctx.send([])
+            return []
 
         if not config.autosuggest:
-            return await ctx.send([])
+            return []
 
     conn = get_connection("default")
 
@@ -353,22 +353,22 @@ async def autocomplete_item_channel(
                 )
             ORDER BY sml DESC;
             """.strip(),  # noqa: S608
-            values=[int(channel), text_utils.replace_smart_punc(name)],
+            values=[int(channel), utils.replace_smart_punc(name)],
         )
 
-    return await ctx.send(
-        [{"name": entry["name"], "value": entry["name"]} for entry in data]
-    )
+    return [
+        discord.OptionChoice(name=entry["name"], value=entry["name"]) for entry in data
+    ]
 
 
 async def autocomplete_item_user(
-    ctx: ipy.AutocompleteContext,
+    ctx: discord.AutocompleteContext,
     name: str,
-    user: ipy.Snowflake_Type | None = None,
+    user: "discord.Snowflake | None" = None,
     **_: typing.Any,
-) -> None:
-    if not user or not ctx.guild_id:
-        return await ctx.send([])
+) -> list[discord.OptionChoice]:
+    if not user or not ctx.interaction.guild_id:
+        return []
 
     conn = get_connection("default")
 
@@ -384,7 +384,7 @@ async def autocomplete_item_user(
                 AND thiaitemrelation.object_id = $2
             ORDER BY LOWER(thiaitemssystemitems.name) LIMIT 25;
             """.strip(),
-            values=[int(ctx.guild_id), int(user)],
+            values=[int(ctx.interaction.guild_id), int(user)],
         )
     else:
         data = await conn.execute_query_dict(
@@ -408,8 +408,13 @@ async def autocomplete_item_user(
                 )
             ORDER BY sml DESC;
             """.strip(),
-            values=[int(ctx.guild_id), int(user), text_utils.replace_smart_punc(name)],
+            values=[
+                int(ctx.interaction.guild_id),
+                int(user),
+                utils.replace_smart_punc(name),
+            ],
         )
-    return await ctx.send(
-        [{"name": entry["name"], "value": entry["name"]} for entry in data]
-    )
+
+    return [
+        discord.OptionChoice(name=entry["name"], value=entry["name"]) for entry in data
+    ]

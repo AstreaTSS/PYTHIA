@@ -11,70 +11,261 @@ import asyncio
 import collections
 import importlib
 
-import interactions as ipy
-import tansy
+import discord
+import ragwort
 import typing_extensions as typing
 
+import common.classes as classes
 import common.fuzzy as fuzzy
-import common.help_tools as help_tools
 import common.models as models
-import common.text_utils as text_utils
 import common.utils as utils
 
+_item_creation_locks: collections.defaultdict[str, asyncio.Lock] = (
+    collections.defaultdict(asyncio.Lock)
+)
 
-class ItemsManagement(utils.Extension):
-    def __init__(self, _: utils.THIABase) -> None:
-        self.name = "Items Management"
+
+class CreateItemModal(discord.ui.DesignerModal):
+    def __init__(self) -> None:
+        super().__init__(
+            discord.ui.Label(
+                label="Item Name",
+                item=discord.ui.InputText(
+                    style=discord.InputTextStyle.short,
+                    max_length=64,
+                    custom_id="item_name",
+                ),
+            ),
+            discord.ui.Label(
+                label="Item Description",
+                item=discord.ui.InputText(
+                    style=discord.InputTextStyle.paragraph,
+                    max_length=3500,
+                    custom_id="item_description",
+                ),
+            ),
+            discord.ui.Label(
+                label="Item Image",
+                description="The image URL of the item.",
+                item=discord.ui.InputText(
+                    style=discord.InputTextStyle.short,
+                    max_length=2000,
+                    custom_id="item_image",
+                    required=False,
+                ),
+            ),
+            discord.ui.Label(
+                label="Is this item takeable?",
+                item=discord.ui.RadioGroup(
+                    options=[
+                        discord.RadioGroupOption(
+                            label="Yes", value="yes", default=True
+                        ),
+                        discord.RadioGroupOption(label="No", value="no"),
+                    ],
+                    custom_id="item_takeable",
+                    required=True,
+                ),
+            ),
+            title="Create Item",
+            custom_id="thia-modal:create_item",
+        )
+
+    async def callback(self, inter: utils.Interaction) -> None:
+        await inter.response.defer()
+
+        responses = utils.parse_modal_responses(self)
+        name = utils.replace_smart_punc(responses["item_name"])
+
+        async with _item_creation_locks[f"{inter.guild_id}-{name.lower()}"]:
+            if await models.ItemsSystemItem.exists(
+                guild_id=int(inter.guild_id), name__iexact=name
+            ):
+                raise utils.BadArgument(
+                    f"An item named `{discord.utils.escape_markdown(name)}` already"
+                    " exists in this server."
+                )
+
+            try:
+                if isinstance(responses["item_takeable"], list):
+                    takeable = utils.convert_to_bool(responses["item_takeable"][0])
+                else:
+                    takeable = utils.convert_to_bool(responses["item_takeable"])
+            except utils.BadArgument:
+                raise utils.BadArgument(
+                    "Invalid value for if the item is takeable. Giving a simple"
+                    " 'yes' or 'no' will work."
+                ) from None
+
+            image: str | None = (
+                responses["item_image"].strip() if responses.get("item_image") else None
+            )
+            if image and not utils.HTTP_URL_REGEX.fullmatch(image):
+                raise utils.BadArgument("The image given must be a valid URL.")
+
+            await models.GuildConfig.fetch_create(inter.guild_id, {"items": True})
+
+            await models.ItemsSystemItem.create(
+                name=name,
+                description=responses["item_description"],
+                image=image,
+                takeable=takeable,
+                guild_id=inter.guild_id,
+            )
+
+        await inter.respond(
+            view=utils.make_view(
+                f"Created item `{discord.utils.escape_markdown(name)}`."
+            ),
+        )
+
+
+create_item_button = classes.ButtonToModal(
+    text="Create items through this button!",
+    button=discord.ui.Button(
+        style=discord.ButtonStyle.green,
+        label="Create item",
+        custom_id="thia-button:create_item",
+    ),
+    modal=CreateItemModal,
+)
+
+
+class EditItemModal(discord.ui.DesignerModal):
+    def __init__(self, item: models.ItemsSystemItem) -> None:
+        super().__init__(
+            discord.ui.Label(
+                label="Item Name",
+                item=discord.ui.InputText(
+                    style=discord.InputTextStyle.short,
+                    max_length=64,
+                    custom_id="item_name",
+                    value=item.name,
+                ),
+            ),
+            discord.ui.Label(
+                label="Item Description",
+                item=discord.ui.InputText(
+                    style=discord.InputTextStyle.paragraph,
+                    max_length=3500,
+                    custom_id="item_description",
+                    value=item.description,
+                ),
+            ),
+            discord.ui.Label(
+                label="Item Image",
+                description="The image URL of the item.",
+                item=discord.ui.InputText(
+                    style=discord.InputTextStyle.short,
+                    max_length=2000,
+                    custom_id="item_image",
+                    required=False,
+                    value=item.image,
+                ),
+            ),
+            discord.ui.Label(
+                label="Is this item takeable?",
+                item=discord.ui.RadioGroup(
+                    options=[
+                        discord.RadioGroupOption(
+                            label=v,
+                            value=v.lower(),
+                            default=v.lower()
+                            == utils.yesno_friendly_str(item.takeable),
+                        )
+                        for v in ("Yes", "No")
+                    ],
+                    custom_id="item_takeable",
+                    required=True,
+                ),
+            ),
+            title="Edit Item",
+            custom_id=f"thia:edit_item-{item.id}",
+        )
+        self.item = item
+
+    async def callback(self, inter: utils.Interaction) -> None:
+        await inter.response.defer()
+
+        responses = utils.parse_modal_responses(self)
+
+        # quick re-verify
+        item = await models.ItemsSystemItem.get_or_none(id=self.item.id)
+        if not item:
+            raise utils.BadArgument("This item no longer exists.")
+
+        old_name = item.name
+        name = utils.replace_smart_punc(responses["item_name"])
+
+        if name.lower() != old_name.lower() and await models.ItemsSystemItem.exists(
+            guild_id=int(inter.guild_id), name__iexact=name
+        ):
+            raise utils.BadArgument(
+                f"An item named `{name}` already exists in this server."
+            )
+
+        try:
+            if isinstance(responses["item_takeable"], list):
+                takeable = utils.convert_to_bool(responses["item_takeable"][0])
+            else:
+                takeable = utils.convert_to_bool(responses["item_takeable"])
+        except utils.BadArgument:
+            raise utils.BadArgument(
+                "Invalid value for if the item is takeable. Giving a simple"
+                " 'yes' or 'no' will work."
+            ) from None
+
+        image: str | None = (
+            responses["item_image"].strip() if responses.get("item_image") else None
+        )
+        if image and not utils.HTTP_URL_REGEX.fullmatch(image):
+            raise utils.BadArgument("The image given must be a valid URL.")
+
+        item.name = name
+        item.description = responses["item_description"]
+        item.image = image
+        item.takeable = takeable
+        await item.save()
+
+        if name != old_name:
+            await inter.respond(
+                view=utils.make_view(
+                    f"Edited item `{discord.utils.escape_markdown(old_name)}`, now"
+                    f" renamed to `{discord.utils.escape_markdown(name)}`."
+                )
+            )
+        else:
+            await inter.respond(
+                view=utils.make_view(
+                    f"Edited item `{discord.utils.escape_markdown(name)}`."
+                )
+            )
+
+
+class ItemsManagement(utils.Cog):
+    def __init__(self, bot: utils.THIABase) -> None:
+        self.bot = bot
+        self.__cog_name__ = "Items Management"
+
+        self.bot.add_view(create_item_button)
 
         # i sure do love weird edge cases with race conditions!
         self.item_creation_locks: collections.defaultdict[str, asyncio.Lock] = (
             collections.defaultdict(asyncio.Lock)
         )
 
-    @staticmethod
-    def create_item_create_modal() -> ipy.Modal:
-        return ipy.Modal(
-            ipy.InputText(
-                label="Item Name",
-                style=ipy.TextStyles.SHORT,
-                custom_id="item_name",
-                max_length=64,
-            ),
-            ipy.InputText(
-                label="Item Description",
-                style=ipy.TextStyles.PARAGRAPH,
-                custom_id="item_description",
-                max_length=3500,
-            ),
-            ipy.InputText(
-                label="Item Image",
-                style=ipy.TextStyles.SHORT,
-                custom_id="item_image",
-                placeholder="The image URL of the item.",
-                required=False,
-            ),
-            ipy.ShortText(
-                label="Is this item takeable?",
-                custom_id="item_takeable",
-                value="yes",
-                max_length=10,
-            ),
-            title="Create Item",
-            custom_id="thia-modal:create_item",
-        )
-
-    config = tansy.SlashCommand(
+    config = ragwort.SlashCommandGroup(
         name="items-config",
         description="Handles configuration of items.",
-        default_member_permissions=ipy.Permissions.MANAGE_GUILD,
-        dm_permission=False,
+        default_member_permissions=discord.Permissions(manage_guild=True),
+        contexts={
+            discord.InteractionContextType.guild,
+        },
     )
 
-    @config.subcommand(
-        "info",
-        sub_cmd_description=(
-            "Lists out the items configuration settings for the server."
-        ),
+    @config.command(
+        name="info",
+        description="Lists out the items configuration settings for the server.",
     )
     async def items_info(self, ctx: utils.THIASlashContext) -> None:
         config = await ctx.fetch_config({"items": True})
@@ -85,23 +276,23 @@ class ItemsManagement(utils.Extension):
             f"Enabled: {utils.yesno_friendly_str(config.items.enabled)}",
             f"Auto-Suggestions: {utils.toggle_friendly_str(config.items.autosuggest)}",
         )
-        await ctx.send(
-            embed=utils.make_embed("\n".join(options), title="Items Configuration")
+        await ctx.respond(
+            view=utils.make_view("\n".join(options), title="Items Configuration")
         )
 
-    @config.subcommand(
-        "toggle",
-        sub_cmd_description="Enables or disables the items system.",
+    @config.command(
+        name="toggle",
+        description="Enables or disables the items system.",
     )
     async def items_toggle(
         self,
         ctx: utils.THIASlashContext,
-        _toggle: str = tansy.Option(
+        _toggle: str = ragwort.Option(
             "Should the items system be turned on or off?",
             name="toggle",
             choices=[
-                ipy.SlashCommandChoice("on", "on"),
-                ipy.SlashCommandChoice("off", "off"),
+                discord.OptionChoice("on", "on"),
+                discord.OptionChoice("off", "off"),
             ],
         ),
     ) -> None:
@@ -112,34 +303,31 @@ class ItemsManagement(utils.Extension):
 
         if toggle and not config.player_role:
             raise utils.CustomCheckFailure(
-                "Player role not set. Please set it with"
-                f" {self.bot.mention_command('config player set')} first."
+                "Player role not set. Please set it with `/config player set` first."
             )
 
         config.items.enabled = toggle
         await config.items.save()
 
-        await ctx.send(
-            embed=utils.make_embed(
+        await ctx.respond(
+            view=utils.make_view(
                 f"Items system turned {utils.toggle_friendly_str(toggle)}."
             )
         )
 
-    @config.subcommand(
-        "auto-suggestions",
-        sub_cmd_description=(
-            "Enables or disables auto-suggestions when investigating items."
-        ),
+    @config.command(
+        name="auto-suggestions",
+        description="Enables or disables auto-suggestions when investigating items.",
     )
     async def auto_suggestions_toggle(
         self,
         ctx: utils.THIASlashContext,
-        _toggle: str = tansy.Option(
+        _toggle: str = ragwort.Option(
             "Should auto-suggestions be turned on or off?",
             name="toggle",
             choices=[
-                ipy.SlashCommandChoice("on", "on"),
-                ipy.SlashCommandChoice("off", "off"),
+                discord.OptionChoice("on", "on"),
+                discord.OptionChoice("off", "off"),
             ],
         ),
     ) -> None:
@@ -151,48 +339,53 @@ class ItemsManagement(utils.Extension):
         config.items.autosuggest = toggle
         await config.items.save()
 
-        await ctx.send(
-            embed=utils.make_embed(
+        await ctx.respond(
+            view=utils.make_view(
                 f"Auto-suggestions turned {utils.toggle_friendly_str(toggle)}."
             )
         )
 
-    @config.subcommand(
-        "help", sub_cmd_description="Tells you how to set up the items system."
+    @config.command(
+        name="help", description="Tells you how to set up the items system."
     )
     async def items_help(self, ctx: utils.THIASlashContext) -> None:
-        embed = utils.make_embed(
+        container = utils.make_container(
             "To set up the items system, follow the items setup guide below.",
-            title="Setup Bot",
+            title="Set Up Items System",
         )
-        button = ipy.Button(
-            style=ipy.ButtonStyle.LINK,
-            label="Items Setup Guide",
-            url="https://pythia.astrea.cc/setup/items_setup",
+        container.add_separator(divider=False)
+        container.add_row(
+            discord.ui.Button(
+                style=discord.ButtonStyle.link,
+                label="Items Setup Guide",
+                url="https://pythia.astrea.cc/setup/items_setup",
+            )
         )
-        await ctx.send(embeds=embed, components=button)
+        await ctx.respond(view=utils.quick_view(container))
 
-    manage = tansy.SlashCommand(
+    manage = ragwort.SlashCommandGroup(
         name="items-manage",
         description="Handles management of items.",
-        default_member_permissions=ipy.Permissions.MANAGE_GUILD,
-        dm_permission=False,
+        default_member_permissions=discord.Permissions(manage_guild=True),
+        contexts={
+            discord.InteractionContextType.guild,
+        },
     )
 
-    @manage.subcommand(
-        "create-item",
-        sub_cmd_description="Creates an investigable item.",
+    @manage.command(
+        name="create-item",
+        description="Creates an investigable item.",
     )
-    @ipy.auto_defer(enabled=False)
+    @ragwort.auto_defer(enabled=False)
     async def item_create(
         self,
         ctx: utils.THIASlashContext,
-        _send_button: str = tansy.Option(
+        _send_button: str = ragwort.Option(
             "Should a button be sent that allows for repeatedly creating items?",
             name="send_button",
             choices=[
-                ipy.SlashCommandChoice("yes", "yes"),
-                ipy.SlashCommandChoice("no", "no"),
+                discord.OptionChoice("yes", "yes"),
+                discord.OptionChoice("no", "no"),
             ],
             default="yes",
         ),
@@ -200,83 +393,19 @@ class ItemsManagement(utils.Extension):
         send_button = _send_button == "yes"
 
         if send_button:
-            await ctx.defer()
-
-            button = ipy.Button(
-                style=ipy.ButtonStyle.GREEN,
-                label="Create item",
-                custom_id="thia-button:create_item",
-            )
-            await ctx.send(
-                embed=utils.make_embed("Create items via the button below!"),
-                components=button,
-            )
+            await ctx.respond(view=create_item_button)
             return
 
-        await ctx.send_modal(self.create_item_create_modal())
+        await ctx.send_modal(CreateItemModal())
 
-    @ipy.component_callback("thia-button:create_item")
-    async def on_create_item_button(self, ctx: ipy.ComponentContext) -> None:
-        await ctx.send_modal(self.create_item_create_modal())
-
-    @ipy.modal_callback("thia-modal:create_item")
-    async def on_create_item_modal(self, ctx: ipy.ModalContext) -> None:
-        name = text_utils.replace_smart_punc(ctx.responses["item_name"])
-
-        async with self.item_creation_locks[f"{ctx.guild_id}-{name.lower()}"]:
-            if await models.ItemsSystemItem.exists(
-                guild_id=int(ctx.guild_id), name__iexact=name
-            ):
-                await ctx.send(
-                    embed=utils.error_embed_generate(
-                        f"An item named `{text_utils.escape_markdown(name)}` already"
-                        " exists in this server."
-                    )
-                )
-                return
-
-            try:
-                takeable = utils.convert_to_bool(ctx.responses["item_takeable"])
-            except ipy.errors.BadArgument:
-                await ctx.send(
-                    embed=utils.error_embed_generate(
-                        "Invalid value for if the item is takeable. Giving a simple"
-                        " 'yes' or 'no' will work."
-                    )
-                )
-                return
-
-            image: str | None = ctx.responses.get("item_image", "").strip() or None
-            if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):
-                raise ipy.errors.BadArgument("The image given must be a valid URL.")
-
-            await models.GuildConfig.fetch_create(ctx.guild_id, {"items": True})
-
-            await models.ItemsSystemItem.create(
-                name=name,
-                description=ctx.responses["item_description"],
-                image=image,
-                takeable=takeable,
-                guild_id=ctx.guild_id,
-            )
-
-        await ctx.send(
-            embed=utils.make_embed(
-                f"Created item `{text_utils.escape_markdown(name)}`."
-            ),
-        )
-
-    @manage.subcommand(
-        "edit-item", sub_cmd_description="Sends a prompt to edit an item."
-    )
-    @ipy.auto_defer(enabled=False)
+    @manage.command(name="edit-item", description="Sends a prompt to edit an item.")
+    @ragwort.auto_defer(enabled=False)
     async def edit_item(
         self,
         ctx: utils.THIASlashContext,
-        name: str = tansy.Option(
+        name: str = ragwort.Option(
             "The name of the item to edit.",
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
+            input_type=utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
         item = await models.ItemsSystemItem.get_or_none(
@@ -284,119 +413,31 @@ class ItemsManagement(utils.Extension):
             name=name,
         )
         if not item:
-            raise ipy.errors.BadArgument(
-                f"Item `{text_utils.escape_markdown(name)}` does not exist in this"
+            raise utils.BadArgument(
+                f"Item `{discord.utils.escape_markdown(name)}` does not exist in this"
                 " server."
             )
 
-        modal = ipy.Modal(
-            ipy.InputText(
-                label="Item Name",
-                style=ipy.TextStyles.SHORT,
-                custom_id="item_name",
-                max_length=64,
-                value=item.name,
-            ),
-            ipy.InputText(
-                label="Item Description",
-                style=ipy.TextStyles.PARAGRAPH,
-                custom_id="item_description",
-                max_length=3500,
-                value=item.description,
-            ),
-            ipy.InputText(
-                label="Item Image",
-                style=ipy.TextStyles.SHORT,
-                custom_id="item_image",
-                placeholder="The image URL of the item.",
-                required=False,
-                value=item.image,
-            ),
-            ipy.ShortText(
-                label="Is this item takeable?",
-                custom_id="item_takeable",
-                value=utils.yesno_friendly_str(item.takeable),
-                max_length=10,
-            ),
-            title="Edit Item",
-            custom_id=f"thia:edit_item-{item.id}",
-        )
-        await ctx.send_modal(modal)
+        await ctx.send_modal(EditItemModal(item))
 
-    @ipy.listen("modal_completion")
-    @utils.modal_event_error_handler
-    async def on_modal_edit_item(self, event: ipy.events.ModalCompletion) -> None:
-        ctx = event.ctx
-
-        if ctx.custom_id.startswith("thia:edit_item-"):
-            item_id = int(ctx.custom_id.removeprefix("thia:edit_item-"))
-
-            item = await models.ItemsSystemItem.get_or_none(
-                id=item_id, guild_id=ctx.guild_id
-            )
-            if not item:
-                raise ipy.errors.BadArgument("This item no longer exists.")
-
-            old_name = item.name
-            name = text_utils.replace_smart_punc(ctx.responses["item_name"])
-
-            if name.lower() != old_name.lower() and await models.ItemsSystemItem.exists(
-                guild_id=int(ctx.guild_id), name__iexact=name
-            ):
-                raise ipy.errors.BadArgument(
-                    f"An item named `{name}` already exists in this server."
-                )
-
-            try:
-                takeable = utils.convert_to_bool(ctx.responses["item_takeable"])
-            except ipy.errors.BadArgument:
-                raise ipy.errors.BadArgument(
-                    "Invalid value for if the item is takeable. Giving a simple"
-                    " 'yes' or 'no' will work."
-                ) from None
-
-            image: str | None = ctx.responses.get("item_image", "").strip() or None
-            if image and not text_utils.HTTP_URL_REGEX.fullmatch(image):
-                raise ipy.errors.BadArgument("The image given must be a valid URL.")
-
-            item.name = name
-            item.description = ctx.responses["item_description"]
-            item.image = image
-            item.takeable = takeable
-            await item.save()
-
-            if name != old_name:
-                await ctx.send(
-                    embed=utils.make_embed(
-                        f"Edited item `{text_utils.escape_markdown(old_name)}`, now"
-                        f" renamed to `{text_utils.escape_markdown(name)}`."
-                    )
-                )
-            else:
-                await ctx.send(
-                    embed=utils.make_embed(
-                        f"Edited item `{text_utils.escape_markdown(name)}`."
-                    )
-                )
-
-    @manage.subcommand(
-        "list-items",
-        sub_cmd_description="Lists all items in the server.",
+    @manage.command(
+        name="list-items",
+        description="Lists all items in the server.",
     )
     async def list_items(
         self,
         ctx: utils.THIASlashContext,
-        mode: str = tansy.Option(
+        mode: str = ragwort.Option(
             "The mode to show the list of items in.",
             choices=[
-                ipy.SlashCommandChoice("Cozy", "cozy"),
-                ipy.SlashCommandChoice("Compact", "compact"),
+                discord.OptionChoice("Cozy", "cozy"),
+                discord.OptionChoice("Compact", "compact"),
             ],
             default="cozy",
         ),
     ) -> None:
         if mode not in ("cozy", "compact"):
-            raise ipy.errors.BadArgument("Invalid mode.")
+            raise utils.BadArgument("Invalid mode.")
 
         items = await models.ItemsSystemItem.filter(guild_id=ctx.guild_id)
         if not items:
@@ -404,11 +445,11 @@ class ItemsManagement(utils.Extension):
 
         items_list = [
             (
-                f"**{text_utils.escape_markdown(i.name)}**:"
+                f"**{discord.utils.escape_markdown(i.name)}**:"
                 f" {models.short_desc(i.description)}"
                 if mode == "compact"
                 else (
-                    f"**{text_utils.escape_markdown(i.name)}**\n-#"
+                    f"**{discord.utils.escape_markdown(i.name)}**\n-#"
                     f" {models.short_desc(i.description, 70)}"
                 )
             )
@@ -416,34 +457,15 @@ class ItemsManagement(utils.Extension):
         ]
         limit = 15 if mode == "cozy" else 30
 
-        if len(items_list) > limit:
-            chunks = [
-                items_list[x : x + limit] for x in range(0, len(items_list), limit)
-            ]
-            embeds = [
-                utils.make_embed(
-                    "\n".join(chunk),
-                    title="Items",
-                )
-                for chunk in chunks
-            ]
+        chunks = [items_list[x : x + limit] for x in range(0, len(items_list), limit)]
+        items = [[discord.ui.TextDisplay("\n".join(chunk))] for chunk in chunks]
 
-            pag = help_tools.HelpPaginator.create_from_embeds(
-                self.bot, *embeds, timeout=120
-            )
-            pag.show_callback_button = False
-            await pag.send(ctx)
-        else:
-            await ctx.send(
-                embed=utils.make_embed(
-                    "\n".join(items_list),
-                    title="Items",
-                )
-            )
+        pag = classes.ContainerPaginator(*items, title="Items", author_id=ctx.author.id)
+        await ctx.respond(view=pag)
 
-    @manage.subcommand(
-        "list-placed-items",
-        sub_cmd_description="Lists all items currently placed in channels.",
+    @manage.command(
+        name="list-placed-items",
+        description="Lists all items currently placed in channels.",
     )
     async def list_placed_items(self, ctx: utils.THIASlashContext) -> None:
         placed_items = await models.ItemRelation.filter(
@@ -471,48 +493,42 @@ class ItemsManagement(utils.Extension):
                 items_dict[channel_id].items(), key=lambda i: i[0].item.name.lower()
             ):
                 str_builder.append(
-                    f"- **{text_utils.escape_markdown(k.item.name)}** x{v}"
+                    f"- **{discord.utils.escape_markdown(k.item.name)}** x{v}"
                 )
 
             str_builder.append("")
 
-        pag = help_tools.HelpPaginator.create_from_list(
-            ctx.bot, list(str_builder), timeout=120
+        pag = classes.ContainerPaginator.create_from_list(
+            str_builder, title="Placed Items", author_id=ctx.author.id
         )
-        if len(pag.pages) == 1:
-            embed = pag.pages[0].to_embed()  # type: ignore
-            embed.timestamp = ipy.Timestamp.utcnow()
-            embed.color = ctx.bot.color
-            embed.title = None
-            await ctx.send(embeds=embed)
-            return
+        await ctx.respond(view=pag)
 
-        pag.show_callback_button = False
-        pag.show_select_menu = False
-        pag.default_color = ctx.bot.color
-        await pag.send(ctx)
-
-    @manage.subcommand(
-        "list-items-in-channel",
-        sub_cmd_description="Lists all items in a channel.",
+    @manage.command(
+        name="list-items-in-channel",
+        description="Lists all items in a channel.",
     )
     async def list_items_in_channel(
         self,
         ctx: utils.THIASlashContext,
-        channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
+        channel: discord.TextChannel | discord.Thread = ragwort.Option(
             "The channel to list items for.",
+            channel_types=[
+                discord.ChannelType.text,
+                discord.ChannelType.public_thread,
+                discord.ChannelType.private_thread,
+            ],
         ),
-        mode: str = tansy.Option(
+        mode: str = ragwort.Option(
             "The mode to show the list of items in.",
             choices=[
-                ipy.SlashCommandChoice("Cozy", "cozy"),
-                ipy.SlashCommandChoice("Compact", "compact"),
+                discord.OptionChoice("Cozy", "cozy"),
+                discord.OptionChoice("Compact", "compact"),
             ],
             default="cozy",
         ),
     ) -> None:
         if mode not in ("cozy", "compact"):
-            raise ipy.errors.BadArgument("Invalid mode.")
+            raise utils.BadArgument("Invalid mode.")
 
         channel_items = await models.ItemRelation.filter(
             object_id=channel.id,
@@ -530,60 +546,45 @@ class ItemsManagement(utils.Extension):
         for k, v in sorted(items_counter.items(), key=lambda i: i[0].item.name.lower()):
             if mode == "compact":
                 str_builder.append(
-                    f"**{text_utils.escape_markdown(k.item.name)}**{f' (x{v})' if v > 1 else ''}:"
+                    f"**{discord.utils.escape_markdown(k.item.name)}**{f' (x{v})' if v > 1 else ''}:"
                     f" {models.short_desc(k.item.description)}"
                 )
             else:
                 str_builder.append(
-                    f"**{text_utils.escape_markdown(k.item.name)}**{f' (x{v})' if v > 1 else ''}\n-#"
+                    f"**{discord.utils.escape_markdown(k.item.name)}**{f' (x{v})' if v > 1 else ''}\n-#"
                     f" {models.short_desc(k.item.description, 70)}"
                 )
 
         limit = 15 if mode == "cozy" else 30
 
-        if len(str_builder) > limit:
-            chunks = [
-                str_builder[x : x + limit] for x in range(0, len(str_builder), limit)
-            ]
-            embeds = [
-                utils.make_embed(
-                    title=f"Items in #{channel.name}", description="\n".join(entry)
-                )
-                for entry in chunks
-            ]
-        else:
-            await ctx.send(
-                embeds=utils.make_embed(
-                    title=f"Items in #{channel.name}",
-                    description="\n".join(str_builder),
-                ),
-                ephemeral=True,
-            )
-            return
+        chunks = [str_builder[x : x + limit] for x in range(0, len(str_builder), limit)]
+        items = [[discord.ui.TextDisplay("\n".join(chunk))] for chunk in chunks]
 
-        pag = help_tools.HelpPaginator.create_from_embeds(
-            self.bot, *embeds, timeout=120
+        pag = classes.ContainerPaginator(
+            *items, title=f"Items in #{channel.name}", author_id=ctx.author.id
         )
-        pag.show_callback_button = False
-        pag.default_color = ctx.bot.color
-        await pag.send(ctx, ephemeral=True)
+        await ctx.respond(view=pag)
 
-    @manage.subcommand(
-        "place-item-in-channel",
-        sub_cmd_description="Places an item in a channel.",
+    @manage.command(
+        name="place-item-in-channel",
+        description="Places an item in a channel.",
     )
     async def place_item_in_channel(
         self,
         ctx: utils.THIASlashContext,
-        name: str = tansy.Option(
+        name: str = ragwort.Option(
             "The name of the item to place.",
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
+            input_type=utils.ReplaceSmartPuncConverter,
         ),
-        channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
+        channel: discord.TextChannel | discord.Thread = ragwort.Option(
             "The channel to place the item in.",
+            channel_types=[
+                discord.ChannelType.text,
+                discord.ChannelType.public_thread,
+                discord.ChannelType.private_thread,
+            ],
         ),
-        amount: int = tansy.Option(
+        amount: int = ragwort.Option(
             "The amount of the item to place. Defaults to 1.",
             min_value=1,
             max_value=50,
@@ -595,8 +596,8 @@ class ItemsManagement(utils.Extension):
             name=name,
         )
         if not item:
-            raise ipy.errors.BadArgument(
-                f"Item `{text_utils.escape_markdown(name)}` does not exist in this"
+            raise utils.BadArgument(
+                f"Item `{discord.utils.escape_markdown(name)}` does not exist in this"
                 " server."
             )
 
@@ -627,29 +628,33 @@ class ItemsManagement(utils.Extension):
             for _ in range(amount)
         )
 
-        await ctx.send(
-            embed=utils.make_embed(
-                f"Placed {amount} of item `{text_utils.escape_markdown(name)}` in"
+        await ctx.respond(
+            view=utils.make_view(
+                f"Placed {amount} of item `{discord.utils.escape_markdown(name)}` in"
                 f" <#{channel.id}>."
             )
         )
 
-    @manage.subcommand(
-        "remove-item-from-channel",
-        sub_cmd_description="Removes an item from a channel.",
+    @manage.command(
+        name="remove-item-from-channel",
+        description="Removes an item from a channel.",
     )
     async def remove_item_from_channel(
         self,
         ctx: utils.THIASlashContext,
-        channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
+        channel: discord.TextChannel | discord.Thread = ragwort.Option(
             "The channel to remove the item from.",
+            channel_types=[
+                discord.ChannelType.text,
+                discord.ChannelType.public_thread,
+                discord.ChannelType.private_thread,
+            ],
         ),
-        name: str = tansy.Option(
+        name: str = ragwort.Option(
             "The name of the item to remove.",
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
+            input_type=utils.ReplaceSmartPuncConverter,
         ),
-        amount: int = tansy.Option(
+        amount: int = ragwort.Option(
             "The amount of the item to remove. Defaults to 1.",
             min_value=1,
             max_value=50,
@@ -661,8 +666,8 @@ class ItemsManagement(utils.Extension):
             name=name,
         )
         if not item:
-            raise ipy.errors.BadArgument(
-                f"Item `{text_utils.escape_markdown(name)}` does not exist in this"
+            raise utils.BadArgument(
+                f"Item `{discord.utils.escape_markdown(name)}` does not exist in this"
                 " server."
             )
 
@@ -687,31 +692,30 @@ class ItemsManagement(utils.Extension):
             )
             await models.ItemRelation.filter(id__in=to_delete).delete()
 
-        await ctx.send(
-            embed=utils.make_embed(
-                f"Removed {amount} of item `{text_utils.escape_markdown(name)}` from"
+        await ctx.respond(
+            view=utils.make_view(
+                f"Removed {amount} of item `{discord.utils.escape_markdown(name)}` from"
                 f" <#{channel.id}>."
             )
         )
 
-    @manage.subcommand(
-        "view-item",
-        sub_cmd_description="Shows information about an item.",
+    @manage.command(
+        name="view-item",
+        description="Shows information about an item.",
     )
     async def view_item(
         self,
         ctx: utils.THIASlashContext,
-        name: str = tansy.Option(
+        name: str = ragwort.Option(
             "The name of the item to view.",
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
+            input_type=utils.ReplaceSmartPuncConverter,
         ),
-        _view_possessors: str = tansy.Option(
+        _view_possessors: str = ragwort.Option(
             "Should the possessors of this item (channels and users) be shown?",
             name="view_possessors",
             choices=[
-                ipy.SlashCommandChoice("yes", "yes"),
-                ipy.SlashCommandChoice("no", "no"),
+                discord.OptionChoice("yes", "yes"),
+                discord.OptionChoice("no", "no"),
             ],
             default="no",
         ),
@@ -727,59 +731,60 @@ class ItemsManagement(utils.Extension):
 
         item = await queryset
         if not item:
-            raise ipy.errors.BadArgument(
-                f"Item `{text_utils.escape_markdown(name)}` does not exist in this"
+            raise utils.BadArgument(
+                f"Item `{discord.utils.escape_markdown(name)}` does not exist in this"
                 " server."
             )
 
         embeds = item.embeds()
 
         if len(embeds) > 1:
-            pag = help_tools.HelpPaginator.create_from_embeds(
-                self.bot, *embeds, timeout=120
-            )
-            pag.show_callback_button = False
-            await pag.send(ctx)
+            pag = classes.EmbedPaginator(*embeds, author_id=ctx.author.id)
+            await pag.respond(ctx)
         else:
-            await ctx.send(embeds=embeds)
+            await ctx.respond(embeds=embeds)
 
-    @manage.subcommand(
-        "delete-item",
-        sub_cmd_description="Deletes an item.",
+    @manage.command(
+        name="delete-item",
+        description="Deletes an item.",
     )
     async def delete_item(
         self,
         ctx: utils.THIASlashContext,
-        name: str = tansy.Option(
+        name: str = ragwort.Option(
             "The name of the item to delete.",
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
+            input_type=utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
         count = await models.ItemsSystemItem.filter(
             guild_id=ctx.guild_id, name=name
         ).delete()
         if count == 0:
-            raise ipy.errors.BadArgument(
-                f"Item `{text_utils.escape_markdown(name)}` does not exist in this"
+            raise utils.BadArgument(
+                f"Item `{discord.utils.escape_markdown(name)}` does not exist in this"
                 " server."
             )
 
-        await ctx.send(
-            embed=utils.make_embed(
-                f"Deleted item `{text_utils.escape_markdown(name)}`."
+        await ctx.respond(
+            view=utils.make_view(
+                f"Deleted item `{discord.utils.escape_markdown(name)}`."
             )
         )
 
-    @manage.subcommand(
-        "clear-items-in-channel",
-        sub_cmd_description="Clears all items in a channel.",
+    @manage.command(
+        name="clear-items-in-channel",
+        description="Clears all items in a channel.",
     )
     async def clear_items_in_channel(
         self,
         ctx: utils.THIASlashContext,
-        channel: ipy.GuildText | ipy.GuildPublicThread = tansy.Option(
+        channel: discord.TextChannel | discord.Thread = ragwort.Option(
             "The channel to clear items from.",
+            channel_types=[
+                discord.ChannelType.text,
+                discord.ChannelType.public_thread,
+                discord.ChannelType.private_thread,
+            ],
         ),
     ) -> None:
         count = await models.ItemRelation.filter(
@@ -790,13 +795,13 @@ class ItemsManagement(utils.Extension):
                 "There are no items to clear from this channel."
             )
 
-        await ctx.send(
-            embed=utils.make_embed(f"Cleared all items from <#{channel.id}>.")
+        await ctx.respond(
+            view=utils.make_view(f"Cleared all items from <#{channel.id}>.")
         )
 
-    @manage.subcommand(
-        "clear-everything",
-        sub_cmd_description=(
+    @manage.command(
+        name="clear-everything",
+        description=(
             "Clears ALL items data (except config data) in this server."
             " Use with caution!"
         ),
@@ -804,12 +809,12 @@ class ItemsManagement(utils.Extension):
     async def clear_everything(
         self,
         ctx: utils.THIASlashContext,
-        confirm: bool = tansy.Option(
+        confirm: bool = ragwort.Option(
             "Actually clear? Set this to true if you're sure.", default=False
         ),
     ) -> None:
         if not confirm:
-            raise ipy.errors.BadArgument(
+            raise utils.BadArgument(
                 "Confirm option not set to true. Please set the option `confirm` to"
                 " true to continue."
             )
@@ -821,31 +826,32 @@ class ItemsManagement(utils.Extension):
         if items_amount <= 0:
             raise utils.CustomCheckFailure("There's no items data to clear!")
 
-        await ctx.send(embed=utils.make_embed("All items data cleared."))
+        await ctx.respond(view=utils.make_view("All items data cleared."))
 
     @edit_item.autocomplete("name")
     @place_item_in_channel.autocomplete("name")
     @view_item.autocomplete("name")
     @delete_item.autocomplete("name")
-    async def _item_name_autocomplete(self, ctx: ipy.AutocompleteContext) -> None:
+    async def _item_name_autocomplete(
+        self, ctx: discord.AutocompleteContext
+    ) -> list[discord.OptionChoice]:
         return await fuzzy.autocomplete_item(
             ctx,
-            **ctx.kwargs,
+            **ctx.options,
         )
 
     @remove_item_from_channel.autocomplete("name")
     async def _channel_item_name_autocomplete(
-        self, ctx: ipy.AutocompleteContext
-    ) -> None:
+        self, ctx: discord.AutocompleteContext
+    ) -> list[discord.OptionChoice]:
         return await fuzzy.autocomplete_item_channel(
             ctx,
-            **ctx.kwargs,
+            **ctx.options,
         )
 
 
 def setup(bot: utils.THIABase) -> None:
     importlib.reload(utils)
-    importlib.reload(text_utils)
-    importlib.reload(help_tools)
+    importlib.reload(classes)
     importlib.reload(fuzzy)
-    ItemsManagement(bot)
+    bot.add_cog(ItemsManagement(bot))

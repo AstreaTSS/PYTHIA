@@ -10,45 +10,44 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 import collections
 import importlib
 
-import interactions as ipy
-import tansy
+import discord
+import ragwort
 import typing_extensions as typing
 
+import common.classes as classes
 import common.fuzzy as fuzzy
-import common.help_tools as help_tools
 import common.models as models
-import common.text_utils as text_utils
 import common.utils as utils
 
 
-class ItemsCommands(utils.Extension):
-    def __init__(self, _: utils.THIABase) -> None:
-        self.name = "Items Commands"
+class ItemsCommands(utils.Cog):
+    def __init__(self, bot: utils.THIABase) -> None:
+        self.bot = bot
+        self.__cog_name__ = "Items Commands"
 
-    items = tansy.SlashCommand(
+    items = ragwort.SlashCommandGroup(
         name="items",
         description="Hosts public-facing items commands.",
-        dm_permission=False,
+        contexts={discord.InteractionContextType.guild},
     )
 
-    @items.subcommand(
-        "here",
-        sub_cmd_description="Views an item in the current channel.",
+    @items.command(
+        name="here",
+        description="Views an item in the current channel.",
     )
-    @ipy.auto_defer(enabled=False)
+    @ragwort.auto_defer(enabled=False)
     async def items_here(
         self,
         ctx: utils.THIASlashContext,
-        name: str = tansy.Option(
+        name: str = ragwort.Option(
             "The name of the item to view.",
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
+            input_type=utils.ReplaceSmartPuncConverter,
         ),
-        hidden: str = tansy.Option(
+        hidden: str = ragwort.Option(
             "Should the result be shown only to you? Defaults to no.",
             choices=[
-                ipy.SlashCommandChoice("yes", "yes"),
-                ipy.SlashCommandChoice("no", "no"),
+                discord.OptionChoice("yes", "yes"),
+                discord.OptionChoice("no", "no"),
             ],
             default="no",
         ),
@@ -63,8 +62,12 @@ class ItemsCommands(utils.Extension):
         if not config.player_role or not config.items.enabled:
             raise utils.CustomCheckFailure("Items are not enabled in this server.")
 
-        if not ctx.author.has_role(config.player_role):
-            player_role = await ctx.guild.fetch_role(config.player_role)
+        if not ctx.author.get_role(config.player_role):
+            try:
+                player_role = await ctx.guild.fetch_role(config.player_role)
+            except discord.HTTPException:
+                player_role = None
+
             player_role_name = player_role.name if player_role else "Player"
             raise utils.CustomCheckFailure(
                 f"You do not have the {player_role_name} role."
@@ -75,8 +78,8 @@ class ItemsCommands(utils.Extension):
             relations__object_id=int(ctx.channel_id),
         ).first()
         if not item:
-            raise ipy.errors.BadArgument(
-                f"Item `{text_utils.escape_markdown(name)}` does not exist in this"
+            raise utils.BadArgument(
+                f"Item `{discord.utils.escape_markdown(name)}` does not exist in this"
                 " channel."
             )
 
@@ -85,32 +88,31 @@ class ItemsCommands(utils.Extension):
         ).count()
 
         embeds = item.embeds(count=count)
-        await ctx.send(embeds=embeds, ephemeral=hidden == "yes")
+        await ctx.respond(embeds=embeds, ephemeral=hidden == "yes")
 
-    @items.subcommand(
-        "take",
-        sub_cmd_description="Takes an item from the current channel.",
+    @items.command(
+        name="take",
+        description="Takes an item from the current channel.",
     )
-    @ipy.auto_defer(enabled=False)
+    @ragwort.auto_defer(enabled=False)
     async def items_take(
         self,
         ctx: utils.THIASlashContext,
-        name: str = tansy.Option(
+        name: str = ragwort.Option(
             "The name of the item to take.",
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
+            input_type=utils.ReplaceSmartPuncConverter,
         ),
-        amount: int = tansy.Option(
+        amount: int = ragwort.Option(
             "The amount of the item to take. Defaults to 1.",
             min_value=1,
             max_value=50,
             default=1,
         ),
-        hidden: str = tansy.Option(
+        hidden: str = ragwort.Option(
             "Should the result be shown only to you? Defaults to no.",
             choices=[
-                ipy.SlashCommandChoice("yes", "yes"),
-                ipy.SlashCommandChoice("no", "no"),
+                discord.OptionChoice("yes", "yes"),
+                discord.OptionChoice("no", "no"),
             ],
             default="no",
         ),
@@ -125,8 +127,12 @@ class ItemsCommands(utils.Extension):
         if not config.player_role or not config.items.enabled:
             raise utils.CustomCheckFailure("Items are not enabled in this server.")
 
-        if not ctx.author.has_role(config.player_role):
-            player_role = await ctx.guild.fetch_role(config.player_role)
+        if not ctx.author.get_role(config.player_role):
+            try:
+                player_role = await ctx.guild.fetch_role(config.player_role)
+            except discord.HTTPException:
+                player_role = None
+
             player_role_name = player_role.name if player_role else "Player"
             raise utils.CustomCheckFailure(
                 f"You do not have the {player_role_name} role."
@@ -137,8 +143,8 @@ class ItemsCommands(utils.Extension):
             item__name=name,
         ).prefetch_related("item")
         if not item_relations:
-            raise ipy.errors.BadArgument(
-                f"Item `{text_utils.escape_markdown(name)}` does not exist in this"
+            raise utils.BadArgument(
+                f"Item `{discord.utils.escape_markdown(name)}` does not exist in this"
                 " channel."
             )
 
@@ -147,8 +153,8 @@ class ItemsCommands(utils.Extension):
             assert item is not None
 
         if not item.takeable:
-            raise ipy.errors.BadArgument(
-                f"Item `{text_utils.escape_markdown(name)}` cannot be taken."
+            raise utils.BadArgument(
+                f"Item `{discord.utils.escape_markdown(name)}` cannot be taken."
             )
 
         if amount == len(item_relations):
@@ -175,44 +181,43 @@ class ItemsCommands(utils.Extension):
                 object_type=models.ItemsRelationType.USER,
             )
 
-        await ctx.send(
-            embed=utils.make_embed(
+        await ctx.respond(
+            view=utils.make_view(
                 f"Successfully took {amount} of"
-                f" `{text_utils.escape_markdown(item.name)}` from the channel."
+                f" `{discord.utils.escape_markdown(item.name)}` from the channel."
             ),
             ephemeral=hidden == "yes",
         )
 
-    @items.subcommand(
-        "view-inventory",
-        sub_cmd_description="Views your inventory.",
+    @items.command(
+        name="view-inventory",
+        description="Views your inventory.",
     )
-    @ipy.auto_defer(ephemeral=True)
+    @ragwort.auto_defer(ephemeral=True)
     async def view_inventory(
         self,
         ctx: utils.THIASlashContext,
-        mode: str = tansy.Option(
+        mode: str = ragwort.Option(
             "The mode to show the inventory in.",
             choices=[
-                ipy.SlashCommandChoice("Cozy", "cozy"),
-                ipy.SlashCommandChoice("Compact", "compact"),
+                discord.OptionChoice("Cozy", "cozy"),
+                discord.OptionChoice("Compact", "compact"),
             ],
             default="cozy",
         ),
     ) -> None:
         if mode not in ("cozy", "compact"):
-            raise ipy.errors.BadArgument("Invalid mode.")
+            raise utils.BadArgument("Invalid mode.")
 
         user_items = await models.ItemRelation.filter(
             guild_id=ctx.guild_id,
             object_id=ctx.author.id,
         ).prefetch_related("item")
         if not user_items:
-            if ctx._command_name == "inventory view":
+            if ctx.command.qualified_name == "inventory view":
                 raise utils.CustomCheckFailure(
                     "You have no items in your inventory. If you want to look at your"
-                    " items from the gacha, please use"
-                    f" {self.bot.mention_command('gacha profile')}."
+                    " items from the gacha, please use `/gacha profile`."
                 )
 
             raise utils.CustomCheckFailure("You have no items in your inventory.")
@@ -227,12 +232,12 @@ class ItemsCommands(utils.Extension):
         for k, v in sorted(items_counter.items(), key=lambda i: i[0].item.name.lower()):
             if mode == "compact":
                 str_builder.append(
-                    f"**{k.item.name}**{f' (x{v})' if v > 1 else ''}:"
+                    f"**{discord.utils.escape_markdown(k.item.name)}**{f' (x{v})' if v > 1 else ''}:"
                     f" {models.short_desc(k.item.description)}"
                 )
             else:
                 str_builder.append(
-                    f"**{k.item.name}**{f' (x{v})' if v > 1 else ''}\n-#"
+                    f"**{discord.utils.escape_markdown(k.item.name)}**{f' (x{v})' if v > 1 else ''}\n-#"
                     f" {models.short_desc(k.item.description, 70)}"
                 )
 
@@ -242,38 +247,33 @@ class ItemsCommands(utils.Extension):
             chunks = [
                 str_builder[x : x + limit] for x in range(0, len(str_builder), limit)
             ]
-            embeds = [
-                utils.make_embed(title="Your Inventory", description="\n".join(entry))
-                for entry in chunks
-            ]
+            items = [[discord.ui.TextDisplay("\n".join(entry))] for entry in chunks]
         else:
-            await ctx.send(
-                embeds=utils.make_embed(
-                    title="Your Inventory", description="\n".join(str_builder)
+            await ctx.respond(
+                view=utils.make_view(
+                    title="Your Inventory",
+                    description="\n".join(str_builder),
                 ),
                 ephemeral=True,
             )
             return
 
-        pag = help_tools.HelpPaginator.create_from_embeds(
-            self.bot, *embeds, timeout=120
+        pag = classes.ContainerPaginator(
+            *items, title="Your Inventory", author_id=ctx.author.id
         )
-        pag.show_callback_button = False
-        pag.default_color = ctx.bot.color
-        await pag.send(ctx, ephemeral=True)
+        await ctx.respond(view=pag, ephemeral=True)
 
-    @items.subcommand(
-        "view-item",
-        sub_cmd_description="Views an item in your inventory.",
+    @items.command(
+        name="view-item",
+        description="Views an item in your inventory.",
     )
-    @ipy.auto_defer(ephemeral=True)
+    @ragwort.auto_defer(ephemeral=True)
     async def view_item(
         self,
         ctx: utils.THIASlashContext,
-        name: str = tansy.Option(
+        name: str = ragwort.Option(
             "The name of the item to view.",
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
+            input_type=utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
         item = await models.ItemsSystemItem.filter(
@@ -282,8 +282,9 @@ class ItemsCommands(utils.Extension):
             relations__object_id=ctx.author.id,
         ).first()
         if not item:
-            raise ipy.errors.BadArgument(
-                f"Item `{text_utils.escape_markdown(name)}` is not in your inventory."
+            raise utils.BadArgument(
+                f"Item `{discord.utils.escape_markdown(name)}` is not in your"
+                " inventory."
             )
 
         count = await models.ItemRelation.filter(
@@ -292,23 +293,20 @@ class ItemsCommands(utils.Extension):
 
         embeds = item.embeds(count=count)
         embeds[0].footer = None
-        await ctx.send(embeds=embeds, ephemeral=True)
+        await ctx.respond(embeds=embeds, ephemeral=True)
 
-    @items.subcommand(
-        "drop",
-        sub_cmd_description=(
-            "Drops an item from your inventory into the current channel."
-        ),
+    @items.command(
+        name="drop",
+        description="Drops an item from your inventory into the current channel.",
     )
     async def item_drop(
         self,
         ctx: utils.THIASlashContext,
-        name: str = tansy.Option(
+        name: str = ragwort.Option(
             "The name of the item to drop.",
-            autocomplete=True,
-            converter=text_utils.ReplaceSmartPuncConverter,
+            input_type=utils.ReplaceSmartPuncConverter,
         ),
-        amount: int | None = tansy.Option(
+        amount: int = ragwort.Option(
             "The amount of the item to drop. Defaults to 1.",
             min_value=1,
             max_value=50,
@@ -320,8 +318,8 @@ class ItemsCommands(utils.Extension):
             name=name,
         )
         if not item:
-            raise ipy.errors.BadArgument(
-                f"Item `{text_utils.escape_markdown(name)}` does not exist in this"
+            raise utils.BadArgument(
+                f"Item `{discord.utils.escape_markdown(name)}` does not exist in this"
                 " server."
             )
 
@@ -330,131 +328,127 @@ class ItemsCommands(utils.Extension):
             object_id=ctx.author.id,
         ).count()
 
-        if not amount or amount == total:
+        if amount >= total:
             amount = total
             await models.ItemRelation.filter(
-                item_id=item.id,
-                object_id=ctx.author.id,
-            ).update(
-                object_id=ctx.channel.id,
-                object_type=models.ItemsRelationType.CHANNEL,
-            )
+                item_id=item.id, object_id=ctx.author.id
+            ).delete()
         elif total == 0:
             raise utils.CustomCheckFailure(
                 "There are no items of this type in your inventory."
             )
-        elif amount > total:
-            raise utils.CustomCheckFailure(
-                "You cannot drop more items than are in your inventory."
-            )
         else:
-            to_update = (
+            to_delete = (
                 await models.ItemRelation.filter(
-                    item_id=item.id, object_id=int(ctx.author.id)
+                    item_id=item.id, object_id=ctx.author.id
                 )
                 .limit(amount)
                 .values_list("id", flat=True)
             )
-            await models.ItemRelation.filter(id__in=to_update).update(
-                object_id=ctx.channel.id,
-                object_type=models.ItemsRelationType.CHANNEL,
-            )
+            await models.ItemRelation.filter(id__in=to_delete).delete()
 
-        await ctx.send(
-            embed=utils.make_embed(
-                f"Dropped {amount} of item `{text_utils.escape_markdown(name)}` from "
-                f"{ctx.author.mention}'s inventory into this channel."
+        await ctx.respond(
+            view=utils.make_view(
+                f"Dropped {amount} of item `{discord.utils.escape_markdown(name)}` from"
+                f" {ctx.author.mention}'s inventory into this channel."
             )
         )
 
-    investigate = tansy.SlashCommand(
+    investigate = ragwort.SlashCommandGroup(
         name="investigate",
         description="Hosts aliases for general investigation of items.",
-        dm_permission=False,
+        contexts={discord.InteractionContextType.guild},
     )
 
     investigate_here = utils.alias(
         items_here,
-        "investigate here",
-        "Views an item in the current channel. Alias for /items here.",
-        base_command=investigate,
+        name="here",
+        description="Views an item in the current channel. Alias for /items here.",
+        parent=investigate,
     )
 
     investigate_take = utils.alias(
         items_take,
-        "investigate take",
-        "Takes an item from the current channel. Alias for /items take.",
-        base_command=investigate,
+        name="take",
+        description="Takes an item from the current channel. Alias for /items take.",
+        parent=investigate,
     )
 
-    inventory = tansy.SlashCommand(
+    inventory = ragwort.SlashCommandGroup(
         name="inventory",
         description="Hosts aliases for inventory of items.",
-        dm_permission=False,
+        contexts={discord.InteractionContextType.guild},
     )
 
     alias_view_inventory = utils.alias(
         view_inventory,
-        "inventory view",
-        "Views your inventory for the items system. Alias for /items view-inventory.",
-        base_command=inventory,
+        name="view",
+        description=(
+            "Views your inventory for the items system. Alias for /items"
+            " view-inventory."
+        ),
+        parent=inventory,
     )
 
     alias_view_item = utils.alias(
         view_item,
-        "inventory view-item",
-        "Views an item in your inventory. Alias for /items view-item.",
-        base_command=inventory,
+        name="view-item",
+        description="Views an item in your inventory. Alias for /items view-item.",
+        parent=inventory,
     )
 
     alias_item_drop = utils.alias(
         item_drop,
-        "inventory drop",
-        "Drops an item from your inventory into the current channel. Alias for /items"
-        " drop.",
-        base_command=inventory,
+        name="drop",
+        description=(
+            "Drops an item from your inventory into the current channel. Alias for"
+            " /items drop."
+        ),
+        parent=inventory,
     )
 
     @items_here.autocomplete("name")
     @investigate_here.autocomplete("name")
     async def _channel_item_name_autocomplete(
-        self, ctx: ipy.AutocompleteContext
-    ) -> None:
+        self, ctx: discord.AutocompleteContext
+    ) -> list[discord.OptionChoice]:
         return await fuzzy.autocomplete_item_channel(
             ctx,
-            channel=str(ctx.channel_id),
+            channel=str(ctx.interaction.channel_id),
             investigate_variant=True,
-            **ctx.kwargs,
+            **ctx.options,
         )
 
     @items_take.autocomplete("name")
+    @investigate_take.autocomplete("name")
     async def _channel_item_name_takeable_autocomplete(
-        self, ctx: ipy.AutocompleteContext
-    ) -> None:
+        self, ctx: discord.AutocompleteContext
+    ) -> list[discord.OptionChoice]:
         return await fuzzy.autocomplete_item_channel(
             ctx,
-            channel=str(ctx.channel_id),
+            channel=str(ctx.interaction.channel_id),
             check_takeable=True,
             investigate_variant=True,
-            **ctx.kwargs,
+            **ctx.options,
         )
 
     @view_item.autocomplete("name")
+    @alias_view_item.autocomplete("name")
     @item_drop.autocomplete("name")
+    @alias_item_drop.autocomplete("name")
     async def _user_item_name_autocomplete(
         self,
-        ctx: ipy.AutocompleteContext,
-    ) -> None:
-        await fuzzy.autocomplete_item_user(
+        ctx: discord.AutocompleteContext,
+    ) -> list[discord.OptionChoice]:
+        return await fuzzy.autocomplete_item_user(
             ctx,
-            user=str(ctx.author.id),
-            **ctx.kwargs,
+            user=str(ctx.interaction.user.id),
+            **ctx.options,
         )
 
 
 def setup(bot: utils.THIABase) -> None:
     importlib.reload(utils)
-    importlib.reload(text_utils)
-    importlib.reload(help_tools)
+    importlib.reload(classes)
     importlib.reload(fuzzy)
-    ItemsCommands(bot)
+    bot.add_cog(ItemsCommands(bot))

@@ -7,229 +7,374 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """
 
-import asyncio
-import contextlib
-import typing
-import uuid
+import textwrap
+import time
 
-import attrs
-import interactions as ipy
-from interactions.ext import paginators
+import discord
+import typing_extensions as typing
 
-if typing.TYPE_CHECKING:
-    import common.utils as utils
+import common.utils as utils
 
 
-@attrs.define(eq=False, order=False, hash=False, slots=True, kw_only=False)
-class ComponentTimeout(paginators.Timeout):
-    if typing.TYPE_CHECKING:
-        paginator: "ContainerPaginator"
+class ContainerPaginator(discord.ui.DesignerView):
+    def __init__(
+        self,
+        *pages: typing.Iterable[discord.ui.ViewItem],
+        title: str,
+        author_id: int,
+        timeout: float = 120,
+    ) -> None:
+        super().__init__(timeout=timeout, disable_on_timeout=True)
+        self.pages = pages
+        self.title = title
+        self.author_id = author_id
+        self.page_index = 0
 
-    async def __call__(self) -> None:
-        while self.run:
-            try:
-                await asyncio.wait_for(
-                    self.ping.wait(), timeout=self.paginator.timeout_interval
-                )
-            except asyncio.TimeoutError:
-                if self.paginator.message:
-                    with contextlib.suppress(ipy.errors.HTTPException):
-                        await self.paginator.message.edit(
-                            components=self.paginator.create_components(disable=True),
-                            context=self.paginator.context,
-                        )
-                return
-            else:
-                self.ping.clear()
+        if len(self.pages) == 1:
+            self.timeout = None
+            self.disable_on_timeout = False
+            self._store = False
 
+        self.update_items()
 
-@attrs.define(eq=False, order=False, hash=False, slots=True, kw_only=False)
-class ContainerPaginator:
-    client: "utils.THIABase" = attrs.field(
-        repr=False,
-    )
-    """The client to hook listeners into"""
-
-    title: str = attrs.field(kw_only=True)
-    """The title of the paginator"""
-    pages_data: list[list[ipy.BaseComponent]] = attrs.field(repr=False, kw_only=True)
-    """The entries for the paginators"""
-
-    page_index: int = attrs.field(repr=False, kw_only=True, default=0)
-    """The index of the current page being displayed"""
-    timeout_interval: int = attrs.field(repr=False, default=120, kw_only=True)
-    """How long until this paginator disables itself"""
-
-    context: ipy.InteractionContext | None = attrs.field(
-        default=None, init=False, repr=False
-    )
-
-    _uuid: str = attrs.field(repr=False, init=False, factory=uuid.uuid4)
-    _message: ipy.Message = attrs.field(repr=False, init=False, default=ipy.MISSING)
-    _timeout_task: ComponentTimeout = attrs.field(
-        repr=False, init=False, default=ipy.MISSING
-    )
-    _author_id: ipy.Snowflake_Type = attrs.field(
-        repr=False, init=False, default=ipy.MISSING
-    )
-
-    def __attrs_post_init__(self) -> None:
-        self.bot.add_component_callback(
-            ipy.ComponentCommand(
-                name=f"Paginator:{self._uuid}",
-                callback=self._on_button,
-                listeners=[
-                    f"{self._uuid}|select",
-                    f"{self._uuid}|first",
-                    f"{self._uuid}|back",
-                    f"{self._uuid}|next",
-                    f"{self._uuid}|last",
-                ],
-            )
+    @classmethod
+    def create_from_string(
+        cls,
+        title: str,
+        author_id: int,
+        content: str,
+        prefix: str = "",
+        suffix: str = "",
+        page_size: int = 3900,
+        timeout: float = 120,
+    ) -> typing.Self:
+        content_pages = textwrap.wrap(
+            content,
+            width=page_size - (len(prefix) + len(suffix)),
+            break_long_words=True,
+            break_on_hyphens=False,
+            replace_whitespace=False,
+        )
+        pages: list[list[discord.ui.ViewItem]] = [
+            [discord.ui.TextDisplay(f"{prefix}{page}{suffix}")]
+            for page in content_pages
+        ]
+        return cls(
+            *pages,
+            title=title,
+            author_id=author_id,
+            timeout=timeout,
         )
 
-    @property
-    def bot(self) -> "utils.THIABase":
-        return self.client
+    @classmethod
+    def create_from_list(
+        cls,
+        entries: typing.Iterable[str],
+        *,
+        title: str,
+        author_id: int,
+        page_size: int = 3900,
+        timeout: float = 120,
+    ) -> typing.Self:
+        pages: list[list[discord.ui.ViewItem]] = []
+        page_length = 0
+        page = ""
+        for entry in entries:
+            if len(page) + len(f"\n{entry}") <= page_size:
+                page += f"{entry}\n"
+            else:
+                pages.append([discord.ui.TextDisplay(page)])
+                page_length += 1
+                page = ""
+        if page != "":
+            pages.append([discord.ui.TextDisplay(page)])
 
-    @property
-    def message(self) -> ipy.Message:
-        """The message this paginator is currently attached to"""
-        return self._message
-
-    @property
-    def author_id(self) -> ipy.Snowflake_Type:
-        """The ID of the author of the message this paginator is currently attached to"""
-        return self._author_id
+        return cls(
+            *pages,
+            title=title,
+            author_id=author_id,
+            timeout=timeout,
+        )
 
     @property
     def last_page_index(self) -> int:
-        return len(self.pages_data) - 1
+        return len(self.pages) - 1
 
-    def create_components(self, disable: bool = False) -> ipy.ContainerComponent:
-        """
-        Create the components for the paginator message.
-
-        Args:
-            disable: Should all the components be disabled?
-
-        Returns:
-            A ContainerComponent
-
-        """
+    def update_items(self, disable: bool = False) -> None:
         lower_index = max(0, min((self.last_page_index + 1) - 25, self.page_index - 12))
 
-        output: ipy.ContainerComponent = ipy.ContainerComponent(
-            ipy.TextDisplayComponent(f"# {self.title}"),
-            accent_color=self.bot.color,
+        container = discord.ui.Container(
+            discord.ui.TextDisplay(f"# {self.title}"),
+            color=utils.BOT_COLOR,
         )
-        output.extend(self.pages_data[self.page_index])
+        for entry in self.pages[self.page_index]:
+            container.add_item(entry)
+
+        if not disable and len(self.pages) > 1:
+            container.add_separator(divider=True)
+            container.add_row(
+                discord.ui.Button(
+                    style=discord.ButtonStyle.blurple,
+                    emoji="⏮️",
+                    custom_id=f"{self.id}|first",
+                    disabled=self.page_index == 0,
+                ),
+                discord.ui.Button(
+                    style=discord.ButtonStyle.blurple,
+                    emoji="⬅️",
+                    custom_id=f"{self.id}|back",
+                    disabled=self.page_index == 0,
+                ),
+                discord.ui.Button(
+                    style=discord.ButtonStyle.blurple,
+                    emoji="➡️",
+                    custom_id=f"{self.id}|next",
+                    disabled=self.page_index >= self.last_page_index,
+                ),
+                discord.ui.Button(
+                    style=discord.ButtonStyle.blurple,
+                    emoji="⏭️",
+                    custom_id=f"{self.id}|last",
+                    disabled=self.page_index >= self.last_page_index,
+                ),
+            )
+            container.add_row(
+                discord.ui.Select(
+                    discord.ComponentType.string_select,
+                    options=[
+                        discord.SelectOption(
+                            label=f"Page {i+1}/{self.last_page_index+1}",
+                            value=str(i),
+                        )
+                        for i in range(
+                            lower_index,
+                            min(self.last_page_index + 1, lower_index + 25),
+                        )
+                    ],
+                    custom_id=f"{self.id}|select",
+                    placeholder=f"Page {self.page_index+1}/{self.last_page_index+1}",
+                    max_values=1,
+                )
+            )
+
+        self.clear_items()
+        self.add_item(container)
+
+    def disable_all_items(
+        self, *, _: list[discord.ui.ViewItem] | None = None
+    ) -> typing.Self:
+        self.update_items(disable=True)
+        return self
+
+    async def _scheduled_task(
+        self,
+        item: discord.ui.ViewItem,
+        inter: utils.Interaction,
+    ) -> None:
+        try:
+            if self.timeout:
+                self._timeout_expiry = time.monotonic() + self.timeout
+
+            allow = await self.interaction_check(inter)
+            if not allow:
+                return await self.on_check_failure(inter)
+
+            if (
+                not isinstance(item, (discord.ui.Button, discord.ui.Select))
+                or not item.custom_id
+                or not item.custom_id.startswith(f"{self.id}|")
+            ):
+                return
+
+            match item.custom_id.split("|")[1]:
+                case "first":
+                    self.page_index = 0
+                case "last":
+                    self.page_index = self.last_page_index
+                case "next":
+                    if (self.page_index + 1) <= self.last_page_index:
+                        self.page_index += 1
+                case "back":
+                    if self.page_index >= 1:
+                        self.page_index -= 1
+                case "select":
+                    self.page_index = int(item.values[0])
+
+            self.update_items()
+            await inter.response.edit_message(view=self)
+        except Exception as e:
+            return await self.on_error(e, item, inter)
+
+    async def interaction_check(self, inter: utils.Interaction) -> bool:
+        return inter.user.id == self.author_id
+
+    async def on_check_failure(self, inter: utils.Interaction) -> None:
+        await inter.respond(
+            view=utils.error_view("You are not allowed to use this paginator."),
+            ephemeral=True,
+        )
+
+
+class EmbedPaginator(discord.ui.View):
+    def __init__(
+        self,
+        *embeds: discord.Embed,
+        author_id: int,
+        timeout: float = 120,
+    ) -> None:
+        super().__init__(timeout=timeout, disable_on_timeout=True)
+        self.embeds = embeds
+        self.author_id = author_id
+        self.page_index = 0
+
+        self.update_items()
+
+    @property
+    def last_page_index(self) -> int:
+        return len(self.embeds) - 1
+
+    def get_embed(self) -> discord.Embed:
+        embed = self.embeds[self.page_index]
+        if not (embed.author and embed.author.name):
+            embed.set_author(name=f"Page {self.page_index+1}/{len(self.embeds)}")
+        return embed
+
+    def update_items(self, disable: bool = False) -> None:
+        lower_index = max(0, min((self.last_page_index + 1) - 25, self.page_index - 12))
+        self.clear_items()
 
         if not disable:
-            output.append(ipy.SeparatorComponent(divider=True))
-            output.append(
-                ipy.ActionRow(
-                    ipy.Button(
-                        style=ipy.ButtonStyle.BLURPLE,
+            self.add_item(
+                discord.ui.ActionRow(
+                    discord.ui.Button(
+                        style=discord.ButtonStyle.blurple,
                         emoji="⏮️",
-                        custom_id=f"{self._uuid}|first",
-                        disabled=disable or self.page_index == 0,
+                        custom_id=f"{self.id}|first",
+                        disabled=self.page_index == 0,
                     ),
-                    ipy.Button(
-                        style=ipy.ButtonStyle.BLURPLE,
+                    discord.ui.Button(
+                        style=discord.ButtonStyle.blurple,
                         emoji="⬅️",
-                        custom_id=f"{self._uuid}|back",
-                        disabled=disable or self.page_index == 0,
+                        custom_id=f"{self.id}|back",
+                        disabled=self.page_index == 0,
                     ),
-                    ipy.Button(
-                        style=ipy.ButtonStyle.BLURPLE,
+                    discord.ui.Button(
+                        style=discord.ButtonStyle.blurple,
                         emoji="➡️",
-                        custom_id=f"{self._uuid}|next",
-                        disabled=disable or self.page_index >= self.last_page_index,
+                        custom_id=f"{self.id}|next",
+                        disabled=self.page_index >= self.last_page_index,
                     ),
-                    ipy.Button(
-                        style=ipy.ButtonStyle.BLURPLE,
+                    discord.ui.Button(
+                        style=discord.ButtonStyle.blurple,
                         emoji="⏭️",
-                        custom_id=f"{self._uuid}|last",
-                        disabled=disable or self.page_index >= self.last_page_index,
+                        custom_id=f"{self.id}|last",
+                        disabled=self.page_index >= self.last_page_index,
                     ),
                 )
             )
-            output.append(
-                ipy.ActionRow(
-                    ipy.StringSelectMenu(
-                        *(
-                            ipy.StringSelectOption(
-                                label=f"Page {i+1}/{self.last_page_index+1}",
-                                value=str(i),
-                            )
-                            for i in range(
-                                lower_index,
-                                min(self.last_page_index + 1, lower_index + 25),
-                            )
-                        ),
-                        custom_id=f"{self._uuid}|select",
-                        placeholder=(
-                            f"Page {self.page_index+1}/{self.last_page_index+1}"
-                        ),
-                        max_values=1,
-                        disabled=disable,
-                    )
+
+            self.add_item(
+                discord.ui.Select(
+                    discord.ComponentType.string_select,
+                    options=[
+                        discord.SelectOption(
+                            label=f"Page {i+1}/{self.last_page_index+1}",
+                            value=str(i),
+                        )
+                        for i in range(
+                            lower_index,
+                            min(self.last_page_index + 1, lower_index + 25),
+                        )
+                    ],
+                    custom_id=f"{self.id}|select",
+                    placeholder=f"Page {self.page_index+1}/{self.last_page_index+1}",
+                    max_values=1,
+                    row=1,
                 )
             )
 
-        return output
+    def disable_all_items(
+        self, *, _: list[discord.ui.ViewItem] | None = None
+    ) -> typing.Self:
+        self.update_items(disable=True)
+        return self
 
-    async def to_dict(self) -> dict:
-        """Convert this paginator into a dictionary for sending."""
-        return {"components": [self.create_components(disable=False).to_dict()]}
+    async def _scheduled_task(
+        self,
+        item: discord.ui.ViewItem,
+        inter: utils.Interaction,
+    ) -> None:
+        try:
+            if self.timeout:
+                self._timeout_expiry = time.monotonic() + self.timeout
 
-    async def send(self, ctx: ipy.BaseContext, **kwargs: typing.Any) -> ipy.Message:
-        """
-        Send this paginator.
+            allow = await self.interaction_check(inter)
+            if not allow:
+                return await self.on_check_failure(inter)
 
-        Args:
-            ctx: The context to send this paginator with
-            **kwargs: Additional options to pass to `send`.
+            if (
+                not isinstance(item, (discord.ui.Button, discord.ui.Select))
+                or not item.custom_id
+            ):
+                return
 
-        Returns:
-            The resulting message
+            match item.custom_id.split("|")[1]:
+                case "first":
+                    self.page_index = 0
+                case "last":
+                    self.page_index = self.last_page_index
+                case "next":
+                    if (self.page_index + 1) <= self.last_page_index:
+                        self.page_index += 1
+                case "back":
+                    if self.page_index >= 1:
+                        self.page_index -= 1
+                case "select":
+                    self.page_index = int(item.values[0])
 
-        """
-        if isinstance(ctx, ipy.InteractionContext):
-            self.context = ctx
+            self.update_items()
+            await inter.response.edit_message(embed=self.get_embed(), view=self)
+        except Exception as e:
+            return await self.on_error(e, item, inter)
 
-        self._message = await ctx.send(**await self.to_dict(), **kwargs)
-        self._author_id = ctx.author.id
+    async def interaction_check(self, inter: utils.Interaction) -> bool:
+        return inter.user.id == self.author_id
 
-        if self.timeout_interval > 1:
-            self._timeout_task = ComponentTimeout(self)
-            self.client.create_task(self._timeout_task())
+    async def on_check_failure(self, inter: utils.Interaction) -> None:
+        await inter.respond(
+            view=utils.error_view("You are not allowed to use this paginator."),
+            ephemeral=True,
+        )
 
-        return self._message
+    async def respond(
+        self, ctx: utils.THIABridgeContext, **kwargs: typing.Any
+    ) -> discord.Message:
+        self.update_items()
+        return await ctx.respond(embed=self.get_embed(), view=self, **kwargs)
 
-    async def _on_button(
-        self, ctx: ipy.ComponentContext, *_: typing.Any, **__: typing.Any
-    ) -> ipy.Message | None:
-        if ctx.author.id != self.author_id:
-            return await ctx.send(
-                "You are not allowed to use this paginator.", ephemeral=True
+
+class ButtonToModal(discord.ui.DesignerView):
+    def __init__(
+        self,
+        text: str,
+        button: discord.ui.Button,
+        modal: typing.Callable[[], discord.ui.DesignerModal],
+    ) -> None:
+        self.button = button
+        self.modal = modal
+        self.button.callback = self.handle_button
+
+        super().__init__(timeout=None)
+
+        self.add_item(
+            discord.ui.Container(
+                discord.ui.Section(
+                    discord.ui.TextDisplay(text),
+                    accessory=self.button,
+                ),
+                color=utils.BOT_COLOR,
             )
-        if self._timeout_task:
-            self._timeout_task.ping.set()
-        match ctx.custom_id.split("|")[1]:
-            case "first":
-                self.page_index = 0
-            case "last":
-                self.page_index = self.last_page_index
-            case "next":
-                if (self.page_index + 1) <= self.last_page_index:
-                    self.page_index += 1
-            case "back":
-                if self.page_index >= 1:
-                    self.page_index -= 1
-            case "select":
-                self.page_index = int(ctx.values[0])
+        )
 
-        await ctx.edit_origin(**await self.to_dict())
-        return None
+    async def handle_button(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_modal(self.modal())
