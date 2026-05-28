@@ -896,6 +896,7 @@ class GachaManagement(utils.Cog):
         amount: int | None = ragwort.Option(
             "The amount to remove. Defaults to the amount of that item they have.",
             min_value=1,
+            default=None,
         ),
         _replenish_gacha: str = ragwort.Option(
             "Should said amount of the item be added back into the gacha pool? Defaults"

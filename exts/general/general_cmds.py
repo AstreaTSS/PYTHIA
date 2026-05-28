@@ -58,6 +58,11 @@ class GeneralCMDs(utils.Cog):
             discord.IntegrationType.guild_install,
             discord.IntegrationType.user_install,
         },
+        contexts={
+            discord.InteractionContextType.guild,
+            discord.InteractionContextType.bot_dm,
+            discord.InteractionContextType.private_channel,
+        },
     )
     async def ping(self, ctx: utils.THIASlashContext) -> None:
         start_time = time.perf_counter()
@@ -96,6 +101,11 @@ class GeneralCMDs(utils.Cog):
             discord.IntegrationType.guild_install,
             discord.IntegrationType.user_install,
         },
+        contexts={
+            discord.InteractionContextType.guild,
+            discord.InteractionContextType.bot_dm,
+            discord.InteractionContextType.private_channel,
+        },
     )
     async def invite(self, ctx: utils.THIASlashContext) -> None:
         container = utils.make_container(
@@ -128,6 +138,11 @@ class GeneralCMDs(utils.Cog):
             discord.IntegrationType.guild_install,
             discord.IntegrationType.user_install,
         },
+        contexts={
+            discord.InteractionContextType.guild,
+            discord.InteractionContextType.bot_dm,
+            discord.InteractionContextType.private_channel,
+        },
     )
     async def support(self, ctx: utils.THIASlashContext) -> None:
         container = utils.make_container(
@@ -153,6 +168,11 @@ class GeneralCMDs(utils.Cog):
         integration_types={
             discord.IntegrationType.guild_install,
             discord.IntegrationType.user_install,
+        },
+        contexts={
+            discord.InteractionContextType.guild,
+            discord.InteractionContextType.bot_dm,
+            discord.InteractionContextType.private_channel,
         },
     )
     async def help(self, ctx: utils.THIASlashContext) -> None:
@@ -186,6 +206,11 @@ class GeneralCMDs(utils.Cog):
         integration_types={
             discord.IntegrationType.guild_install,
             discord.IntegrationType.user_install,
+        },
+        contexts={
+            discord.InteractionContextType.guild,
+            discord.InteractionContextType.bot_dm,
+            discord.InteractionContextType.private_channel,
         },
     )
     async def about(self, ctx: utils.THIASlashContext) -> None:

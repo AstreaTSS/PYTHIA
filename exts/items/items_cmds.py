@@ -309,6 +309,7 @@ class ItemsCommands(utils.Cog):
         amount: int = ragwort.Option(
             "The amount of the item to drop. Defaults to 1.",
             min_value=1,
+            max_value=50,
             default=1,
         ),
     ) -> None:

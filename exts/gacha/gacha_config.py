@@ -549,8 +549,8 @@ class GachaConfig(utils.Cog):
             "Should players be allowed to draw items they already own?",
             name="toggle",
             choices=[
-                discord.OptionChoice("on", "on"),
-                discord.OptionChoice("off", "off"),
+                discord.OptionChoice("yes", "yes"),
+                discord.OptionChoice("no", "no"),
             ],
         ),
     ) -> None:
