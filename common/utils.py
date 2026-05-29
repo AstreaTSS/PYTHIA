@@ -176,16 +176,15 @@ def valid_channel_check(channel: "ChannelT", perms: discord.Permissions) -> "Cha
         raise commands.BadArgument(f"Cannot read messages in {channel.name}.")
     elif not perms.is_superset(discord.Permissions(read_message_history=True)):
         raise commands.BadArgument(f"Cannot read message history in {channel.name}.")
-    elif not perms.is_superset(discord.Permissions(send_messages=True)):
-        raise commands.BadArgument(f"Cannot send messages in {channel.name}.")
     elif not perms.is_superset(discord.Permissions(embed_links=True)):
         raise commands.BadArgument(f"Cannot send embeds in {channel.name}.")
     elif not perms.is_superset(discord.Permissions(attach_files=True)):
         raise commands.BadArgument(f"Cannot attach files in {channel.name}.")
 
-    if isinstance(channel, discord.Thread) and not perms.is_superset(
-        discord.Permissions(send_messages_in_threads=True)
-    ):
+    if isinstance(channel, discord.Thread):
+        if not perms.is_superset(discord.Permissions(send_messages_in_threads=True)):
+            raise commands.BadArgument(f"Cannot send messages in {channel.name}.")
+    elif not perms.is_superset(discord.Permissions(send_messages=True)):
         raise commands.BadArgument(f"Cannot send messages in {channel.name}.")
 
     return channel
