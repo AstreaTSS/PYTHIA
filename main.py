@@ -125,8 +125,8 @@ class PYTHIA(utils.THIABase):
             utils.CustomCheckFailure | utils.BadArgument | commands.UserInputError,
         ):
             await ctx.respond(view=utils.error_view(str(error)))
-        elif isinstance(error, discord.CheckFailure):
-            if ctx.guild_id:
+        elif isinstance(error, discord.CheckFailure | commands.CheckFailure):
+            if ctx.guild:
                 await ctx.respond(
                     view=utils.error_view(
                         "You do not have the proper permissions to use that command."
@@ -159,7 +159,7 @@ class PYTHIA(utils.THIABase):
         await self._pythia_error(context, exception)
 
     async def on_command_error(
-        self, context: utils.THIABridgeExtContext, exception: commands.CommandError
+        self, context: utils.THIABridgeExtContext, exception: Exception
     ) -> None:
         if context.command and getattr(context.command, "on_error", None):
             return
@@ -168,6 +168,12 @@ class PYTHIA(utils.THIABase):
             context.cog.cog_command_error
         ):
             return
+
+        if isinstance(exception, commands.CommandNotFound):
+            return
+
+        if isinstance(exception, commands.CommandInvokeError):
+            exception = exception.original
 
         await self._pythia_error(context, exception)
 
