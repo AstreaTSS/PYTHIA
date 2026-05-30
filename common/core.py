@@ -33,12 +33,14 @@ CoroutineT = typing.TypeVar("CoroutineT", bound=typing.Coroutine)
 
 class THIAContextMixin:
     guild_config: models.GuildConfig | None
+    ephemeral: bool
     guild_id: int
     guild: discord.Guild
     bot: "THIABase"
 
     def __init__(self, *args: typing.Any, **kwargs: typing.Any) -> None:
         self.guild_config = None
+        self.ephemeral = False
         super().__init__(*args, **kwargs)
 
     async def fetch_config(
@@ -61,6 +63,10 @@ class THIAContextMixin:
 
 class THIABridgeApplicationContext(THIAContextMixin, bridge.BridgeApplicationContext):
     channel_id: int
+
+    async def defer(self, *, ephemeral: bool = False, invisible: bool = True) -> None:
+        await super().defer(ephemeral=ephemeral, invisible=invisible)
+        self.ephemeral = ephemeral
 
     if typing.TYPE_CHECKING:
         # very funny way to make sure not to use the send method

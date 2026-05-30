@@ -252,7 +252,8 @@ async def error_handle(
             view=error_view(
                 "An internal error has occured. The bot owner has been notified and"
                 " will likely fix the issue soon."
-            )
+            ),
+            ephemeral=getattr(ctx, "ephemeral", True),
         )
 
 

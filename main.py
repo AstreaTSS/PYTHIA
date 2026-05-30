@@ -111,26 +111,33 @@ class PYTHIA(utils.THIABase):
     async def _pythia_error(
         self, ctx: utils.THIABridgeContext | discord.Interaction, error: Exception
     ) -> None:
+        ephemeral = getattr(ctx, "ephemeral", True)
+
         if isinstance(error, commands.CommandOnCooldown):
             delta_wait = datetime.timedelta(seconds=error.retry_after)
             await ctx.respond(
                 view=utils.error_view(
                     "You're doing that command too fast! Try again in"
                     f" `{humanize.precisedelta(delta_wait, format='%0.1f')}`."
-                )
+                ),
+                ephemeral=ephemeral,
             )
 
         elif isinstance(
             error,
             utils.CustomCheckFailure | utils.BadArgument | commands.UserInputError,
         ):
-            await ctx.respond(view=utils.error_view(str(error)))
+            await ctx.respond(
+                view=utils.error_view(str(error)),
+                ephemeral=ephemeral,
+            )
         elif isinstance(error, discord.CheckFailure | commands.CheckFailure):
             if ctx.guild:
                 await ctx.respond(
                     view=utils.error_view(
                         "You do not have the proper permissions to use that command."
-                    )
+                    ),
+                    ephemeral=ephemeral,
                 )
         else:
             await utils.error_handle(error, ctx=ctx)
