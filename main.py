@@ -94,13 +94,13 @@ class PYTHIA(utils.THIABase):
         self.init_load = False
 
         activity = discord.CustomActivity(
-            name="Visual revamp | Details in bio",
+            name="Assisting servers | pythia.astrea.cc",
         )
         await self.change_presence(activity=activity)
 
     async def on_resumed(self) -> None:
         activity = discord.CustomActivity(
-            name="Visual revamp | Details in bio",
+            name="Assisting servers | pythia.astrea.cc",
         )
         await self.change_presence(activity=activity)
 
