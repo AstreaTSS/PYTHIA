@@ -36,6 +36,8 @@ __all__ = (
     "ItemsSystemItem",
     "MessageConfig",
     "MessageLink",
+    "MessageMode",
+    "MessageThread",
     "Names",
     "TruthBullet",
     "TruthBulletAlias",
@@ -60,6 +62,26 @@ class ItemsRelationType(str, Enum):
 class InvestigationType(IntEnum):
     DEFAULT = 1
     COMMAND_ONLY = 2
+
+
+class MessageMode(IntEnum):
+    CLASSIC = 1
+    PUBLIC_THREAD = 2
+    PRIVATE_THREAD = 3
+
+    def is_thread(self) -> bool:
+        return self in {MessageMode.PUBLIC_THREAD, MessageMode.PRIVATE_THREAD}
+
+    def display_name(self) -> str:
+        match self:
+            case MessageMode.CLASSIC:
+                return "Classic (All Messages in One Channel)"
+            case MessageMode.PUBLIC_THREAD:
+                return "Public Thread Per User"
+            case MessageMode.PRIVATE_THREAD:
+                return "Private Thread Per User"
+            case _:
+                raise ValueError(f"Invalid message mode: {self}")
 
 
 class Names(Model):
@@ -283,11 +305,29 @@ class MessageConfig(Model):
     enabled: fields.Field[bool] = fields.BooleanField(default=False)
     anon_enabled: fields.Field[bool] = fields.BooleanField(default=False)
     ping_for_message: fields.Field[bool] = fields.BooleanField(default=False)
+    mode: MessageMode = fields.IntEnumField(
+        MessageMode, default=MessageMode.PUBLIC_THREAD
+    )
 
     links: fields.ReverseRelation["MessageLink"]
 
     class Meta:
         table = "thiamessageconfig"
+
+
+class MessageThread(Model):
+    id: fields.Field[int] = fields.IntField(pk=True)
+    message_link: fields.ForeignKeyRelation["MessageLink"] = fields.ForeignKeyField(
+        "models.MessageLink", "threads", db_index=True
+    )
+    user_id: fields.Field[int] = fields.BigIntField(db_index=True)
+    thread_id: fields.Field[int] = fields.BigIntField()
+
+    def is_anonymous(self) -> bool:
+        return self.user_id == -1
+
+    class Meta:
+        table = "thiamessagethread"
 
 
 @guild_id_model
@@ -298,6 +338,8 @@ class MessageLink(Model):
     )
     user_id: fields.Field[int] = fields.BigIntField()
     channel_id: fields.Field[int] = fields.BigIntField()
+
+    threads: fields.ReverseRelation["MessageThread"]
 
     class Meta:
         table = "thiamessagelink"

@@ -37,6 +37,8 @@ __all__ = (
     "ItemsSystemItem",
     "MessageConfig",
     "MessageLink",
+    "MessageMode",
+    "MessageThread",
     "Names",
     "Rarity",
     "TruthBullet",

@@ -64,8 +64,9 @@ class MessageModal(discord.ui.DesignerModal):
         self.user = user
         self.anon = anon
 
-    @staticmethod
+    @classmethod
     async def make_container(
+        cls,
         title: str,
         content: str,
         *,
@@ -136,7 +137,70 @@ class MessageModal(discord.ui.DesignerModal):
         return container, files
 
     @staticmethod
+    async def resolve_channel(
+        bot: utils.THIABase,
+        guild: discord.Guild,
+        message_mode: models.MessageMode,
+        *,
+        other_user_link: models.MessageLink,
+        user: discord.Member | discord.User,
+        other_user: discord.Member | discord.User,
+        anon: bool = False,
+    ) -> discord.abc.Messageable:
+        if not message_mode.is_thread():
+            return bot.get_partial_messageable(other_user_link.channel_id)
+
+        user_id = user.id if not anon else -1
+
+        if thread_meta := await models.MessageThread.get_or_none(
+            message_link_id=other_user_link.id, user_id=user_id
+        ):
+            return bot.get_partial_messageable(thread_meta.thread_id)
+
+        base_chan = await utils.getch_channel(guild, other_user_link.channel_id)
+        if not base_chan:
+            raise utils.CustomCheckFailure(
+                f"Could not find {other_user.mention}'s channel."
+            )
+
+        if not isinstance(base_chan, discord.TextChannel):
+            raise utils.CustomCheckFailure(
+                f"{other_user.mention}'s channel is not a text channel."
+            )
+
+        kwargs: dict[str, typing.Any] = {
+            "name": f"Messages from {utils.user_string(user)}",
+            "auto_archive_duration": discord.ThreadArchiveDuration.one_week,
+            "reason": (
+                f"Thread for messages from {utils.user_string(user)} to"
+                f" {utils.user_string(other_user)}"
+            ),
+        }
+
+        if anon:
+            kwargs["name"] = f"Anonymous messages to {utils.user_string(other_user)}"
+            kwargs["reason"] = (
+                f"Thread for anonymous messages to {utils.user_string(other_user)}"
+            )
+
+        if message_mode == models.MessageMode.PRIVATE_THREAD:
+            kwargs["type"] = discord.ChannelType.private_thread
+            kwargs["invitable"] = False
+        else:
+            kwargs["type"] = discord.ChannelType.public_thread
+
+        thread = await base_chan.create_thread(**kwargs)
+        await thread.add_user(other_user)
+
+        await models.MessageThread.create(
+            message_link_id=other_user_link.id, user_id=user_id, thread_id=thread.id
+        )
+
+        return thread
+
+    @classmethod
     async def actual_message(
+        cls,
         ctx: utils.THIABridgeContext,
         user: discord.Member,
         message: str | None,
@@ -185,14 +249,22 @@ class MessageModal(discord.ui.DesignerModal):
             )
 
         try:
-            other_chan = ctx.bot.get_partial_messageable(other_user_link.channel_id)
+            other_chan = await cls.resolve_channel(
+                ctx.bot,
+                ctx.guild,
+                config.messages.mode,
+                other_user_link=other_user_link,
+                user=ctx.author,
+                other_user=user,
+                anon=anon,
+            )
 
             if anon:
                 title = "Anonymous message"
             else:
                 title = f"Message from {ctx.author.mention}"
 
-            container, files = await MessageModal.make_container(
+            container, files = await cls.make_container(
                 title, message or "", attachments=attachments
             )
 
@@ -226,13 +298,20 @@ class MessageModal(discord.ui.DesignerModal):
             attachments = other_msg.components[0].components[1].items  # type: ignore
 
         try:
-            ctx_user_chan = ctx.bot.get_partial_messageable(ctx_user_link.channel_id)
+            ctx_user_chan = await cls.resolve_channel(
+                ctx.bot,
+                ctx.guild,
+                config.messages.mode,
+                other_user_link=ctx_user_link,
+                user=user,
+                other_user=ctx.author,
+            )
 
             title = f"Message sent to {user.mention}"
             if anon:
                 title = f"Anonymous message sent to {user.mention}"
 
-            container, files = await MessageModal.make_container(
+            container, files = await cls.make_container(
                 title, message or "", attachments=attachments
             )
 
