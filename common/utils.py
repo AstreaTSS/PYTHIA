@@ -221,6 +221,9 @@ def parse_modal_responses(view: discord.ui.DesignerModal) -> dict[str, typing.An
 async def getch_channel(
     guild: discord.Guild, channel_id: int
 ) -> discord.abc.GuildChannel | discord.Thread | None:
+    if not channel_id:
+        return None
+
     # annoying, guild.get_or_fetch doesn't work with threads, so we have to do this manually
     if channel := guild.get_channel_or_thread(channel_id):
         return channel
