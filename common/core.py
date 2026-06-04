@@ -133,11 +133,6 @@ class THIABase(bridge.AutoShardedBot):
     def sync_command_info_task(self) -> None:
         self.create_task(self._sync_command_info())
 
-    async def getch_channel(
-        self, channel_id: int
-    ) -> discord.abc.GuildChannel | discord.abc.PrivateChannel | discord.Thread | None:
-        return await self.get_or_fetch(discord.TextChannel, channel_id)
-
     async def _sync_command_info(self) -> None:
         await self.wait_until_ready()
 
