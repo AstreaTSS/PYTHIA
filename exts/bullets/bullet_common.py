@@ -45,9 +45,7 @@ async def check_for_finish(
         if okay_if_no_chan:
             return
 
-        bullet_chan = await guild.get_or_fetch(
-            discord.TextChannel, config.bullets.bullet_chan_id
-        )
+        bullet_chan = await utils.getch_channel(guild, config.bullets.bullet_chan_id)
         if not bullet_chan or not isinstance(bullet_chan, discord.abc.Messageable):
             config.bullets.bullets_enabled = False
             bot.msg_enabled_bullets_guilds.discard(int(guild.id))
@@ -191,8 +189,8 @@ async def command_investigate(
     if not truth_bullet.hidden and (
         config.bullets.bullet_chan_id or not kwargs.get("manual_trigger")
     ):
-        bullet_chan = await ctx.guild.get_or_fetch(
-            discord.TextChannel, config.bullets.bullet_chan_id
+        bullet_chan = await utils.getch_channel(
+            ctx.guild, config.bullets.bullet_chan_id
         )
         if not bullet_chan or not isinstance(bullet_chan, discord.abc.Messageable):
             config.bullets.bullets_enabled = False

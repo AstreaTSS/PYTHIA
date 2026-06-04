@@ -208,6 +208,29 @@ def alias(
     return new_cmd
 
 
+def parse_modal_responses(view: discord.ui.DesignerModal) -> dict[str, typing.Any]:
+    return {
+        child.item.custom_id: getattr(
+            child.item, "values", getattr(child.item, "value", None)
+        )
+        for child in view.children
+        if isinstance(child, discord.ui.Label)
+    }
+
+
+async def getch_channel(
+    guild: discord.Guild, channel_id: int
+) -> discord.abc.GuildChannel | discord.Thread | None:
+    # annoying, guild.get_or_fetch doesn't work with threads, so we have to do this manually
+    if channel := guild.get_channel_or_thread(channel_id):
+        return channel
+
+    try:
+        return await guild.fetch_channel(channel_id)
+    except discord.HTTPException:
+        return None
+
+
 async def error_handle(
     error: Exception, *, ctx: THIABridgeContext | discord.Interaction | None = None
 ) -> None:
@@ -255,16 +278,6 @@ async def error_handle(
             ),
             ephemeral=getattr(ctx, "ephemeral", True),
         )
-
-
-def parse_modal_responses(view: discord.ui.DesignerModal) -> dict[str, typing.Any]:
-    return {
-        child.item.custom_id: getattr(
-            child.item, "values", getattr(child.item, "value", None)
-        )
-        for child in view.children
-        if isinstance(child, discord.ui.Label)
-    }
 
 
 def button_handler(

@@ -99,8 +99,8 @@ class BulletFinding(utils.Cog):
         bullet_chan: discord.TextChannel | discord.Thread | None = None
 
         if not bullet_found.hidden:
-            bullet_chan = await message.guild.get_or_fetch(
-                discord.TextChannel, config.bullets.bullet_chan_id
+            bullet_chan = await utils.getch_channel(
+                message.guild, config.bullets.bullet_chan_id
             )
             if not bullet_chan or not isinstance(bullet_chan, discord.abc.Messageable):
                 config.bullets.bullets_enabled = False

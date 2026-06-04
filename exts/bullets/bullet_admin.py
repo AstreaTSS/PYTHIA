@@ -406,7 +406,7 @@ class BulletManagement(utils.Cog):
         self, inter: utils.Interaction, custom_id: str
     ) -> None:
         channel_id = int(custom_id.removeprefix("thia:add-bullets|"))
-        channel = await inter.guild.get_or_fetch(discord.TextChannel, channel_id)
+        channel = await utils.getch_channel(inter.guild, channel_id)
 
         if not channel:
             raise utils.CustomCheckFailure(
@@ -421,7 +421,7 @@ class BulletManagement(utils.Cog):
         self, inter: utils.Interaction, custom_id: str
     ) -> None:
         channel_id = int(custom_id.removeprefix("ui-button:add_bullets-"))
-        channel = await inter.guild.get_or_fetch(discord.TextChannel, channel_id)
+        channel = await utils.getch_channel(inter.guild, channel_id)
 
         if not channel:
             raise utils.CustomCheckFailure(
