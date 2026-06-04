@@ -661,9 +661,6 @@ class GachaManagement(utils.Cog):
         if typing.TYPE_CHECKING:
             assert config.names and isinstance(config.names, models.Names)
 
-        if isinstance(role, str):
-            role = await ctx.guild.fetch_role(int(role))
-
         members: list[int] = []
 
         if (
@@ -774,7 +771,7 @@ class GachaManagement(utils.Cog):
                 f" {self.bot.mention_command('config player set')} first."
             )
 
-        actual_role = await ctx.guild.fetch_role(config.player_role)
+        actual_role = await ctx.guild.get_or_fetch(discord.Role, config.player_role)
         if actual_role is None:
             raise utils.CustomCheckFailure("The Player role was not found.")
 

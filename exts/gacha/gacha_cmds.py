@@ -44,7 +44,7 @@ async def gacha_roll_actual(
         raise utils.CustomCheckFailure("Gacha is not enabled in this server.")
 
     if not ctx.user.get_role(config.player_role):
-        player_role = await ctx.guild.fetch_role(config.player_role)
+        player_role = await ctx.guild.get_or_fetch(discord.Role, config.player_role)
         player_role_name = player_role.name if player_role else "Player"
         raise utils.CustomCheckFailure(f"You do not have the {player_role_name} role.")
 

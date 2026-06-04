@@ -63,11 +63,7 @@ class ItemsCommands(utils.Cog):
             raise utils.CustomCheckFailure("Items are not enabled in this server.")
 
         if not ctx.author.get_role(config.player_role):
-            try:
-                player_role = await ctx.guild.fetch_role(config.player_role)
-            except discord.HTTPException:
-                player_role = None
-
+            player_role = await ctx.guild.get_or_fetch(discord.Role, config.player_role)
             player_role_name = player_role.name if player_role else "Player"
             raise utils.CustomCheckFailure(
                 f"You do not have the {player_role_name} role."
@@ -128,11 +124,7 @@ class ItemsCommands(utils.Cog):
             raise utils.CustomCheckFailure("Items are not enabled in this server.")
 
         if not ctx.author.get_role(config.player_role):
-            try:
-                player_role = await ctx.guild.fetch_role(config.player_role)
-            except discord.HTTPException:
-                player_role = None
-
+            player_role = await ctx.guild.get_or_fetch(discord.Role, config.player_role)
             player_role_name = player_role.name if player_role else "Player"
             raise utils.CustomCheckFailure(
                 f"You do not have the {player_role_name} role."

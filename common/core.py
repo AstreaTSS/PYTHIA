@@ -136,13 +136,7 @@ class THIABase(bridge.AutoShardedBot):
     async def getch_channel(
         self, channel_id: int
     ) -> discord.abc.GuildChannel | discord.abc.PrivateChannel | discord.Thread | None:
-        if chan := self.get_channel(channel_id):
-            return chan
-
-        try:
-            return await self.fetch_channel(channel_id)
-        except discord.HTTPException:
-            return None
+        return await self.get_or_fetch(discord.TextChannel, channel_id)
 
     async def _sync_command_info(self) -> None:
         await self.wait_until_ready()
