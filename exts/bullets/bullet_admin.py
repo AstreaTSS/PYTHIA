@@ -282,7 +282,7 @@ class BulletManagement(utils.Cog):
 
     def __init__(self, bot: utils.THIABase) -> None:
         self.bot = bot
-        self.name = "Bullet"
+        self.__cog__ = "Bullet Management"
 
         # i sure do love weird edge cases with race conditions!
         self.bullet_creation_locks: collections.defaultdict[str, asyncio.Lock] = (
