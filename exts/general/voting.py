@@ -85,6 +85,10 @@ class Voting(utils.Cog):
                 except aiohttp.ClientResponseError as e:
                     await utils.error_handle(e)
 
+    @autopost_guild_count.before_loop
+    async def before_autopost_guild_count(self) -> None:
+        await self.bot.wait_until_ready()
+
     @discord.slash_command(
         name="vote",
         description="Vote for the bot.",
