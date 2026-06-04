@@ -473,7 +473,8 @@ class GachaConfig(utils.Cog):
 
         if toggle and not config.player_role:
             raise utils.CustomCheckFailure(
-                "Player role not set. Please set it with `/config player set` first."
+                "Player role not set. Please set it with"
+                f" {self.bot.mention_command('config player set')} first."
             )
 
         await models.GachaConfig.filter(guild_id=ctx.guild_id).update(enabled=toggle)

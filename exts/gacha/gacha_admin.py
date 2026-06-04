@@ -770,7 +770,8 @@ class GachaManagement(utils.Cog):
 
         if not config.player_role:
             raise utils.CustomCheckFailure(
-                "Player role not set. Please set it with `/config player set` first."
+                "Player role not set. Please set it with"
+                f" {self.bot.mention_command('config player set')} first."
             )
 
         actual_role = await ctx.guild.fetch_role(config.player_role)

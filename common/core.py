@@ -114,6 +114,25 @@ class THIABase(bridge.AutoShardedBot):
     def get_shard_id(self, guild_id: "discord.Snowflake") -> int:
         return (int(guild_id) >> 22) % len(self.shards.keys())
 
+    def create_task(self, coro: CoroutineT) -> asyncio.Task[CoroutineT]:
+        # see the "important" note below for why we do this (to prevent early gc)
+        # https://docs.python.org/3/library/asyncio-task.html#asyncio.create_task
+        task = asyncio.create_task(coro)
+        self.background_tasks.add(task)
+        task.add_done_callback(self.background_tasks.discard)
+        return task
+
+    def mention_command(self, name: str) -> str:
+        cmd: discord.SlashCommand | None = self.get_application_command(
+            name, type=discord.SlashCommand
+        )
+        if cmd is None:
+            raise ValueError(f"No command named {name} found.")
+        return cmd.mention
+
+    def sync_command_info_task(self) -> None:
+        self.create_task(self._sync_command_info())
+
     async def getch_channel(
         self, channel_id: int
     ) -> discord.abc.GuildChannel | discord.abc.PrivateChannel | discord.Thread | None:
@@ -125,13 +144,21 @@ class THIABase(bridge.AutoShardedBot):
         except discord.HTTPException:
             return None
 
-    def create_task(self, coro: CoroutineT) -> asyncio.Task[CoroutineT]:
-        # see the "important" note below for why we do this (to prevent early gc)
-        # https://docs.python.org/3/library/asyncio-task.html#asyncio.create_task
-        task = asyncio.create_task(coro)
-        self.background_tasks.add(task)
-        task.add_done_callback(self.background_tasks.discard)
-        return task
+    async def _sync_command_info(self) -> None:
+        await self.wait_until_ready()
+
+        commands = await self.http.get_global_commands(self.user.id)
+
+        for command in commands:
+            cmd = discord.utils.get(
+                self.pending_application_commands,
+                name=command["name"],
+                guild_ids=None,
+                type=command.get("type"),
+            )
+            if cmd:
+                cmd.id = command["id"]
+                self._application_commands[cmd.id] = cmd
 
 
 class Cog(discord.Cog):

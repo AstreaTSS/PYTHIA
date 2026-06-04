@@ -250,6 +250,7 @@ async def start() -> None:
             raise
 
     async with bot:
+        bot.sync_command_info_task()
         await bot.start(os.environ["MAIN_TOKEN"])
 
 

@@ -50,7 +50,10 @@ class MessageManagement(utils.Cog):
                 f" {utils.toggle_friendly_str(config.messages.ping_for_message)}"
             ),
             "",
-            "-# Links can be found at `/message-manage list-links`.",
+            (
+                "-# Links can be found at"
+                f" {self.bot.mention_command('message-manage list-links')}."
+            ),
         ]
         await ctx.respond(
             view=utils.make_view("\n".join(str_builder), title="Message Configuration")

@@ -367,7 +367,7 @@ class BulletManagement(utils.Cog):
                             " found, likely from a previous investigation. If you"
                             " want to start fresh with completely new Truth"
                             " Bullets, you can clear the current ones with"
-                            " `/bullet-manage clear`.",
+                            f" {self.bot.mention_command('bullet-manage clear')}.",
                         ),
                         color=discord.Color.gold(),
                     ),

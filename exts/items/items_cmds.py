@@ -217,7 +217,8 @@ class ItemsCommands(utils.Cog):
             if ctx.command.qualified_name == "inventory view":
                 raise utils.CustomCheckFailure(
                     "You have no items in your inventory. If you want to look at your"
-                    " items from the gacha, please use `/gacha profile`."
+                    " items from the gacha, please use"
+                    f" {self.bot.mention_command('gacha profile')}."
                 )
 
             raise utils.CustomCheckFailure("You have no items in your inventory.")
