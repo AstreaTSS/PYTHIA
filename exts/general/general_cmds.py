@@ -235,13 +235,7 @@ class GeneralCMDs(utils.Cog):
             color=self.bot.color,
             description="# About\n" + "\n\n".join(msg_list),
         )
-        about_embed.set_thumbnail(
-            url=(
-                ctx.guild.me.display_avatar.url
-                if ctx.guild
-                else self.bot.user.display_avatar.url
-            )
-        )
+        about_embed.set_thumbnail(url=self.bot.user.display_avatar.url)
 
         commit_hash = await self.get_commit_hash()
         command_num = len(
