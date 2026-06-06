@@ -231,6 +231,15 @@ bot.gacha_locks = defaultdict(asyncio.Lock)
 bot.color = discord.Color(int(os.environ["BOT_COLOR"]))  # #723fb0 or 7487408
 
 
+@bot.check
+async def global_check(_: utils.THIABridgeContext) -> bool:
+    if not bot.is_ready():
+        raise utils.CustomCheckFailure(
+            "The bot is still starting up. Please wait a moment and try again."
+        )
+    return True
+
+
 async def start() -> None:
     await Tortoise.init(db_settings.TORTOISE_ORM)
 
