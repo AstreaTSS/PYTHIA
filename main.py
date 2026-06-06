@@ -153,7 +153,7 @@ class PYTHIA(utils.THIABase):
         await self._pythia_error(interaction, error)
 
     async def on_application_command_error(
-        self, context: utils.THIASlashContext, exception: discord.DiscordException
+        self, context: utils.THIASlashContext, exception: Exception
     ) -> None:
         if context.command and getattr(context.command, "on_error", None):
             return
@@ -162,6 +162,9 @@ class PYTHIA(utils.THIABase):
             context.cog.cog_command_error
         ):
             return
+
+        if isinstance(exception, discord.ApplicationCommandInvokeError):
+            exception = exception.original
 
         await self._pythia_error(context, exception)
 
