@@ -249,19 +249,19 @@ async def start() -> None:
     ):
         bot.msg_enabled_bullets_guilds.add(model.guild_id)  # type: ignore
 
-    ext_list = utils.get_all_extensions(os.environ["DIRECTORY_OF_FILE"])
-    for ext in ext_list:
-        if "voting" in ext and not utils.VOTING_ENABLED:
-            continue
-        if ext.split(".")[-1].endswith("common"):
-            continue
-
-        try:
-            bot.load_extension(ext)
-        except discord.ExtensionError:
-            raise
-
     async with bot:
+        ext_list = utils.get_all_extensions(os.environ["DIRECTORY_OF_FILE"])
+        for ext in ext_list:
+            if "voting" in ext and not utils.VOTING_ENABLED:
+                continue
+            if ext.split(".")[-1].endswith("common"):
+                continue
+
+            try:
+                bot.load_extension(ext)
+            except discord.ExtensionError:
+                raise
+
         bot.sync_command_info_task()
         await bot.start(os.environ["MAIN_TOKEN"])
 
