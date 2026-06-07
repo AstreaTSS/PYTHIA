@@ -226,18 +226,58 @@ class GeneralCMDs(utils.Cog):
             ),
             (
                 "To learn more and see all of the features PYTHIA currently has, feel"
-                " free to take a look at the [PYTHIA"
-                " website](https://pythia.astrea.cc)."
+                " free to take a look at the website."
             ),
         ]
 
-        about_embed = discord.Embed(
+        container = discord.ui.Container(
+            discord.ui.Section(
+                discord.ui.TextDisplay("# About\n" + "\n\n".join(msg_list)),
+                accessory=discord.ui.Thumbnail(url=self.bot.user.display_avatar.url),
+            ),
+            discord.ui.Separator(spacing=discord.SeparatorSpacingSize.large),
             color=self.bot.color,
-            description="# About\n" + "\n\n".join(msg_list),
         )
-        about_embed.set_thumbnail(url=self.bot.user.display_avatar.url)
 
-        commit_hash = await self.get_commit_hash()
+        container.add_row(
+            discord.ui.Button(
+                style=discord.ButtonStyle.url,
+                label="Website",
+                emoji="🌐",
+                url="https://pythia.astrea.cc",
+            ),
+            discord.ui.Button(
+                style=discord.ButtonStyle.url,
+                label="Support Server",
+                emoji="❓",
+                url="https://discord.gg/NSdetwGjpK",
+            ),
+            discord.ui.Button(
+                style=discord.ButtonStyle.url,
+                label="Invite Bot",
+                emoji="📩",
+                url=self.invite_link,
+            ),
+        )
+
+        container.add_row(
+            discord.ui.Button(
+                style=discord.ButtonStyle.url,
+                label="Source Code",
+                url="https://github.com/AstreaTSS/PYTHIA",
+            ),
+            discord.ui.Button(
+                style=discord.ButtonStyle.url,
+                label="Terms of Service",
+                url="https://pythia.astrea.cc/legal/tos.html",
+            ),
+            discord.ui.Button(
+                style=discord.ButtonStyle.url,
+                label="Privacy Policy",
+                url="https://pythia.astrea.cc/legal/privacy_policy.html",
+            ),
+        )
+
         command_num = len(
             tuple(
                 c
@@ -245,71 +285,48 @@ class GeneralCMDs(utils.Cog):
                 if not isinstance(c, discord.SlashCommandGroup)
             )
         )
-
         num_shards = len(self.bot.shards)
-        shards_str = f"{num_shards} shards" if num_shards != 1 else "1 shard"
+        shards_str = f"{num_shards} Shards" if num_shards != 1 else "1 Shard"
 
-        about_embed.add_field(
-            name="Stats",
-            value="\n".join(
-                (
-                    f"Servers: {self.bot.guild_count} ({shards_str})",
-                    f"Commands: {command_num} ",
-                    (
-                        "Startup Time:"
-                        f" {discord.utils.format_dt(self.bot.start_time, style='R')}"
-                    ),
-                    (
-                        "Commit Hash:"
-                        f" [{commit_hash}](https://github.com/AstreaTSS/PYTHIA/commit/{commit_hash})"
-                        if commit_hash
-                        else "Commit Hash: N/A"
-                    ),
-                    (
-                        "Pycord Version:"
-                        f" [{discord.__version__}](https://github.com/Pycord-Development/pycord/tree/v{discord.__version__})"
-                    ),
-                    (
-                        f"Python Version: {utils.PYTHON_IMPLEMENTATION}"
-                        f" {utils.PYTHON_VERSION[0]}.{utils.PYTHON_VERSION[1]}"
-                    ),
-                    "Made By: [AstreaTSS](https://astrea.cc)",
-                )
+        container.add_row(
+            discord.ui.Button(
+                style=discord.ButtonStyle.gray,
+                label=f"{self.bot.guild_count} Servers",
+                disabled=True,
             ),
-            inline=True,
+            discord.ui.Button(
+                style=discord.ButtonStyle.gray, label=shards_str, disabled=True
+            ),
+            discord.ui.Button(
+                style=discord.ButtonStyle.gray,
+                label=f"{command_num} Commands",
+                disabled=True,
+            ),
         )
+        container.add_separator(spacing=discord.SeparatorSpacingSize.large)
 
-        links = [
-            "Website: [Link](https://pythia.astrea.cc)",
-            f"Invite Bot: [Link]({self.invite_link})",
-            "Support Server: [Link](https://discord.gg/NSdetwGjpK)",
+        commit_hash = await self.get_commit_hash()
+
+        etc_stats: list[str] = [
+            f"Started {discord.utils.format_dt(self.bot.start_time, style='R')}",
+            (
+                f"[{commit_hash}](https://github.com/AstreaTSS/PYTHIA/commit/{commit_hash})"
+                if commit_hash
+                else "Commit Hash: N/A"
+            ),
+            (
+                "Pycord"
+                f" [{discord.__version__}](https://github.com/Pycord-Development/pycord/releases/tag/v{discord.__version__})"
+            ),
+            (
+                f"{utils.PYTHON_IMPLEMENTATION}"
+                f" {utils.PYTHON_VERSION[0]}.{utils.PYTHON_VERSION[1]}"
+            ),
+            "Made by [AstreaTSS](https://astrea.cc)",
         ]
 
-        if os.environ.get("TOP_GG_TOKEN"):
-            links.append(f"Top.gg Page: [Link](https://top.gg/bot/{self.bot.user.id})")
-
-        links.extend(
-            (
-                "Source Code: [Link](https://github.com/AstreaTSS/PYTHIA)",
-                "Terms of Service: [Link](https://pythia.astrea.cc/legal/tos.html)",
-                (
-                    "Privacy Policy:"
-                    " [Link](https://pythia.astrea.cc/legal/privacy_policy.html)"
-                ),
-            )
-        )
-
-        about_embed.add_field(
-            name="Links",
-            value="\n".join(links),
-            inline=True,
-        )
-        about_embed.timestamp = discord.utils.utcnow()
-
-        shard_id = self.bot.get_shard_id(ctx.guild_id) if ctx.guild_id else 0
-        about_embed.set_footer(text=f"Shard ID: {shard_id}")
-
-        await ctx.respond(embed=about_embed)
+        container.add_text(f"-# {' ● '.join(etc_stats)}")
+        await ctx.respond(view=utils.quick_view(container))
 
 
 def setup(bot: utils.THIABase) -> None:
