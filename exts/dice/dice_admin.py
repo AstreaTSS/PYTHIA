@@ -15,13 +15,14 @@ import d20
 import discord
 import ragwort
 import typing_extensions as typing
+from discord.ext import commands
 
 import common.classes as classes
 import common.fuzzy as fuzzy
 import common.models as models
 import common.utils as utils
 
-d20_roll = d20.Roller(d20.RollContext(100)).roll
+from . import dice_common
 
 
 class DiceManagement(utils.Cog):
@@ -147,7 +148,7 @@ class DiceManagement(utils.Cog):
             )
 
         try:
-            result = d20_roll(entry.value)
+            result = dice_common.d20_roll(entry.value)
         except d20.errors.RollSyntaxError as e:
             raise utils.BadArgument(f"Invalid dice roll syntax.\n{e!s}") from None
         except d20.errors.TooManyRolls:
@@ -199,7 +200,7 @@ class DiceManagement(utils.Cog):
             await ctx.fetch_config({"dice": True})
 
             try:
-                d20_roll(dice)
+                dice_common.d20_roll(dice)
             except d20.errors.RollSyntaxError as e:
                 raise utils.BadArgument(f"Invalid dice roll syntax.\n{e!s}") from None
             except d20.errors.TooManyRolls:
@@ -319,6 +320,43 @@ class DiceManagement(utils.Cog):
 
         await ctx.respond(view=utils.make_view("Cleared all dice for this server."))
 
+    @manage.command(
+        name="export-for",
+        description="Exports all registered dice for a user to a JSON file.",
+    )
+    @commands.cooldown(1, 20, commands.BucketType.guild)
+    async def dice_export_for(
+        self,
+        ctx: utils.THIASlashContext,
+        user: discord.Member = ragwort.Option("The user to export dice for."),
+    ) -> None:
+        await dice_common.dice_export_actual(ctx, user=user)
+
+    @manage.command(
+        name="import-for", description="Imports dice from a JSON file for a user."
+    )
+    @commands.cooldown(1, 60, commands.BucketType.user)
+    async def dice_import_for(
+        self,
+        ctx: utils.THIASlashContext,
+        user: discord.Member = ragwort.Option("The user to import dice for."),
+        json_file: discord.Attachment = ragwort.Option("The JSON file to import."),
+        _override: str = ragwort.Option(
+            "Should pre-existing registered dice with the same name be overriden?",
+            name="override",
+            choices=[
+                discord.OptionChoice("yes", "yes"),
+                discord.OptionChoice("no", "no"),
+            ],
+            default="no",
+        ),
+    ) -> None:
+        override = _override == "yes"
+
+        await dice_common.dice_import_actual(
+            ctx, json_file, user=user, override=override
+        )
+
     @dice_remove_from.autocomplete("name")
     @dice_roll_registered_for.autocomplete("name")
     async def dice_name_autocomplete(
@@ -332,4 +370,5 @@ def setup(bot: utils.THIABase) -> None:
     importlib.reload(utils)
     importlib.reload(fuzzy)
     importlib.reload(classes)
+    importlib.reload(dice_common)
     bot.add_cog(DiceManagement(bot))
