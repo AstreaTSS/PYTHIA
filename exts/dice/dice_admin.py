@@ -335,7 +335,7 @@ class DiceManagement(utils.Cog):
     @manage.command(
         name="import-for", description="Imports dice from a JSON file for a user."
     )
-    @commands.cooldown(1, 60, commands.BucketType.user)
+    @commands.cooldown(1, 20, commands.BucketType.guild)
     async def dice_import_for(
         self,
         ctx: utils.THIASlashContext,
