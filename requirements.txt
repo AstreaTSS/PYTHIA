@@ -6,7 +6,7 @@ msgspec==0.21.1
 aiodns==4.0.4
 humanize==4.15.0
 python-dotenv==1.2.2
-sentry-sdk==2.61.0
+sentry-sdk==2.62.0
 apollo-d20[numpy]==1.2.1
 orjson==3.11.9; implementation_name == "cpython"
 uvloop==0.22.1; platform_system == "Linux" and implementation_name == "cpython"
