@@ -40,5 +40,6 @@ def load_env() -> None:
     file_location = Path(__file__).parent.absolute().as_posix()
     os.environ["DIRECTORY_OF_FILE"] = file_location
     os.environ["LOG_FILE_PATH"] = f"{file_location}/discord.log"
+    os.environ["PYDANTIC_ERRORS_INCLUDE_URL"] = "false"
 
     set_loaded()

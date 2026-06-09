@@ -13,8 +13,8 @@ import io
 import aiohttp
 import d20
 import discord
-import msgspec
 import orjson
+import pydantic
 from tortoise.transactions import in_transaction
 
 import common.exports as exports
@@ -119,31 +119,12 @@ async def dice_import_actual(
 
     try:
         entries = exports.handle_dice_entry_data(items_json)
-
-        for entry in entries:
-            entry.name = utils.replace_smart_punc(entry.name.strip())
-            entry.value = entry.value.strip()
-
-            if not entry.name:
-                raise utils.BadArgument("Dice entry names cannot be empty.")
-            if not entry.value:
-                raise utils.BadArgument(
-                    f"Dice entry value for `{entry.name}` cannot be empty."
-                )
-
-            if len(entry.name) > 100:
-                raise utils.BadArgument(
-                    f"Dice entry name `{entry.name}` is too long. Names must be 100"
-                    " characters or fewer."
-                )
-            if len(entry.value) > 100:
-                raise utils.BadArgument(
-                    f"Dice entry value for `{entry.name}` is too long. Values must"
-                    " be 100 characters or fewer."
-                )
-
-    except msgspec.DecodeError:
-        raise utils.BadArgument("The file is not in the correct format.") from None
+    except pydantic.ValidationError as e:
+        # let's remove the first line that tells what class the error is for
+        error_str = "\n".join(str(e).splitlines()[1:])
+        raise utils.BadArgument(
+            f"The file is not in the correct format.\n```\n{error_str}\n```"
+        ) from None
 
     guild_id = 0
     if (
@@ -201,35 +182,12 @@ async def dice_import_actual(
                     " registered die."
                 )
 
-        to_create: list[models.DiceEntry] = []
-
-        for entry in entries:
-            try:
-                d20_roll(entry.value)
-            except d20.errors.RollSyntaxError as e:
-                raise utils.BadArgument(
-                    "Invalid dice roll syntax for"
-                    f" `{discord.utils.escape_markdown(entry.name)}`.\n{e!s}"
-                ) from None
-            except d20.errors.TooManyRolls:
-                raise utils.BadArgument(
-                    "Too many dice rolls in the expression for"
-                    f" `{discord.utils.escape_markdown(entry.name)}`."
-                ) from None
-            except d20.errors.RollValueError:
-                raise utils.BadArgument(
-                    "Invalid dice roll value for"
-                    f" `{discord.utils.escape_markdown(entry.name)}`."
-                ) from None
-
-            to_create.append(
-                models.DiceEntry(
-                    guild_id=guild_id,
-                    user_id=user.id,
-                    name=entry.name,
-                    value=entry.value,
-                )
+        to_create: list[models.DiceEntry] = [
+            models.DiceEntry(
+                guild_id=guild_id, user_id=user.id, name=entry.name, value=entry.value
             )
+            for entry in entries
+        ]
 
         await models.DiceEntry.bulk_create(to_create)
 

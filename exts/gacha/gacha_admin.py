@@ -13,8 +13,8 @@ import io
 
 import aiohttp
 import discord
-import msgspec
 import orjson
+import pydantic
 import ragwort
 import typing_extensions as typing
 from discord.ext import commands
@@ -356,20 +356,12 @@ class GachaManagement(utils.Cog):
 
         try:
             items = exports.handle_gacha_item_data(items_json)
-
-            for item in items:
-                item.name = utils.replace_smart_punc(item.name.strip())
-                item.description = item.description.strip()
-
-                if not item.name:
-                    raise utils.BadArgument("One of the items has an empty name.")
-                if not item.description:
-                    raise utils.BadArgument(
-                        f"The item `{discord.utils.escape_markdown(item.name)}` has an"
-                        " empty description."
-                    )
-        except msgspec.DecodeError:
-            raise utils.BadArgument("The file is not in the correct format.") from None
+        except pydantic.ValidationError as e:
+            # let's remove the first line that tells what class the error is for
+            error_str = "\n".join(str(e).splitlines()[1:])
+            raise utils.BadArgument(
+                f"The file is not in the correct format.\n```\n{error_str}\n```"
+            ) from None
 
         await ctx.fetch_config({"gacha": True})
 
@@ -390,46 +382,17 @@ class GachaManagement(utils.Cog):
                         " in this server."
                     )
 
-            to_create: list[models.GachaItem] = []
-
-            for item in items:
-                if item.amount < -1:
-                    raise utils.BadArgument(
-                        f"The amount for `{discord.utils.escape_markdown(item.name)}`"
-                        " must be a positive number."
-                    )
-
-                if item.amount > 999:
-                    raise utils.BadArgument(
-                        f"The amount for `{discord.utils.escape_markdown(item.name)}`"
-                        " is too high. Please set an amount at or lower than 999, or"
-                        " mark the value as -1 to make it unlimited."
-                    )
-
-                if item.rarity < 1 or item.rarity > 5:
-                    raise utils.BadArgument(
-                        f"The rarity for `{discord.utils.escape_markdown(item.name)}`"
-                        " must be a number between 1 and 5."
-                    )
-
-                if item.image and not utils.HTTP_URL_REGEX.fullmatch(item.image):
-                    raise utils.BadArgument(
-                        "The image given for"
-                        f" `{discord.utils.escape_markdown(item.name)}` must be a valid"
-                        " URL."
-                    )
-
-                to_create.append(
-                    models.GachaItem(
-                        guild_id=ctx.guild_id,
-                        name=item.name,
-                        description=item.description,
-                        rarity=item.rarity,
-                        amount=item.amount,
-                        image=item.image,
-                    )
+            to_create: list[models.GachaItem] = [
+                models.GachaItem(
+                    guild_id=ctx.guild_id,
+                    name=item.name,
+                    description=item.description,
+                    rarity=item.rarity,
+                    amount=item.amount,
+                    image=item.image,
                 )
-
+                for item in items
+            ]
             await models.GachaItem.bulk_create(to_create)
 
         await ctx.respond(
