@@ -967,6 +967,78 @@ class GachaManagement(utils.Cog):
 
         await ctx.respond(view=utils.make_view(reply_str))
 
+    @manage.command(
+        name="transfer-item", description="Transfers an item from one user to another."
+    )
+    async def gacha_transfer_item(
+        self,
+        ctx: utils.THIASlashContext,
+        original_user: discord.Member = ragwort.Option(
+            "The user to transfer an item from."
+        ),
+        name: str = ragwort.Option("The name of the item to transfer."),
+        target_user: discord.Member = ragwort.Option(
+            "The user to transfer an item to."
+        ),
+        amount: int = ragwort.Option(
+            "The amount to transfer. Defaults to 1.",
+            min_value=1,
+            max_value=500,
+            default=1,
+        ),
+    ) -> None:
+        item = await models.GachaItem.get_or_none(guild_id=ctx.guild_id, name=name)
+        if item is None:
+            raise utils.BadArgument("No item with that name exists.")
+
+        items = await models.ItemToPlayer.filter(
+            player__user_id=original_user.id,
+            player__guild_id=ctx.guild_id,
+            item_id=item.id,
+        ).limit(amount)
+        if not items:
+            raise utils.BadArgument("The original user does not have that item.")
+        items_count = len(items)
+
+        if items_count < amount:
+            raise utils.BadArgument(
+                "The original user does not have that many items to remove."
+            )
+
+        target_player_gacha, _ = await models.GachaPlayer.get_or_create(
+            guild_id=ctx.guild_id, user_id=target_user.id
+        )
+
+        if (
+            await models.ItemToPlayer.filter(
+                player_id=target_player_gacha.id, item_id=item.id
+            ).count()
+            >= 500
+        ):
+            raise utils.BadArgument(
+                "The target user can only have a maximum of 500 of this item."
+            )
+
+        async with in_transaction():
+            await models.ItemToPlayer.filter(
+                id__in=[item.id for item in items]
+            ).delete()
+
+            await models.ItemToPlayer.bulk_create(
+                models.ItemToPlayer(
+                    player_id=target_player_gacha.id,
+                    item_id=item.id,
+                )
+                for _ in range(amount)
+            )
+
+        await ctx.respond(
+            view=utils.make_view(
+                f"Transferred {amount} of {item.name} from {original_user.mention} to"
+                f" {target_user.mention}."
+            )
+        )
+
     @gacha_item_edit.autocomplete("name")
     @gacha_item_delete.autocomplete("name")
     @gacha_item_remove.autocomplete("name")
@@ -984,6 +1056,15 @@ class GachaManagement(utils.Cog):
         ctx: discord.AutocompleteContext,
     ) -> list[discord.OptionChoice]:
         return await fuzzy.autocomplete_gacha_optional_user_item(ctx, **ctx.options)
+
+    @gacha_transfer_item.autocomplete("name")
+    async def _autocomplete_gacha_transfer_item(
+        self,
+        ctx: discord.AutocompleteContext,
+    ) -> list[discord.OptionChoice]:
+        return await fuzzy.autocomplete_gacha_optional_user_item(
+            ctx, user=ctx.options.get("original_user"), **ctx.options
+        )
 
 
 def setup(bot: utils.THIABase) -> None:
