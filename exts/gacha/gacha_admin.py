@@ -107,6 +107,18 @@ class GachaManagement(utils.Cog):
 
         await ctx.send_modal(gacha_common.EditGachaItemModal(item))
 
+    @utils.button_handler(custom_id_prefix="gacha-edit-item-")
+    async def gacha_edit_item_button(
+        self, inter: utils.Interaction, custom_id: str
+    ) -> None:
+        item = await models.GachaItem.get_or_none(
+            id=int(custom_id.removeprefix("gacha-edit-item-"))
+        )
+        if item is None:
+            raise utils.BadArgument("This item no longer exists.")
+
+        await inter.response.send_modal(gacha_common.EditGachaItemModal(item))
+
     @manage.command(
         name="delete-item",
         description="Deletes an item from the gacha.",
@@ -157,9 +169,7 @@ class GachaManagement(utils.Cog):
         rarities, _ = await models.GachaRarities.get_or_create(guild_id=ctx.guild_id)
 
         await ctx.respond(
-            view=utils.quick_view(
-                item.container(config.names, rarities, show_amount=True)
-            )
+            view=utils.quick_view(item.container(config.names, rarities, admin=True))
         )
 
     @manage.command(

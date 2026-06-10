@@ -169,7 +169,7 @@ class GachaItem(Model):
         rarities: "GachaRarities",
         *,
         show_rarity: bool = True,
-        show_amount: bool = False,
+        admin: bool = False,
     ) -> discord.ui.Container:
         container = discord.ui.Container(color=rarities.color(self.rarity))
 
@@ -186,11 +186,16 @@ class GachaItem(Model):
         else:
             container.add_text("\n".join(str_builder))
 
-        if show_amount:
+        if admin:
             container.add_separator(
                 divider=True, spacing=discord.SeparatorSpacingSize.large
             )
             container.add_row(
+                discord.ui.Button(
+                    style=discord.ButtonStyle.blurple,
+                    label="Edit Item",
+                    custom_id=f"gacha-edit-item-{self.id}",
+                ),
                 discord.ui.Button(
                     style=discord.ButtonStyle.gray,
                     label=(
@@ -198,7 +203,7 @@ class GachaItem(Model):
                         f" {self.amount if self.amount != -1 else 'Unlimited'}"
                     ),
                     disabled=True,
-                )
+                ),
             )
 
         return container

@@ -388,13 +388,13 @@ class GachaCommands(utils.Cog):
         if item is None:
             raise utils.CustomCheckFailure("This item no longer exists.")
 
-        await self.gacha_view_item_actual(inter, item, show_amount=admin)
+        await self.gacha_view_item_actual(inter, item, admin=admin)
 
     async def gacha_view_item_actual(
         self,
         ctx: utils.THIASlashContext | utils.Interaction,
         item: models.GachaItem,
-        show_amount: bool = False,
+        admin: bool = False,
     ) -> None:
         if isinstance(ctx, utils.THIASlashContext):
             ctx = typing.cast("utils.Interaction", ctx.interaction)
@@ -418,10 +418,10 @@ class GachaCommands(utils.Cog):
                     config.names,
                     rarities,
                     show_rarity=show_rarity,
-                    show_amount=show_amount,
+                    admin=admin,
                 )
             ),
-            ephemeral=not show_amount,
+            ephemeral=not admin,
         )
 
     @gacha_user_view_item.autocomplete("name")
