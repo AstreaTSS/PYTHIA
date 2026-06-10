@@ -137,7 +137,7 @@ class CreateGachaItemModal(discord.ui.DesignerModal):
             # some configs needs to exist, lets make sure they do
             await models.GuildConfig.fetch_create(inter.guild_id, {"gacha": True})
 
-            await models.GachaItem.create(
+            created_item = await models.GachaItem.create(
                 guild_id=inter.guild_id,
                 name=name,
                 description=description,
@@ -146,7 +146,18 @@ class CreateGachaItemModal(discord.ui.DesignerModal):
                 image=image,
             )
 
-        await inter.respond(view=utils.make_view(f"Added item {name} to the gacha."))
+        container = discord.ui.Container(
+            discord.ui.Section(
+                discord.ui.TextDisplay(f"Added item `{name}` to the gacha."),
+                accessory=discord.ui.Button(
+                    style=discord.ButtonStyle.secondary,
+                    label="View Item",
+                    custom_id=f"gacha-item-{created_item.id}-admin",
+                ),
+            ),
+            color=inter.client.color,
+        )
+        await inter.respond(view=utils.quick_view(container))
 
 
 class EditGachaItemModal(discord.ui.DesignerModal):
@@ -284,18 +295,27 @@ class EditGachaItemModal(discord.ui.DesignerModal):
         )
 
         if name != item.name:
-            await inter.respond(
-                view=utils.make_view(
-                    f"Edited item `{discord.utils.escape_markdown(item.name)}`, now"
-                    f" renamed to `{discord.utils.escape_markdown(name)}`."
-                )
+            text = discord.ui.TextDisplay(
+                f"Edited item `{discord.utils.escape_markdown(item.name)}`, now renamed"
+                f" to `{discord.utils.escape_markdown(name)}`."
             )
         else:
-            await inter.respond(
-                view=utils.make_view(
-                    f"Edited item `{discord.utils.escape_markdown(name)}`."
-                )
+            text = discord.ui.TextDisplay(
+                f"Edited item `{discord.utils.escape_markdown(name)}`."
             )
+
+        container = discord.ui.Container(
+            discord.ui.Section(
+                text,
+                accessory=discord.ui.Button(
+                    style=discord.ButtonStyle.secondary,
+                    label="View Item",
+                    custom_id=f"gacha-item-{item.id}-admin",
+                ),
+            ),
+            color=inter.client.color,
+        )
+        await inter.respond(view=utils.quick_view(container))
 
 
 def gacha_item_button(custom_id: str) -> classes.ButtonToModal:
