@@ -13,7 +13,7 @@
     <img src="https://shieldcn.dev/badge/Support%20Server-5865F2.svg?logo=discord" alt="Join Support Server">
   </a>
   <a href="https://ko-fi.com/astreatss">
-    <img src="https://shieldcn.dev/badge/Ko--Fi.svg?logo=kofi" alt="Donate on Ko-Fi">
+    <img src="https://shieldcn.dev/badge/Ko--Fi-e5e5e5.svg?logo=kofi&logoColor=ff6433" alt="Donate on Ko-Fi">
   </a>
 </p>
 
