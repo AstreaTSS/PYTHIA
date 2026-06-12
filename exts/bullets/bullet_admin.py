@@ -642,6 +642,57 @@ class BulletManagement(utils.Cog):
         description="Edits a Truth Bullet. Alias to /bullet-manage edit.",
     )
 
+    @manage.command(name="move", description="Moves a Truth Bullet to another channel.")
+    async def move_bullet(
+        self,
+        ctx: utils.THIASlashContext,
+        original_channel: discord.TextChannel | discord.Thread = ragwort.Option(
+            "The channel the Truth Bullet is currently in.",
+            channel_types=[
+                discord.ChannelType.text,
+                discord.ChannelType.public_thread,
+                discord.ChannelType.private_thread,
+            ],
+        ),
+        trigger: str = ragwort.Option(
+            "The trigger of the Truth Bullet to move.",
+            input_type=utils.ReplaceSmartPuncConverter,
+        ),
+        new_channel: discord.TextChannel | discord.Thread = ragwort.Option(
+            "The channel to move the Truth Bullet to.",
+            channel_types=[
+                discord.ChannelType.text,
+                discord.ChannelType.public_thread,
+                discord.ChannelType.private_thread,
+            ],
+        ),
+    ) -> None:
+        await ctx.fetch_config()
+
+        bullet = await models.TruthBullet.find_via_trigger(original_channel.id, trigger)
+        if not bullet:
+            raise utils.BadArgument(
+                f"Truth Bullet with trigger `{trigger}` does not exist!"
+            )
+
+        bullet.channel_id = new_channel.id
+        await bullet.save(force_update=True)
+
+        await ctx.respond(
+            view=utils.make_view(
+                f"Moved Truth Bullet with trigger `{trigger}` from"
+                f" {original_channel.mention} to {new_channel.mention}!"
+            )
+        )
+
+    move_bullet_full = utils.alias(
+        move_bullet,
+        name="move-bullet",
+        description=(
+            "Moves a Truth Bullet to another channel. Alias to /bullet-manage move."
+        ),
+    )
+
     @manage.command(name="unfind", description="Un-finds a Truth Bullet.")
     async def unfind_bullet(
         self,
@@ -865,6 +916,15 @@ class BulletManagement(utils.Cog):
         self, ctx: discord.AutocompleteContext
     ) -> list[discord.OptionChoice]:
         return await fuzzy.autocomplete_bullets(**ctx.options)
+
+    @move_bullet.autocomplete("trigger")
+    @move_bullet_full.autocomplete("trigger")
+    async def _move_bullet_trigger_autocomplete(
+        self, ctx: discord.AutocompleteContext
+    ) -> list[discord.OptionChoice]:
+        return await fuzzy.autocomplete_bullets(
+            channel=ctx.options.get("original_channel"), **ctx.options
+        )
 
     @remove_alias.autocomplete("alias")
     async def _remove_alias_alias_autocomplete(
