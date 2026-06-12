@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://pythia.astrea.cc/usage">
-    <img src="https://shieldcn.dev/badge/Usage%20Guides-555555.svg?logo=wikibooks&labelColor=874bd1" alt="Usage Guides">
+    <img src="https://shieldcn.dev/badge/Usage%20Guides-874bd1.svg?logo=wikibooks" alt="Usage Guides">
   </a>
   <a href="https://pythia.astrea.cc/setup">
     <img src="https://shieldcn.dev/badge/Server%20Setup%20Guides-5e4b8d.svg?logo=bookstack" alt="Server Setup Guides">
