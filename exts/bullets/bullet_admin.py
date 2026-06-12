@@ -667,7 +667,22 @@ class BulletManagement(utils.Cog):
             ],
         ),
     ) -> None:
-        await ctx.fetch_config()
+        new_channel = utils.valid_channel_check(
+            new_channel, new_channel.permissions_for(ctx.guild.me)
+        )
+
+        config = await ctx.fetch_config({"bullets": True})
+        if typing.TYPE_CHECKING:
+            assert config.bullets and isinstance(config.bullets, models.BulletConfig)
+
+        if (
+            config.bullets.thread_behavior == models.BulletThreadBehavior.PARENT
+            and isinstance(new_channel, discord.Thread)
+        ):
+            raise utils.CustomCheckFailure(
+                "Cannot move Truth Bullets to a thread while thread behavior is set to"
+                " follow the parent channel."
+            )
 
         bullet = await models.TruthBullet.find_via_trigger(original_channel.id, trigger)
         if not bullet:
