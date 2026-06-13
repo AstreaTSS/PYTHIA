@@ -71,21 +71,28 @@ async def autocomplete_aliases(
 
     trigger = utils.replace_smart_punc(trigger)
 
-    truth_bullet = await models.TruthBullet.find_via_trigger(channel, trigger)
-    if not truth_bullet or not truth_bullet.aliases:
+    truth_bullet = await models.TruthBullet.find_via_trigger(
+        channel, trigger, prefetch_aliases=True
+    )
+    if (
+        not truth_bullet
+        or not truth_bullet.aliases._fetched
+        or not truth_bullet.aliases
+    ):
         return []
 
     if not alias:
         return [
-            discord.OptionChoice(name=a, value=a) for a in sorted(truth_bullet.aliases)
+            discord.OptionChoice(name=a.alias, value=a.alias)
+            for a in sorted(truth_bullet.aliases, key=lambda a: a.alias.lower())
         ]
 
     # TODO: replace with proper fuzzy search in the future
     alias = utils.replace_smart_punc(alias)
     return [
-        discord.OptionChoice(name=entry, value=entry)
+        discord.OptionChoice(name=entry.alias, value=entry.alias)
         for entry in truth_bullet.aliases
-        if alias.lower() in entry.lower()
+        if alias.lower() in entry.alias.lower()
     ]
 
 

@@ -104,7 +104,7 @@ class AddTruthBulletModal(discord.ui.DesignerModal):
         async with self.bullet_creation_locks[
             f"{self.channel.id}-{responses['truth_bullet_trigger'].lower()}"
         ]:
-            if await models.TruthBullet.validate(
+            if await models.TruthBullet.trigger_exists(
                 self.channel.id, responses["truth_bullet_trigger"]
             ):
                 raise utils.BadArgument(
@@ -230,7 +230,7 @@ class EditTruthBulletModal(discord.ui.DesignerModal):
 
         if (
             bullet.trigger.lower() != trigger.lower()
-            and await models.TruthBullet.validate(self.channel.id, trigger)
+            and await models.TruthBullet.trigger_exists(self.channel.id, trigger)
         ):
             raise utils.BadArgument(
                 f"A Truth Bullet in {self.channel.mention} already has the trigger"
@@ -567,7 +567,9 @@ class BulletManagement(utils.Cog):
             input_type=utils.ReplaceSmartPuncConverter,
         ),
     ) -> None:
-        bullet = await models.TruthBullet.find_via_trigger(channel.id, trigger)
+        bullet = await models.TruthBullet.find_via_trigger(
+            channel.id, trigger, prefetch_aliases=True
+        )
         if not bullet:
             raise utils.BadArgument(
                 f"Truth Bullet with trigger `{trigger}` does not exist in"
@@ -576,7 +578,7 @@ class BulletManagement(utils.Cog):
 
         aliases = (
             "\n-# Aliases:"
-            f" {', '.join(f'`{discord.utils.escape_markdown(a)}`' for a in bullet.aliases)}"
+            f" {', '.join(f'`{discord.utils.escape_markdown(a.alias)}`' for a in bullet.aliases)}"
             if bullet.aliases
             else ""
         )
@@ -800,47 +802,29 @@ class BulletManagement(utils.Cog):
             input_type=utils.ReplaceSmartPuncConverter,
         ),
         alias: str = ragwort.Option(
-            "The alias to add. Cannot be over 40 characters.",
+            "The alias to add. Cannot be over 60 characters.",
             input_type=utils.ReplaceSmartPuncConverter,
-            max_length=40,
+            max_length=60,
         ),
     ) -> None:
-        if len(alias) > 40:
+        if await models.TruthBullet.trigger_exists(channel.id, alias):
             raise utils.BadArgument(
-                "The name is too large for me to use! "
-                + "Please use something at or under 40 characters."
+                f"Alias `{alias}` is used as a trigger or alias for another Truth"
+                " Bullet for this channel!"
             )
 
-        if await models.TruthBullet.exists(
-            channel_id=channel.id,
-            trigger__iexact=alias,
-        ):
-            raise utils.BadArgument(
-                f"Alias `{alias}` is used as a trigger for another Truth Bullet for"
-                " this channel!"
-            )
-
-        possible_bullet = await models.TruthBullet.find_via_trigger(channel.id, trigger)
-        if not possible_bullet:
+        bullet = await models.TruthBullet.find_via_trigger(channel.id, trigger)
+        if not bullet:
             raise utils.BadArgument(
                 f"Truth Bullet with trigger `{trigger}` does not exist!"
             )
 
-        if possible_bullet.aliases is None:
-            possible_bullet.aliases = []
-
-        if len(possible_bullet.aliases) >= 5:
+        if await models.TruthBulletAlias.filter(bullet_id=bullet.id).count() >= 5:
             raise utils.CustomCheckFailure(
                 "Cannot add more aliases to this Truth Bullet!"
             )
 
-        if alias in possible_bullet.aliases:
-            raise utils.BadArgument(
-                f"Alias `{alias}` already exists for this Truth Bullet!"
-            )
-
-        possible_bullet.aliases.append(alias)
-        await possible_bullet.save(force_update=True)
+        await models.TruthBulletAlias.create(bullet_id=bullet.id, alias=alias)
 
         await ctx.respond(
             view=utils.make_view(
@@ -877,17 +861,14 @@ class BulletManagement(utils.Cog):
         if not possible_bullet:
             raise utils.BadArgument(f"Truth Bullet with `{trigger}` does not exist!")
 
-        if possible_bullet.aliases is None:
-            possible_bullet.aliases = []
+        num_deleted = await models.TruthBulletAlias.filter(
+            bullet_id=possible_bullet.id, alias__iexact=alias
+        ).delete()
 
-        try:
-            possible_bullet.aliases.remove(alias)
-        except KeyError:
+        if num_deleted == 0:
             raise utils.BadArgument(
                 f"Alias `{alias}` does not exists for this Truth Bullet!"
-            ) from None
-
-        await possible_bullet.save(force_update=True)
+            )
 
         await ctx.respond(
             view=utils.make_view(

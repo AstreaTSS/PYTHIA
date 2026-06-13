@@ -15,15 +15,13 @@ import discord
 import typing_extensions as typing
 from tortoise import Model, fields
 from tortoise.connection import get_connection
-from tortoise.contrib.postgres.fields import ArrayField
+from tortoise.expressions import Q
 
 from common.models.gacha_models import GachaConfig, Rarity
 from common.models.utils import generate_regexp, guild_id_model, yesno_friendly_str
 
 __all__ = (
-    "FIND_TRUTH_BULLET_EXACT_STR",
     "FIND_TRUTH_BULLET_STR",
-    "VALIDATE_TRUTH_BULLET_STR",
     "BulletConfig",
     "BulletThreadBehavior",
     "DiceConfig",
@@ -40,6 +38,7 @@ __all__ = (
     "MessageLink",
     "Names",
     "TruthBullet",
+    "TruthBulletAlias",
 )
 
 
@@ -332,10 +331,21 @@ class DiceEntry(Model):
         indexes: typing.ClassVar[list[tuple[str, ...]]] = [("guild_id", "user_id")]
 
 
+class TruthBulletAlias(Model):
+    id: fields.Field[int] = fields.IntField(pk=True)
+    bullet: fields.ForeignKeyRelation["TruthBullet"] = fields.ForeignKeyField(
+        "models.TruthBullet", "aliases", db_index=True
+    )
+    alias = fields.TextField()
+
+    class Meta:
+        table = "thiatruthbulletalias"
+        indexes: typing.ClassVar[list[tuple[str, ...]]] = [("bullet_id", "alias")]
+
+
 class TruthBullet(Model):
     id: fields.Field[int] = fields.IntField(pk=True)
     trigger: fields.Field[str] = fields.TextField()
-    aliases: fields.Field[list[str] | None] = ArrayField("VARCHAR(40)", null=True)
     description = fields.TextField()
     channel_id = fields.BigIntField(db_index=True)
     guild_id = fields.BigIntField(db_index=True)
@@ -343,6 +353,8 @@ class TruthBullet(Model):
     finder: fields.Field[int | None] = fields.BigIntField(null=True)
     hidden: fields.Field[bool] = fields.BooleanField(default=False)
     image: fields.Field[str | None] = fields.TextField(null=True)
+
+    aliases: fields.ReverseRelation["TruthBulletAlias"]
 
     class Meta:
         table = "thiatruthbullets"
@@ -404,28 +416,34 @@ class TruthBullet(Model):
     async def find_exact(
         cls, channel_id: "discord.Snowflake", content: str
     ) -> typing.Self | None:
-        conn = get_connection("default")
-        data = await conn.execute_query_dict(
-            FIND_TRUTH_BULLET_EXACT_STR, values=[int(channel_id), content]
+        return await cls.get_or_none(
+            Q(channel_id=channel_id)
+            & (Q(trigger__iexact=content) | Q(aliases__alias__iexact=content))
         )
-        return cls(**data[0]) if data else None
 
     @classmethod
     async def find_via_trigger(
-        cls, channel_id: "discord.Snowflake", trigger: str
+        cls,
+        channel_id: "discord.Snowflake",
+        trigger: str,
+        prefetch_aliases: bool = False,
     ) -> typing.Self | None:
-        return await cls.filter(
+        query = cls.filter(
             channel_id=int(channel_id),
             trigger__iexact=trigger,
         ).first()
+        if prefetch_aliases:
+            query = query.prefetch_related("aliases")
+        return await query
 
     @classmethod
-    async def validate(cls, channel_id: "discord.Snowflake", trigger: str) -> bool:
-        conn = get_connection("default")
-        data = await conn.execute_query_dict(
-            VALIDATE_TRUTH_BULLET_STR, values=[int(channel_id), trigger]
+    async def trigger_exists(
+        cls, channel_id: "discord.Snowflake", trigger: str
+    ) -> bool:
+        return await cls.exists(
+            Q(channel_id=channel_id)
+            & (Q(trigger__iexact=trigger) | Q(aliases__alias__iexact=trigger))
         )
-        return bool(data)
 
 
 class GuildConfigInclude(typing.TypedDict, total=False):
@@ -503,52 +521,16 @@ class GuildConfig(Model):
 
 FIND_TRUTH_BULLET_STR: typing.Final[str] = f"""
 SELECT
-    {', '.join(TruthBullet._meta.fields)}
+    {', '.join(f"thiatruthbullets.{f}" for f in TruthBullet._meta.fields)}
 FROM
     thiatruthbullets
+LEFT OUTER JOIN
+    thiatruthbulletalias ON thiatruthbulletalias.bullet_id = thiatruthbullets.id
 WHERE
     channel_id = $1
     AND found = false
     AND (
         $2 ILIKE CONCAT('%', {generate_regexp('trigger')}, '%')
-        OR EXISTS (
-            SELECT 1
-            FROM unnest(aliases) AS alias
-            WHERE $2 ILIKE CONCAT('%', {generate_regexp('alias')}, '%')
-        )
-    );
-""".strip()  # noqa: S608
-
-VALIDATE_TRUTH_BULLET_STR: typing.Final[str] = """
-SELECT
-    1
-FROM
-    thiatruthbullets
-WHERE
-    channel_id = $1
-    AND (
-        UPPER($2) = UPPER(trigger)
-        OR EXISTS (
-            SELECT 1
-            FROM unnest(aliases) AS alias
-            WHERE UPPER($2) = UPPER(alias)
-        )
-    );
-""".strip()
-
-FIND_TRUTH_BULLET_EXACT_STR: typing.Final[str] = f"""
-SELECT
-    {', '.join(TruthBullet._meta.fields)}
-FROM
-    thiatruthbullets
-WHERE
-    channel_id = $1
-    AND (
-        UPPER($2) = UPPER(trigger)
-        OR EXISTS (
-            SELECT 1
-            FROM unnest(aliases) AS alias
-            WHERE UPPER($2) = UPPER(alias)
-        )
+        OR $2 ILIKE CONCAT('%', {generate_regexp('thiatruthbulletalias.alias')}, '%')
     );
 """.strip()  # noqa: S608

@@ -12,13 +12,11 @@ from .main_models import *
 from .utils import *
 
 __all__ = (
-    "FIND_TRUTH_BULLET_EXACT_STR",
     "FIND_TRUTH_BULLET_STR",
     "GACHA_RARITIES_LIST",
     "GACHA_ROLL_NO_DUPS_STR",
     "GACHA_ROLL_STR",
     "TEMPLATE_MARKDOWN",
-    "VALIDATE_TRUTH_BULLET_STR",
     "BulletConfig",
     "BulletThreadBehavior",
     "DiceConfig",
@@ -42,6 +40,7 @@ __all__ = (
     "Names",
     "Rarity",
     "TruthBullet",
+    "TruthBulletAlias",
     "code_template",
     "generate_regexp",
     "guild_id_model",
