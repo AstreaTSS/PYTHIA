@@ -579,7 +579,7 @@ class BulletManagement(utils.Cog):
         aliases = (
             "\n-# Aliases:"
             f" {', '.join(f'`{discord.utils.escape_markdown(a.alias)}`' for a in bullet.aliases)}"
-            if bullet.aliases
+            if bullet.aliases._fetched and bullet.aliases
             else ""
         )
         embed = discord.Embed(
