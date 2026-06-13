@@ -335,7 +335,7 @@ class GachaManagement(utils.Cog):
         ctx: utils.THIASlashContext,
         json_file: discord.Attachment = ragwort.Option("The JSON file to import."),
         _override: str = ragwort.Option(
-            "Should pre-existing items with the same name be overriden?",
+            "Should pre-existing items with the same name be overridden?",
             name="override",
             choices=[
                 discord.OptionChoice("yes", "yes"),

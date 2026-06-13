@@ -10,12 +10,19 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 import asyncio
 import collections
 import importlib
+import io
 
+import aiohttp
 import discord
+import orjson
+import pydantic
 import ragwort
 import typing_extensions as typing
+from discord.ext import commands
+from tortoise.transactions import in_transaction
 
 import common.classes as classes
+import common.exports as exports
 import common.fuzzy as fuzzy
 import common.models as models
 import common.utils as utils
@@ -829,6 +836,140 @@ class ItemsManagement(utils.Cog):
 
         await ctx.respond(view=utils.make_view("All items data cleared."))
 
+    @manage.command(
+        name="export-items",
+        description="Exports all items in this server as a JSON file.",
+    )
+    @commands.cooldown(1, 60, commands.BucketType.guild)
+    async def export_items(
+        self,
+        ctx: utils.THIASlashContext,
+    ) -> None:
+        items = await models.ItemsSystemItem.filter(guild_id=ctx.guild_id)
+        if not items:
+            raise utils.CustomCheckFailure("This server has no items to export.")
+
+        items_dict: list[exports.ItemsSystemItemDict] = [
+            {
+                "name": item.name,
+                "description": item.description,
+                "takeable": item.takeable,
+                "image": item.image,
+            }
+            for item in items
+        ]
+        items_json = orjson.dumps(
+            {"version": 1, "items": items_dict}, option=orjson.OPT_INDENT_2
+        )
+
+        if len(items_json) > 10000000:
+            raise utils.CustomCheckFailure(
+                "The file is too large to send. Please try again with fewer items."
+            )
+
+        items_io = io.BytesIO(items_json)
+        items_file = discord.File(
+            items_io,
+            filename=f"items_{ctx.guild_id}_{int(ctx.interaction.created_at.timestamp())}.json",
+        )
+
+        container = utils.make_container(
+            "Exported items to JSON file.", title="Gacha Items Export"
+        )
+        container.add_separator(divider=False)
+        container.add_file(url=f"attachment://{items_file.filename}")
+
+        try:
+            await ctx.respond(
+                view=utils.quick_view(container),
+                file=items_file,
+                ephemeral=True,
+            )
+        finally:
+            items_io.close()
+
+    @manage.command(name="import-items", description="Imports items from a JSON file.")
+    @commands.cooldown(1, 60, commands.BucketType.guild)
+    async def import_items(
+        self,
+        ctx: utils.THIASlashContext,
+        json_file: discord.Attachment = ragwort.Option("The JSON file to import."),
+        _override: str = ragwort.Option(
+            "Should pre-existing items with the same name be overridden?",
+            name="override",
+            choices=[
+                discord.OptionChoice("yes", "yes"),
+                discord.OptionChoice("no", "no"),
+            ],
+            default="no",
+        ),
+    ) -> None:
+        override = _override == "yes"
+
+        if not json_file.content_type or not json_file.content_type.startswith(
+            "application/json"
+        ):
+            raise utils.BadArgument("The file must be a JSON file.")
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(json_file.url) as response:
+                if response.status != 200:
+                    raise utils.BadArgument("Failed to fetch the file.")
+
+                try:
+                    await response.content.readexactly(10485760 + 1)
+                    raise utils.CustomCheckFailure(
+                        "This file is over 10 MiB, which is not supported by this bot."
+                    )
+                except asyncio.IncompleteReadError as e:
+                    items_json = e.partial
+
+        try:
+            items = exports.handle_items_system_item_data(items_json)
+        except pydantic.ValidationError as e:
+            # let's remove the first line that tells what class the error is for
+            error_str = "\n".join(str(e).splitlines()[1:])
+            raise utils.BadArgument(
+                f"The file is not in the correct format.\n```\n{error_str}\n```"
+            ) from None
+
+        await ctx.fetch_config({"items": True})
+
+        async with in_transaction():
+            # TODO: this is flawed - how do we do case insensitive unique checks without doing multiple queries?
+            if await models.ItemsSystemItem.exists(
+                guild_id=ctx.guild_id,
+                name__in=[item.name for item in items],
+            ):
+                if override:
+                    await models.ItemsSystemItem.filter(
+                        guild_id=ctx.guild_id,
+                        name__in=[item.name for item in items],
+                    ).delete()
+                else:
+                    raise utils.BadArgument(
+                        "One or more items in the file has a name with an item already"
+                        " in this server."
+                    )
+
+            to_create: list[models.ItemsSystemItem] = [
+                models.ItemsSystemItem(
+                    guild_id=ctx.guild_id,
+                    name=item.name,
+                    description=item.description,
+                    takeable=item.takeable,
+                    image=item.image,
+                )
+                for item in items
+            ]
+            await models.ItemsSystemItem.bulk_create(to_create)
+
+        await ctx.respond(
+            view=utils.make_view(
+                "Imported items from JSON file.", title="Items Import"
+            ),
+        )
+
     @edit_item.autocomplete("name")
     @place_item_in_channel.autocomplete("name")
     @view_item.autocomplete("name")
@@ -855,4 +996,5 @@ def setup(bot: utils.THIABase) -> None:
     importlib.reload(utils)
     importlib.reload(classes)
     importlib.reload(fuzzy)
+    importlib.reload(exports)
     bot.add_cog(ItemsManagement(bot))

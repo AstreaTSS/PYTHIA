@@ -13,7 +13,7 @@ import typing_extensions as typing
 
 import common.utils as utils
 
-d20_roll = d20.Roller(d20.RollContext(100)).roll
+_d20_roll = d20.Roller(d20.RollContext(100)).roll
 
 
 def _replace_smart_punc(text: typing.Any) -> typing.Any:
@@ -34,7 +34,7 @@ def _validate_http_url(url: str) -> str:
 
 def _validate_dice_value(value: str) -> str:
     try:
-        d20_roll(value)
+        _d20_roll(value)
     except d20.errors.RollSyntaxError as e:
         raise ValueError(f"Invalid dice roll syntax: {e!s}") from None
     except d20.errors.TooManyRolls:
@@ -61,7 +61,9 @@ class GachaItemv1(pydantic.BaseModel):
         min_length=1, max_length=3500
     )
     amount: int = pydantic.Field(ge=-1, le=999)
-    image: typing.Annotated[str | None, HTTPURLValidator] = None
+    image: typing.Annotated[str | None, StripWhitespace, HTTPURLValidator] = (
+        pydantic.Field(max_length=2000, default=None)
+    )
 
 
 class GachaItemv2(pydantic.BaseModel):
@@ -75,7 +77,9 @@ class GachaItemv2(pydantic.BaseModel):
     )
     rarity: int = pydantic.Field(ge=1, le=5)
     amount: int = pydantic.Field(ge=-1, le=999)
-    image: typing.Annotated[str | None, StripWhitespace, HTTPURLValidator] = None
+    image: typing.Annotated[str | None, StripWhitespace, HTTPURLValidator] = (
+        pydantic.Field(max_length=2000, default=None)
+    )
 
 
 class GachaItemDict(typing.TypedDict):
@@ -102,6 +106,28 @@ class DiceEntryDict(typing.TypedDict):
     value: str
 
 
+class ItemsSystemItemv1(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(frozen=True, strict=True)
+
+    name: typing.Annotated[str, RemoveSmartPunc, StripWhitespace] = pydantic.Field(
+        min_length=1, max_length=64
+    )
+    description: typing.Annotated[str, StripWhitespace] = pydantic.Field(
+        min_length=1, max_length=3500
+    )
+    takeable: bool = pydantic.Field()
+    image: typing.Annotated[str | None, StripWhitespace, HTTPURLValidator] = (
+        pydantic.Field(max_length=2000, default=None)
+    )
+
+
+class ItemsSystemItemDict(typing.TypedDict):
+    name: str
+    description: str
+    takeable: bool
+    image: str | None
+
+
 class GachaItemv1Container(pydantic.BaseModel):
     version: typing.Literal[1] = 1
     items: list[GachaItemv1]
@@ -115,6 +141,11 @@ class GachaItemv2Container(pydantic.BaseModel):
 class DiceEntryv1Container(pydantic.BaseModel):
     version: typing.Literal[1] = 1
     entries: list[DiceEntryv1]
+
+
+class ItemsSystemItemv1Container(pydantic.BaseModel):
+    version: typing.Literal[1] = 1
+    items: list[ItemsSystemItemv1]
 
 
 GachaItemContainer = pydantic.RootModel[
@@ -147,3 +178,8 @@ def handle_gacha_item_data(json_data: str | bytes) -> list[GachaItemv2]:
 def handle_dice_entry_data(json_data: str | bytes) -> list[DiceEntryv1]:
     container = DiceEntryv1Container.model_validate_json(json_data)
     return container.entries
+
+
+def handle_items_system_item_data(json_data: str | bytes) -> list[ItemsSystemItemv1]:
+    container = ItemsSystemItemv1Container.model_validate_json(json_data)
+    return container.items

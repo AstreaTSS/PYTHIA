@@ -342,7 +342,7 @@ class DiceManagement(utils.Cog):
         user: discord.Member = ragwort.Option("The user to import dice for."),
         json_file: discord.Attachment = ragwort.Option("The JSON file to import."),
         _override: str = ragwort.Option(
-            "Should pre-existing registered dice with the same name be overriden?",
+            "Should pre-existing registered dice with the same name be overridden?",
             name="override",
             choices=[
                 discord.OptionChoice("yes", "yes"),
