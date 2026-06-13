@@ -134,7 +134,6 @@ class AddTruthBulletModal(discord.ui.DesignerModal):
 
             await models.TruthBullet.create(
                 trigger=utils.replace_smart_punc(responses["truth_bullet_trigger"]),
-                aliases=[],
                 description=responses["truth_bullet_desc"],
                 channel_id=self.channel.id,
                 guild_id=inter.guild_id,
