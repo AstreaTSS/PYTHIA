@@ -23,6 +23,24 @@ def _replace_smart_punc(text: typing.Any) -> typing.Any:
     return utils.replace_smart_punc(text)
 
 
+def _validate_aliases(aliases: list[str]) -> list[str]:
+    if not aliases:
+        return aliases
+
+    validated_aliases = []
+    for alias in aliases:
+        formatted_alias = utils.replace_smart_punc(alias).strip()
+
+        if not formatted_alias:
+            raise ValueError("Aliases cannot be empty or whitespace only.")
+        if len(formatted_alias) > 60:
+            raise ValueError("Aliases cannot exceed 60 characters in length.")
+
+        validated_aliases.append(formatted_alias)
+
+    return validated_aliases
+
+
 def _validate_http_url(url: str) -> str:
     if not url:
         return url
@@ -46,6 +64,7 @@ def _validate_dice_value(value: str) -> str:
 
 
 RemoveSmartPunc = pydantic.BeforeValidator(_replace_smart_punc)
+ValidateAliases = pydantic.AfterValidator(_validate_aliases)
 HTTPURLValidator = pydantic.AfterValidator(_validate_http_url)
 DiceValueValidator = pydantic.AfterValidator(_validate_dice_value)
 StripWhitespace = pydantic.StringConstraints(strip_whitespace=True)
@@ -128,6 +147,30 @@ class ItemsSystemItemDict(typing.TypedDict):
     image: str | None
 
 
+class TruthBulletEntryv1(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(frozen=True, strict=True)
+
+    trigger: typing.Annotated[str, RemoveSmartPunc, StripWhitespace] = pydantic.Field(
+        min_length=1, max_length=60
+    )
+    aliases: typing.Annotated[list[str], ValidateAliases] = pydantic.Field(max_length=5)
+    description: typing.Annotated[str, StripWhitespace] = pydantic.Field(
+        min_length=1, max_length=3800
+    )
+    hidden: bool = pydantic.Field()
+    image: typing.Annotated[str | None, StripWhitespace, HTTPURLValidator] = (
+        pydantic.Field(max_length=2000, default=None)
+    )
+
+
+class TruthBulletEntryDict(typing.TypedDict):
+    trigger: str
+    aliases: list[str]
+    description: str
+    hidden: bool
+    image: str | None
+
+
 class GachaItemv1Container(pydantic.BaseModel):
     version: typing.Literal[1] = 1
     items: list[GachaItemv1]
@@ -146,6 +189,11 @@ class DiceEntryv1Container(pydantic.BaseModel):
 class ItemsSystemItemv1Container(pydantic.BaseModel):
     version: typing.Literal[1] = 1
     items: list[ItemsSystemItemv1]
+
+
+class TruthBulletEntryv1Container(pydantic.BaseModel):
+    version: typing.Literal[1] = 1
+    entries: list[TruthBulletEntryv1]
 
 
 GachaItemContainer = pydantic.RootModel[
@@ -183,3 +231,8 @@ def handle_dice_entry_data(json_data: str | bytes) -> list[DiceEntryv1]:
 def handle_items_system_item_data(json_data: str | bytes) -> list[ItemsSystemItemv1]:
     container = ItemsSystemItemv1Container.model_validate_json(json_data)
     return container.items
+
+
+def handle_bullet_entry_data(json_data: str | bytes) -> list[TruthBulletEntryv1]:
+    container = TruthBulletEntryv1Container.model_validate_json(json_data)
+    return container.entries

@@ -10,12 +10,20 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 import asyncio
 import collections
 import importlib
+import io
 import typing
 
+import aiohttp
 import discord
+import orjson
+import pydantic
 import ragwort
+from discord.ext import commands
+from tortoise.expressions import Q
+from tortoise.transactions import in_transaction
 
 import common.classes as classes
+import common.exports as exports
 import common.fuzzy as fuzzy
 import common.models as models
 import common.utils as utils
@@ -896,6 +904,219 @@ class BulletManagement(utils.Cog):
             ctx, trigger, manual_trigger=True, finder=finder
         )
 
+    @manage.command(
+        name="export-channel",
+        description="Exports all Truth Bullets for a channel to a JSON file.",
+    )
+    @commands.cooldown(1, 60, commands.BucketType.guild)
+    async def export_channel(
+        self,
+        ctx: utils.THIASlashContext,
+        channel: discord.TextChannel | discord.Thread = ragwort.Option(
+            "The channel to export Truth Bullets for.",
+            channel_types=[
+                discord.ChannelType.text,
+                discord.ChannelType.public_thread,
+                discord.ChannelType.private_thread,
+            ],
+        ),
+    ) -> None:
+        bullets = await models.TruthBullet.filter(
+            channel_id=channel.id
+        ).prefetch_related("aliases")
+        if not bullets:
+            raise utils.CustomCheckFailure(
+                "There are no Truth Bullets for this channel!"
+            )
+
+        bullets_dict: list[exports.TruthBulletEntryDict] = [
+            {
+                "trigger": bullet.trigger,
+                "description": bullet.description,
+                "hidden": bullet.hidden,
+                "image": bullet.image,
+                "aliases": (
+                    [alias.alias for alias in bullet.aliases]
+                    if bullet.aliases._fetched and bullet.aliases
+                    else []
+                ),
+            }
+            for bullet in bullets
+        ]
+        bullets_json = orjson.dumps(
+            {"version": 1, "entries": bullets_dict}, option=orjson.OPT_INDENT_2
+        )
+
+        if len(bullets_json) > 10000000:
+            raise utils.CustomCheckFailure(
+                "The file is too large to send. Please try again with fewer Truth"
+                " Bullets."
+            )
+
+        bullets_io = io.BytesIO(bullets_json)
+        bullets_file = discord.File(
+            bullets_io,
+            filename=f"bullets_{channel.id}_{int(ctx.interaction.created_at.timestamp())}.json",
+        )
+
+        container = utils.make_container(
+            "Exported Truth Bullets to JSON file.", title="Truth Bullets Export"
+        )
+        container.add_separator(divider=False)
+        container.add_file(url=f"attachment://{bullets_file.filename}")
+
+        try:
+            await ctx.respond(
+                view=utils.quick_view(container),
+                file=bullets_file,
+                ephemeral=True,
+            )
+        finally:
+            bullets_io.close()
+
+    @manage.command(
+        name="import-channel",
+        description="Imports Truth Bullets for a channel from a JSON file.",
+    )
+    @commands.cooldown(1, 15, commands.BucketType.guild)
+    async def import_channel(
+        self,
+        ctx: utils.THIASlashContext,
+        channel: discord.TextChannel | discord.Thread = ragwort.Option(
+            "The channel to import Truth Bullets for.",
+            channel_types=[
+                discord.ChannelType.text,
+                discord.ChannelType.public_thread,
+                discord.ChannelType.private_thread,
+            ],
+        ),
+        json_file: discord.Attachment = ragwort.Option("The JSON file to import."),
+        _override: str = ragwort.Option(
+            "Should pre-existing Truth Bullets with the same trigger be overridden?",
+            name="override",
+            choices=[
+                discord.OptionChoice("yes", "yes"),
+                discord.OptionChoice("no", "no"),
+            ],
+            default="no",
+        ),
+    ) -> None:
+        override = _override == "yes"
+        channel = utils.valid_channel_check(
+            channel, channel.permissions_for(ctx.guild.me)
+        )
+
+        config = await ctx.fetch_config({"bullets": True})
+        if typing.TYPE_CHECKING:
+            assert config.bullets and isinstance(config.bullets, models.BulletConfig)
+
+        if (
+            config.bullets.thread_behavior == models.BulletThreadBehavior.PARENT
+            and isinstance(channel, discord.Thread)
+        ):
+            raise utils.CustomCheckFailure(
+                "Cannot import Truth Bullets to a thread while thread behavior is set"
+                " to follow the parent channel."
+            )
+
+        if not json_file.content_type or not json_file.content_type.startswith(
+            "application/json"
+        ):
+            raise utils.BadArgument("The file must be a JSON file.")
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(json_file.url) as response:
+                if response.status != 200:
+                    raise utils.BadArgument("Failed to fetch the file.")
+
+                try:
+                    await response.content.readexactly(10485760 + 1)
+                    raise utils.CustomCheckFailure(
+                        "This file is over 10 MiB, which is not supported by this bot."
+                    )
+                except asyncio.IncompleteReadError as e:
+                    bullets_json = e.partial
+
+        try:
+            bullets = exports.handle_bullet_entry_data(bullets_json)
+        except pydantic.ValidationError as e:
+            # let's remove the first line that tells what class the error is for
+            error_str = "\n".join(str(e).splitlines()[1:])
+            raise utils.BadArgument(
+                f"The file is not in the correct format.\n```\n{error_str}\n```"
+            ) from None
+
+        trigger_and_aliases_set: set[str] = set()
+        trigger_and_aliases: list[str] = []
+
+        for entry in bullets:
+            trigger_and_aliases_set.add(entry.trigger)
+            trigger_and_aliases_set.update(entry.aliases)
+            trigger_and_aliases.append(entry.trigger)
+            trigger_and_aliases.extend(entry.aliases)
+
+        if len(trigger_and_aliases_set) != len(trigger_and_aliases):
+            raise utils.BadArgument(
+                "There are duplicate triggers and/or aliases in the file. Please ensure"
+                " all triggers and aliases are unique."
+            )
+
+        async with in_transaction():
+            # TODO: this is flawed - how do we do case insensitive unique checks without doing multiple queries?
+            if await models.TruthBullet.exists(
+                Q(channel_id=channel.id)
+                & (
+                    Q(trigger__in=trigger_and_aliases)
+                    | Q(aliases__alias__in=trigger_and_aliases)
+                )
+            ):
+                if override:
+                    # workaround for the fact that we can't join in deletes
+                    to_delete = await models.TruthBullet.filter(
+                        Q(channel_id=channel.id)
+                        & (
+                            Q(trigger__in=trigger_and_aliases)
+                            | Q(aliases__alias__in=trigger_and_aliases)
+                        )
+                    )
+                    await models.TruthBullet.filter(
+                        id__in=[b.id for b in to_delete]
+                    ).delete()
+                else:
+                    raise utils.BadArgument(
+                        "One or more Truth Bullets in the file has a trigger or alias"
+                        " with a Truth Bullet already in this channel."
+                    )
+
+            for entry in bullets:
+                created_bullet = await models.TruthBullet.create(
+                    channel_id=channel.id,
+                    guild_id=ctx.guild_id,
+                    trigger=entry.trigger,
+                    description=entry.description,
+                    hidden=entry.hidden,
+                    image=entry.image,
+                    found=False,
+                    finder=None,
+                )
+
+                if entry.aliases:
+                    await models.TruthBulletAlias.bulk_create(
+                        [
+                            models.TruthBulletAlias(
+                                bullet_id=created_bullet.id, alias=alias
+                            )
+                            for alias in entry.aliases
+                        ]
+                    )
+
+        await ctx.respond(
+            view=utils.make_view(
+                f"Imported Truth Bullets for {channel.mention} from JSON file.",
+                title="Truth Bullets Import",
+            ),
+        )
+
     @remove_bullet.autocomplete("trigger")
     @delete_bullet.autocomplete("trigger")
     @bullet_info.autocomplete("trigger")
@@ -958,4 +1179,5 @@ def setup(bot: utils.THIABase) -> None:
     importlib.reload(fuzzy)
     importlib.reload(classes)
     importlib.reload(bullet_common)
+    importlib.reload(exports)
     bot.add_cog(BulletManagement(bot))
