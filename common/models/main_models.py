@@ -524,13 +524,16 @@ SELECT
     {', '.join(f"thiatruthbullets.{f}" for f in TruthBullet._meta.fields)}
 FROM
     thiatruthbullets
-LEFT OUTER JOIN
+LEFT JOIN
     thiatruthbulletalias ON thiatruthbulletalias.bullet_id = thiatruthbullets.id
 WHERE
     channel_id = $1
     AND found = false
     AND (
         $2 ILIKE CONCAT('%', {generate_regexp('trigger')}, '%')
-        OR $2 ILIKE CONCAT('%', {generate_regexp('thiatruthbulletalias.alias')}, '%')
+        OR (
+            thiatruthbulletalias.alias IS NOT NULL
+            AND $2 ILIKE CONCAT('%', {generate_regexp('thiatruthbulletalias.alias')}, '%')
+        )
     );
 """.strip()  # noqa: S608
