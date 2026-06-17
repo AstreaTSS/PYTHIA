@@ -19,6 +19,229 @@ import common.models as models
 import common.utils as utils
 
 
+class AttachmentMetadata(typing.NamedTuple):
+    url: str
+    description: str | None
+    spoiler: bool
+
+
+class MessageModal(discord.ui.DesignerModal):
+    def __init__(self, user: discord.Member, anon: bool) -> None:
+        super().__init__(
+            discord.ui.Label(
+                label="Message",
+                item=discord.ui.InputText(
+                    style=discord.InputTextStyle.paragraph,
+                    custom_id="message_input",
+                    max_length=3500,
+                    required=False,
+                ),
+            ),
+            discord.ui.Label(
+                label="Image or Video",
+                description=(
+                    "Only one image/video can be sent. The file must be under 10 MiB."
+                ),
+                item=discord.ui.FileUpload(
+                    custom_id="message_file",
+                    min_values=0,
+                    max_values=1,
+                    required=False,
+                ),
+            ),
+            discord.ui.Label(
+                label="Spoiler?",
+                description=(
+                    "Should the image/video (if present) be marked as a spoiler?"
+                ),
+                item=discord.ui.Checkbox(custom_id="message_spoiler", default=False),
+            ),
+            title=utils.short_string(
+                f"Send a message to {utils.user_string(user)}", 45
+            ),
+        )
+
+        self.user = user
+        self.anon = anon
+
+    @staticmethod
+    async def make_container(
+        title: str,
+        content: str,
+        *,
+        attachments: list[discord.Attachment] | None = None,
+    ) -> tuple[discord.ui.Container, list[discord.File]]:
+        files: list[discord.File] = []
+
+        container = utils.make_container(content, title=title)
+        if attachments:
+            attachment_metadata: list[AttachmentMetadata] = []
+
+            for attachment in attachments:
+                if (
+                    not attachment.height
+                ):  # little hacky but it does cover all discord supported image/video types
+                    raise utils.CustomCheckFailure(
+                        f"File `{attachment.filename}` is not an image or video."
+                    )
+
+                if attachment.ephemeral:
+                    if attachment.size > 10485760:
+                        raise utils.CustomCheckFailure(
+                            f"File `{attachment.filename}` is too large to send (must"
+                            " be under 10 MiB)."
+                        )
+
+                    attachment_file = await attachment.to_file(
+                        spoiler=attachment.is_spoiler()
+                    )
+                    files.append(attachment_file)
+
+                    attachment_metadata.append(
+                        AttachmentMetadata(
+                            url=f"attachment://{attachment.filename}",
+                            description=attachment.description,
+                            spoiler=attachment.is_spoiler(),
+                        )
+                    )
+                else:
+                    attachment_metadata.append(
+                        AttachmentMetadata(
+                            url=attachment.url,
+                            description=attachment.description,
+                            spoiler=attachment.is_spoiler(),
+                        )
+                    )
+
+            container.add_gallery(
+                *(
+                    discord.MediaGalleryItem(
+                        a.url, description=a.description, spoiler=a.is_spoiler()
+                    )
+                    for a in attachments
+                )
+            )
+        return container, files
+
+    @staticmethod
+    async def actual_message(
+        ctx: utils.THIABridgeContext,
+        user: discord.Member,
+        message: str | None,
+        *,
+        attachments: list[discord.Attachment] | None = None,
+        anon: bool = False,
+    ) -> None:
+        await ctx.defer(ephemeral=True)
+
+        if user.id == ctx.author.id:
+            raise utils.CustomCheckFailure("You cannot message yourself.")
+
+        if not message and not attachments:
+            raise utils.CustomCheckFailure(
+                "You must provide a message or at least one file."
+            )
+
+        config = await ctx.fetch_config({"messages": True})
+        if typing.TYPE_CHECKING:
+            assert config.messages and isinstance(config.messages, models.MessageConfig)
+
+        if not config.messages.enabled:
+            raise utils.CustomCheckFailure(
+                "The messaging system is not enabled for this server."
+            )
+        if anon and not config.messages.anon_enabled:
+            raise utils.CustomCheckFailure(
+                "Anonymous messages are not enabled for this server."
+            )
+
+        ctx_user_link = await models.MessageLink.get_or_none(
+            guild_id=ctx.guild_id, user_id=ctx.author.id
+        )
+        if not ctx_user_link:
+            raise utils.CustomCheckFailure(
+                "You are not set up with the messaging system."
+            )
+
+        other_user_link = await models.MessageLink.get_or_none(
+            guild_id=ctx.guild_id, user_id=user.id
+        )
+        if not other_user_link:
+            raise utils.BadArgument(
+                "The specified user is not set up with the messaging system."
+            )
+
+        try:
+            other_chan = ctx.bot.get_partial_messageable(other_user_link.channel_id)
+
+            if anon:
+                title = "Anonymous message"
+            else:
+                title = f"Message from {ctx.author.mention}"
+
+            container, files = await MessageModal.make_container(
+                title, message or "", attachments=attachments
+            )
+
+            if config.messages.ping_for_message:
+                view = utils.quick_view(
+                    discord.ui.TextDisplay(f"<@{other_user_link.user_id}>"),
+                    container,
+                )
+            else:
+                view = utils.quick_view(container)
+
+            await other_chan.send(
+                view=view,
+                allowed_mentions=discord.AllowedMentions(
+                    users=(
+                        [discord.Object(other_user_link.user_id)]
+                        if config.messages.ping_for_message
+                        else False  # type: ignore
+                    )
+                ),
+                files=files,
+            )
+        except discord.HTTPException:
+            raise utils.CustomCheckFailure(
+                "Could not send a message to the specified user's channel."
+            ) from None
+
+        try:
+            ctx_user_chan = ctx.bot.get_partial_messageable(ctx_user_link.channel_id)
+
+            title = f"Message sent to {user.mention}"
+            if anon:
+                title = f"Anonymous message sent to {user.mention}"
+
+            container, files = await MessageModal.make_container(
+                title, message or "", attachments=attachments
+            )
+
+            await ctx_user_chan.send(view=utils.quick_view(container), files=files)
+        except discord.HTTPException:
+            raise utils.CustomCheckFailure(
+                "Message sent, but could not send receipt to your channel."
+            ) from None
+
+        await ctx.respond(view=utils.make_view("Sent!"), ephemeral=True)
+
+    async def callback(self, inter: utils.Interaction) -> None:
+        attachments: list[discord.Attachment] = self.children[1].item.values
+        spoiler: bool = bool(self.children[2].item.value)
+
+        if spoiler and attachments:
+            attachments[0].filename = f"SPOILER_{attachments[0].filename}"
+
+        await self.actual_message(
+            utils.THIASlashContext(inter.client, inter),
+            self.user,
+            self.children[0].item.value,
+            attachments=attachments,
+            anon=self.anon,
+        )
+
+
 class MessageCMDs(utils.Cog):
     def __init__(self, bot: utils.THIABase) -> None:
         self.bot = bot
@@ -48,10 +271,11 @@ class MessageCMDs(utils.Cog):
         ctx: utils.THIABridgeContext,
         user: discord.Member = ragwort.BridgeOption("The user to message."),
         *,
-        message: str = ragwort.BridgeOption("The message to send."),
+        message: str | None = ragwort.BridgeOption(
+            "The message to send. If not provided, you will be prompted to enter one.",
+            default=None,
+        ),
     ) -> None:
-        await ctx.defer(ephemeral=True)
-
         if user.id == ctx.author.id:
             raise utils.CustomCheckFailure("You cannot message yourself.")
 
@@ -64,62 +288,18 @@ class MessageCMDs(utils.Cog):
                 "The messaging system is not enabled for this server."
             )
 
-        ctx_user_link = await models.MessageLink.get_or_none(
-            guild_id=ctx.guild_id, user_id=ctx.author.id
-        )
-        if not ctx_user_link:
-            raise utils.CustomCheckFailure(
-                "You are not set up with the messaging system."
-            )
+        if not message and not (ctx.message and ctx.message.attachments):
+            if isinstance(ctx, utils.THIABridgeExtContext):
+                raise utils.CustomCheckFailure("No message provided.")
 
-        other_user_link = await models.MessageLink.get_or_none(
-            guild_id=ctx.guild_id, user_id=user.id
-        )
-        if not other_user_link:
-            raise utils.BadArgument(
-                "The specified user is not set up with the messaging system."
-            )
+            await ctx.send_modal(MessageModal(user, anon=False))
+            return
 
-        try:
-            other_chan = self.bot.get_partial_messageable(other_user_link.channel_id)
-            container = utils.make_container(
-                message, title=f"Message from {ctx.author.mention}"
-            )
+        attachments: list[discord.Attachment] = []
+        if isinstance(ctx, utils.THIABridgeExtContext):
+            attachments = ctx.message.attachments
 
-            if config.messages.ping_for_message:
-                view = utils.quick_view(
-                    discord.ui.TextDisplay(f"<@{other_user_link.user_id}>"),
-                    container,
-                )
-            else:
-                view = utils.quick_view(container)
-
-            await other_chan.send(
-                view=view,
-                allowed_mentions=discord.AllowedMentions(
-                    users=(
-                        [discord.Object(other_user_link.user_id)]
-                        if config.messages.ping_for_message
-                        else False  # type: ignore
-                    )
-                ),
-            )
-        except discord.HTTPException:
-            raise utils.CustomCheckFailure(
-                "Could not send a message to the specified user's channel."
-            ) from None
-
-        try:
-            ctx_user_chan = self.bot.get_partial_messageable(ctx_user_link.channel_id)
-            await ctx_user_chan.send(
-                view=utils.make_view(message, title=f"Message sent to {user.mention}")
-            )
-        except discord.HTTPException:
-            raise utils.CustomCheckFailure(
-                "Message sent, but could not send receipt to your channel."
-            ) from None
-
-        await ctx.respond(view=utils.make_view("Sent!"), ephemeral=True)
+        await MessageModal.actual_message(ctx, user, message, attachments=attachments)
 
     @message.command(
         name="anon",
@@ -133,10 +313,11 @@ class MessageCMDs(utils.Cog):
         ctx: utils.THIABridgeContext,
         user: discord.Member = ragwort.BridgeOption("The user to message."),
         *,
-        message: str = ragwort.BridgeOption("The message to send."),
+        message: str | None = ragwort.BridgeOption(
+            "The message to send. If not provided, you will be prompted to enter one.",
+            default=None,
+        ),
     ) -> None:
-        await ctx.defer(ephemeral=True)
-
         if user.id == ctx.author.id:
             raise utils.CustomCheckFailure("You cannot message yourself.")
 
@@ -153,62 +334,20 @@ class MessageCMDs(utils.Cog):
                 "Anonymous messages are not enabled for this server."
             )
 
-        ctx_user_link = await models.MessageLink.get_or_none(
-            guild_id=ctx.guild_id, user_id=ctx.author.id
+        if not message and not (ctx.message and ctx.message.attachments):
+            if isinstance(ctx, utils.THIABridgeExtContext):
+                raise utils.CustomCheckFailure("No message provided.")
+
+            await ctx.send_modal(MessageModal(user, anon=True))
+            return
+
+        attachments: list[discord.Attachment] = []
+        if isinstance(ctx, utils.THIABridgeExtContext):
+            attachments = ctx.message.attachments
+
+        await MessageModal.actual_message(
+            ctx, user, message, attachments=attachments, anon=True
         )
-        if not ctx_user_link:
-            raise utils.CustomCheckFailure(
-                "You are not set up with the messaging system."
-            )
-
-        other_user_link = await models.MessageLink.get_or_none(
-            guild_id=ctx.guild_id, user_id=user.id
-        )
-        if not other_user_link:
-            raise utils.BadArgument(
-                "The specified user is not set up with the messaging system."
-            )
-
-        try:
-            other_chan = self.bot.get_partial_messageable(other_user_link.channel_id)
-            container = utils.make_container(message, title="Anonymous message")
-
-            if config.messages.ping_for_message:
-                view = utils.quick_view(
-                    discord.ui.TextDisplay(f"<@{other_user_link.user_id}>"),
-                    container,
-                )
-            else:
-                view = utils.quick_view(container)
-
-            await other_chan.send(
-                view=view,
-                allowed_mentions=discord.AllowedMentions(
-                    users=(
-                        [discord.Object(other_user_link.user_id)]
-                        if config.messages.ping_for_message
-                        else False  # type: ignore
-                    )
-                ),
-            )
-        except discord.HTTPException:
-            raise utils.CustomCheckFailure(
-                "Could not send a message to the specified user's channel."
-            ) from None
-
-        try:
-            ctx_user_chan = self.bot.get_partial_messageable(ctx_user_link.channel_id)
-            await ctx_user_chan.send(
-                view=utils.make_view(
-                    message, title=f"Anonymous message sent to {user.mention}"
-                )
-            )
-        except discord.HTTPException:
-            raise utils.CustomCheckFailure(
-                "Message sent, but could not send receipt to your channel."
-            ) from None
-
-        await ctx.respond(view=utils.make_view("Sent!"), ephemeral=True)
 
 
 def setup(bot: utils.THIABase) -> None:
