@@ -69,7 +69,9 @@ class MessageModal(discord.ui.DesignerModal):
         title: str,
         content: str,
         *,
-        attachments: list[discord.Attachment] | None = None,
+        attachments: (
+            list[discord.Attachment] | list[discord.MediaGalleryItem] | None
+        ) = None,
     ) -> tuple[discord.ui.Container, list[discord.File]]:
         files: list[discord.File] = []
 
@@ -78,6 +80,16 @@ class MessageModal(discord.ui.DesignerModal):
             attachment_metadata: list[AttachmentMetadata] = []
 
             for attachment in attachments:
+                if isinstance(attachment, discord.MediaGalleryItem):
+                    attachment_metadata.append(
+                        AttachmentMetadata(
+                            url=attachment.url,
+                            description=attachment.description,
+                            spoiler=attachment.spoiler,
+                        )
+                    )
+                    continue
+
                 if (
                     not attachment.height
                 ):  # little hacky but it does cover all discord supported image/video types
@@ -116,9 +128,9 @@ class MessageModal(discord.ui.DesignerModal):
             container.add_gallery(
                 *(
                     discord.MediaGalleryItem(
-                        a.url, description=a.description, spoiler=a.is_spoiler()
+                        a.url, description=a.description, spoiler=a.spoiler
                     )
-                    for a in attachments
+                    for a in attachment_metadata
                 )
             )
         return container, files
@@ -131,6 +143,7 @@ class MessageModal(discord.ui.DesignerModal):
         *,
         attachments: list[discord.Attachment] | None = None,
         anon: bool = False,
+        from_modal: bool = False,
     ) -> None:
         await ctx.defer(ephemeral=True)
 
@@ -191,7 +204,7 @@ class MessageModal(discord.ui.DesignerModal):
             else:
                 view = utils.quick_view(container)
 
-            await other_chan.send(
+            other_msg = await other_chan.send(
                 view=view,
                 allowed_mentions=discord.AllowedMentions(
                     users=(
@@ -206,6 +219,11 @@ class MessageModal(discord.ui.DesignerModal):
             raise utils.CustomCheckFailure(
                 "Could not send a message to the specified user's channel."
             ) from None
+
+        # reuse attachments from the message we just sent if the message was sent from the modal
+        # avoids reuploading the same file twice
+        if from_modal and attachments:
+            attachments = other_msg.components[0].components[1].items  # type: ignore
 
         try:
             ctx_user_chan = ctx.bot.get_partial_messageable(ctx_user_link.channel_id)
@@ -239,6 +257,7 @@ class MessageModal(discord.ui.DesignerModal):
             self.children[0].item.value,
             attachments=attachments,
             anon=self.anon,
+            from_modal=True,
         )
 
 
