@@ -874,7 +874,7 @@ class ItemsManagement(utils.Cog):
         )
 
         container = utils.make_container(
-            "Exported items to JSON file.", title="Gacha Items Export"
+            "Exported items to JSON file.", title="Items Export"
         )
         container.add_separator(divider=False)
         container.add_file(url=f"attachment://{items_file.filename}")
