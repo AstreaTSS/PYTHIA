@@ -250,9 +250,7 @@ class MessageManagement(utils.Cog):
             await models.MessageConfig.filter(guild_id=ctx.guild_id).update(mode=mode)
 
         await ctx.respond(
-            view=utils.make_view(
-                f"Message mode set to {mode.name.replace('_', ' ').title()}!"
-            )
+            view=utils.make_view(f"Message mode set to {mode.display_name()}!")
         )
 
     @config.command(
