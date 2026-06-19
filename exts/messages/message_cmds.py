@@ -295,7 +295,10 @@ class MessageModal(discord.ui.DesignerModal):
         # reuse attachments from the message we just sent if the message was sent from the modal
         # avoids reuploading the same file twice
         if from_modal and attachments:
-            attachments = other_msg.components[0].components[1].items  # type: ignore
+            if config.messages.ping_for_message:
+                attachments = other_msg.components[1].components[1].items  # type: ignore
+            else:
+                attachments = other_msg.components[0].components[1].items  # type: ignore
 
         try:
             ctx_user_chan = await cls.resolve_channel(
