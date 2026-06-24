@@ -12,6 +12,7 @@ import importlib
 
 import discord
 import ragwort
+from tortoise.transactions import in_transaction
 
 import common.classes as classes
 import common.fuzzy as fuzzy
@@ -279,6 +280,75 @@ class InventoryManagement(utils.Cog):
         )
 
     @manage.command(
+        name="transfer-item",
+        description="Transfers an item from one player's inventory to another.",
+    )
+    async def transfer_item(
+        self,
+        ctx: utils.THIASlashContext,
+        original_user: discord.Member = ragwort.Option(
+            "The user to transfer an item from."
+        ),
+        name: str = ragwort.Option("The name of the item to transfer."),
+        target_user: discord.Member = ragwort.Option(
+            "The user to transfer an item to."
+        ),
+        amount: int = ragwort.Option(
+            "The amount to transfer. Defaults to 1.",
+            min_value=1,
+            max_value=49,
+            default=1,
+        ),
+    ) -> None:
+        item = await models.ItemsSystemItem.get_or_none(
+            guild_id=ctx.guild_id, name=name
+        )
+        if not item:
+            raise utils.BadArgument(
+                f"Item `{discord.utils.escape_markdown(name)}` does not exist in this"
+                " server."
+            )
+
+        if not item.takeable:
+            raise utils.CustomCheckFailure(
+                "You cannot place non-takeable items in a user's inventory."
+            )
+
+        if await models.ItemRelation.filter(
+            item_id=item.id, object_id=target_user.id
+        ).count() >= (50 - amount):
+            raise utils.CustomCheckFailure(
+                "You cannot place more than 50 of the same item in a user's inventory."
+            )
+
+        items = await models.ItemRelation.filter(
+            object_id=original_user.id,
+            guild_id=ctx.guild_id,
+            item_id=item.id,
+        ).limit(amount)
+        if not items:
+            raise utils.BadArgument("The original user does not have that item.")
+        items_count = len(items)
+
+        if items_count < amount:
+            raise utils.BadArgument(
+                "The original user does not have that many items to remove."
+            )
+
+        async with in_transaction():
+            for item_relation in items:
+                item_relation.object_id = target_user.id
+
+            await models.ItemRelation.bulk_update(items, ["object_id"])
+
+        await ctx.respond(
+            view=utils.make_view(
+                f"Transferred {amount} of `{discord.utils.escape_markdown(name)}` from"
+                f" {original_user.mention} to {target_user.mention}."
+            )
+        )
+
+    @manage.command(
         name="clear-inventory",
         description="Clears a user's inventory.",
     )
@@ -317,6 +387,15 @@ class InventoryManagement(utils.Cog):
         return await fuzzy.autocomplete_item_user(
             ctx,
             **ctx.options,
+        )
+
+    @transfer_item.autocomplete("name")
+    async def _autocomplete_transfer_item(
+        self,
+        ctx: discord.AutocompleteContext,
+    ) -> list[discord.OptionChoice]:
+        return await fuzzy.autocomplete_item_user(
+            ctx, user=ctx.options.get("original_user"), **ctx.options
         )
 
 
