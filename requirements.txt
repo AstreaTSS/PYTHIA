@@ -3,7 +3,7 @@ ragwort==0.1.3
 tortoise-orm[asyncpg]==1.1.7
 pydantic==2.13.4
 aiodns==4.0.4
-humanize==4.15.0
+humanize==4.16.0
 python-dotenv==1.2.2
 sentry-sdk==2.63.0
 apollo-d20[numpy]==1.2.1
