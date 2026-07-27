@@ -1,4 +1,4 @@
-py-cord==2.8.0
+py-cord==2.8.1
 ragwort==0.1.3
 tortoise-orm[asyncpg]==1.1.7
 pydantic==2.13.4
