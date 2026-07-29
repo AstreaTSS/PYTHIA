@@ -458,10 +458,10 @@ class TruthBullet(Model):
     async def find_exact(
         cls, channel_id: "discord.Snowflake", content: str
     ) -> typing.Self | None:
-        return await cls.get_or_none(
+        return await cls.filter(
             Q(channel_id=channel_id)
             & (Q(trigger__iexact=content) | Q(aliases__alias__iexact=content))
-        )
+        ).first()
 
     @classmethod
     async def find_via_trigger(
