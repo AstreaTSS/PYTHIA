@@ -4,7 +4,7 @@ tortoise-orm[asyncpg]==1.1.7
 pydantic==2.13.4
 aiodns==4.0.4
 humanize==4.16.0
-python-dotenv==1.2.2
+python-dotenv==1.2.3
 sentry-sdk==2.66.1
 apollo-d20[numpy]==1.2.1
 orjson==3.11.9; implementation_name == "cpython"
