@@ -247,7 +247,7 @@ async def autocomplete_dice_entries_user(
         ORDER BY sml DESC LIMIT 25;
         """.strip(),
         values=[
-            int(ctx.interaction.guild_id),
+            guild_id,
             int(user),
             utils.replace_smart_punc(name),
         ],
