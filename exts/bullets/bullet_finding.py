@@ -68,13 +68,11 @@ class BulletFinding(utils.Cog):
             not config.bullets.bullets_enabled
             or not config.player_role
             or not message.author.get_role(config.player_role)
-            or config.bullets.investigation_type
-            == models.InvestigationType.COMMAND_ONLY
+            or config.bullets.investigation_type != models.InvestigationType.DEFAULT
         ):
             if (
                 not config.bullets.bullets_enabled
-                or config.bullets.investigation_type
-                == models.InvestigationType.COMMAND_ONLY
+                or config.bullets.investigation_type != models.InvestigationType.DEFAULT
             ):
                 self.bot.msg_enabled_bullets_guilds.discard(int(message.guild.id))
             return

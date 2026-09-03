@@ -146,11 +146,18 @@ async def command_investigate(
         assert config.bullets and isinstance(config.bullets, models.BulletConfig)
         assert config.names and isinstance(config.names, models.Names)
 
-    if not config.bullets.bullets_enabled and not kwargs.get("manual_trigger"):
+    if not config.bullets.bullets_enabled:
         ctx.bot.msg_enabled_bullets_guilds.discard(int(ctx.guild_id))
         raise utils.CustomCheckFailure(
             f"{config.names.plural_bullet} are not enabled in this server."
         )
+
+    if (
+        not kwargs.get("manual_trigger")
+        and config.bullets.investigation_type_enum
+        == models.InvestigationType.MANUAL_TRIGGER_ONLY
+    ):
+        raise utils.CustomCheckFailure("/bda-investigate has been disabled.")
 
     if (
         config.bullets.thread_behavior == models.BulletThreadBehavior.PARENT

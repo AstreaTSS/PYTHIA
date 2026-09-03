@@ -62,6 +62,7 @@ class ItemsRelationType(str, Enum):
 class InvestigationType(IntEnum):
     DEFAULT = 1
     COMMAND_ONLY = 2
+    MANUAL_TRIGGER_ONLY = 3
 
 
 class MessageMode(IntEnum):

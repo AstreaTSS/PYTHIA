@@ -343,6 +343,10 @@ class BulletConfigCMDs(utils.Cog):
                     "/bda-investigate command only",
                     models.InvestigationType.COMMAND_ONLY,
                 ),
+                discord.OptionChoice(
+                    "/bullet-manage manual-trigger only",
+                    models.InvestigationType.MANUAL_TRIGGER_ONLY,
+                ),
             ],
         ),
     ) -> None:
