@@ -362,7 +362,7 @@ class BulletConfigCMDs(utils.Cog):
         config.bullets.investigation_type = investigation_type
         await config.bullets.save()
 
-        if investigation_type == models.InvestigationType.COMMAND_ONLY:
+        if investigation_type != models.InvestigationType.DEFAULT:
             self.bot.msg_enabled_bullets_guilds.discard(int(ctx.guild.id))
         elif config.bullets.bullets_enabled:
             self.bot.msg_enabled_bullets_guilds.add(int(ctx.guild.id))
@@ -532,7 +532,7 @@ class BulletConfigCMDs(utils.Cog):
         config.bullets.bullets_enabled = toggle
         await config.bullets.save()
 
-        if config.bullets.investigation_type != models.InvestigationType.COMMAND_ONLY:
+        if config.bullets.investigation_type == models.InvestigationType.DEFAULT:
             if toggle:
                 self.bot.msg_enabled_bullets_guilds.add(int(ctx.guild.id))
             else:
