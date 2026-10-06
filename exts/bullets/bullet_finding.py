@@ -44,8 +44,10 @@ class BulletFinding(utils.Cog):
             message.author.bot
             or message.author.system
             or not message.guild
-            or message.type
-            not in {discord.MessageType.default, discord.MessageType.reply}
+            or message.type not in {
+                discord.MessageType.default,
+                discord.MessageType.reply,
+            }
             or not message.content
             or not message.channel
         ):
