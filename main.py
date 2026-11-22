@@ -278,7 +278,7 @@ if __name__ == "__main__":
     if (
         utils.DOCKER_ENABLED
         and os.environ.get("DO_NOT_MIGRATE") not in utils.OS_TRUE_VALUES
-    ):
+    ) or os.environ.get("FORCE_MIGRATE") in utils.OS_TRUE_VALUES:
         import sys
 
         subprocess.run(

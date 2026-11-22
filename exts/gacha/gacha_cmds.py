@@ -71,18 +71,21 @@ async def gacha_roll_actual(
         if config.gacha.draw_duplicates:
             items = await models.GachaItem.roll(ctx.guild_id, rarity)
 
-            # we don't want to prevent duplicates, but making them less likely
-            # sounds nice, doesn't it?
-            # we try up to 3 times to find an item that the user doesn't have
+            if config.gacha.slightly_favor_new_items:
+                # we don't want to prevent duplicates, but making them less likely
+                # sounds nice, doesn't it?
+                # we try up to 3 times to find an item that the user doesn't have
 
-            if not items:
-                item = None
-            elif len(items) <= 1 or items[0].id not in item_ids:
-                item = items[0]
-            elif len(items) <= 2 or items[1].id not in item_ids:
-                item = items[1]
+                if not items:
+                    item = None
+                elif len(items) <= 1 or items[0].id not in item_ids:
+                    item = items[0]
+                elif len(items) <= 2 or items[1].id not in item_ids:
+                    item = items[1]
+                else:
+                    item = items[2]
             else:
-                item = items[2]
+                item = items[0] if items else None
 
         else:
             item = await models.GachaItem.roll_no_duplicates(

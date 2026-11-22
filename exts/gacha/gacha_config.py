@@ -569,6 +569,39 @@ class GachaConfig(utils.Cog):
         )
 
     @config.command(
+        name="slightly-favor-new-items",
+        description=(
+            "Toggles the system that slightly favors new items, even when draw"
+            " duplicates is enabled."
+        ),
+    )
+    async def gacha_slightly_favor_new_items(
+        self,
+        ctx: utils.THIASlashContext,
+        _toggle: str = ragwort.Option(
+            "Should the system that slightly favors new items be enabled?",
+            name="toggle",
+            choices=[
+                discord.OptionChoice("yes", "yes"),
+                discord.OptionChoice("no", "no"),
+            ],
+        ),
+    ) -> None:
+        toggle = _toggle == "yes"
+
+        await ctx.fetch_config({"gacha": True})
+        await models.GachaConfig.filter(guild_id=ctx.guild_id).update(
+            slightly_favor_new_items=toggle
+        )
+
+        await ctx.respond(
+            view=utils.make_view(
+                "Slightly favoring new items turned"
+                f" {utils.toggle_friendly_str(toggle)}!"
+            )
+        )
+
+    @config.command(
         name="rarities",
         description="Allows you to edit the rarity colors and odds.",
     )

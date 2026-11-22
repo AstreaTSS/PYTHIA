@@ -62,6 +62,7 @@ class GachaConfig(Model):
     enabled = fields.BooleanField(default=False)
     currency_cost = fields.IntField(default=1)
     draw_duplicates = fields.BooleanField(default=True)
+    slightly_favor_new_items = fields.BooleanField(default=True)
 
     items: fields.ReverseRelation["GachaItem"]
     players: fields.ReverseRelation["GachaPlayer"]
