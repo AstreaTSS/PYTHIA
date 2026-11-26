@@ -5,7 +5,7 @@ pydantic==2.14.4
 aiodns==4.0.4
 humanize==4.17.0
 python-dotenv==1.2.4
-sentry-sdk==2.75.0
+sentry-sdk==3.0.0
 apollo-d20[numpy]==1.2.1
 orjson==3.13.0; implementation_name == "cpython"
 uvloop==0.23.0; platform_system == "Linux" and implementation_name == "cpython"
